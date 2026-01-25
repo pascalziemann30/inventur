@@ -109,7 +109,26 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         
         const selectedCategory = categories.find(c => c.id === categoryId);
         const selectedUnit = units.find(u => u.id === unitId);
-        const selectedSupplier = suppliers.find(s => s.id === supplierId);
+        
+        // Create or get supplier
+        let finalSupplierId = supplierId;
+        let finalSupplierName = supplierName.trim();
+        
+        if (!finalSupplierId && finalSupplierName) {
+            // Create new supplier
+            try {
+                const newSupplier = await base44.entities.Supplier.create({
+                    name: finalSupplierName,
+                    is_active: true
+                });
+                finalSupplierId = newSupplier.id;
+            } catch (error) {
+                console.error('Supplier creation failed:', error);
+            }
+        } else if (finalSupplierId) {
+            const selectedSupplier = suppliers.find(s => s.id === finalSupplierId);
+            finalSupplierName = selectedSupplier?.name || '';
+        }
         
         const articleData = {
             name,
@@ -117,8 +136,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             category_name: selectedCategory?.name || '',
             unit_id: unitId,
             unit_abbreviation: selectedUnit?.abbreviation || '',
-            supplier_id: supplierId,
-            supplier_name: selectedSupplier?.name || '',
+            supplier_id: finalSupplierId,
+            supplier_name: finalSupplierName,
             purchase_price: parseFloat(purchasePrice) || 0,
             initial_stock: parseFloat(initialStock) || 0,
             current_stock: article ? article.current_stock : (parseFloat(initialStock) || 0),
