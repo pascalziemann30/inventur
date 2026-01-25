@@ -106,13 +106,25 @@ export default function DeliveryForm({ open, onClose, onSave, articles, supplier
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="supplier">Lieferant</Label>
-                        <Input
-                            id="supplier"
-                            value={supplier}
-                            onChange={(e) => setSupplier(e.target.value)}
-                            placeholder="z.B. Metro, Händler XY..."
-                        />
+                        <Label>Lieferant</Label>
+                        <Select value={supplierId} onValueChange={(val) => {
+                            setSupplierId(val);
+                            setItems([{ article_id: '', quantity: '' }]);
+                        }}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Lieferant wählen (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {suppliers?.filter(s => s.is_active !== false).map(supplier => (
+                                    <SelectItem key={supplier.id} value={supplier.id}>
+                                        {supplier.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-slate-500">
+                            Artikel werden nach Lieferant gefiltert
+                        </p>
                     </div>
 
                     <div className="space-y-3">
