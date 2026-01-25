@@ -16,6 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
+import { format } from 'date-fns';
 
 import StatsCards from '../components/inventory/StatsCards';
 import ArticleTable from '../components/inventory/ArticleTable';
