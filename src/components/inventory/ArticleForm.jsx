@@ -7,10 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 
-export default function ArticleForm({ open, onClose, onSave, article, categories, units }) {
+export default function ArticleForm({ open, onClose, onSave, article, categories, units, suppliers, currentUser }) {
     const [name, setName] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [unitId, setUnitId] = useState('');
+    const [supplierId, setSupplierId] = useState('');
+    const [purchasePrice, setPurchasePrice] = useState('');
     const [initialStock, setInitialStock] = useState('');
     const [minStock, setMinStock] = useState('');
     const [notes, setNotes] = useState('');
@@ -21,6 +23,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setName(article.name || '');
             setCategoryId(article.category_id || '');
             setUnitId(article.unit_id || '');
+            setSupplierId(article.supplier_id || '');
+            setPurchasePrice(article.purchase_price?.toString() || '');
             setInitialStock(article.initial_stock?.toString() || '');
             setMinStock(article.min_stock?.toString() || '');
             setNotes(article.notes || '');
@@ -33,6 +37,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         setName('');
         setCategoryId('');
         setUnitId('');
+        setSupplierId('');
+        setPurchasePrice('');
         setInitialStock('');
         setMinStock('');
         setNotes('');
@@ -99,6 +105,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         
         const selectedCategory = categories.find(c => c.id === categoryId);
         const selectedUnit = units.find(u => u.id === unitId);
+        const selectedSupplier = suppliers.find(s => s.id === supplierId);
         
         const articleData = {
             name,
@@ -106,6 +113,9 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             category_name: selectedCategory?.name || '',
             unit_id: unitId,
             unit_abbreviation: selectedUnit?.abbreviation || '',
+            supplier_id: supplierId,
+            supplier_name: selectedSupplier?.name || '',
+            purchase_price: parseFloat(purchasePrice) || 0,
             initial_stock: parseFloat(initialStock) || 0,
             current_stock: article ? article.current_stock : (parseFloat(initialStock) || 0),
             min_stock: parseFloat(minStock) || null,
@@ -113,7 +123,17 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             is_active: true
         };
 
-        onSave(articleData);
+        // Track price change if editing and price changed
+        if (article && article.purchase_price !== parseFloat(purchasePrice)) {
+            onSave(articleData, {
+                priceChanged: true,
+                oldPrice: article.purchase_price,
+                newPrice: parseFloat(purchasePrice)
+            });
+        } else {
+            onSave(articleData);
+        }
+        
         resetForm();
     };
 
@@ -180,6 +200,47 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Lieferant *</Label>
+                            <Select value={supplierId} onValueChange={setSupplierId} required>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Wählen..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {suppliers?.filter(s => s.is_active !== false).map(supplier => (
+                                        <SelectItem key={supplier.id} value={supplier.id}>
+                                            {supplier.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="purchasePrice">Einkaufspreis (Netto) *</Label>
+                            <div className="relative">
+                                <Input
+                                    id="purchasePrice"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={purchasePrice}
+                                    onChange={(e) => setPurchasePrice(e.target.value)}
+                                    placeholder="0.00"
+                                    required
+                                    className="pr-8"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">€</span>
+                            </div>
+                            {article && article.purchase_price && parseFloat(purchasePrice) !== article.purchase_price && (
+                                <p className="text-xs text-amber-600">
+                                    Alt: {article.purchase_price.toFixed(2)}€ → Neu: {parseFloat(purchasePrice || 0).toFixed(2)}€
+                                </p>
+                            )}
                         </div>
                     </div>
 

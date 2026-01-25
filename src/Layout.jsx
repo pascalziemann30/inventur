@@ -10,6 +10,7 @@ export default function Layout({ children }) {
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },
         { name: 'Historie', page: 'History', icon: History },
+        { name: 'Einstellungen', page: 'Settings', icon: Settings },
     ];
 
     const isActive = (page) => {

@@ -51,6 +51,16 @@ export default function Dashboard() {
         queryFn: () => base44.entities.Unit.list()
     });
 
+    const { data: suppliers = [] } = useQuery({
+        queryKey: ['suppliers'],
+        queryFn: () => base44.entities.Supplier.list()
+    });
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['currentUser'],
+        queryFn: () => base44.auth.me()
+    });
+
     const { data: inventories = [] } = useQuery({
         queryKey: ['inventories'],
         queryFn: () => base44.entities.Inventory.list('-inventory_date')
@@ -127,7 +137,26 @@ export default function Dashboard() {
     });
 
     // Handlers
-    const handleSaveArticle = (data) => {
+    const handleSaveArticle = async (data, meta) => {
+        // Track price change
+        if (meta?.priceChanged && currentUser) {
+            const priceHistoryData = {
+                article_id: editingArticle.id,
+                article_name: editingArticle.name,
+                old_price: meta.oldPrice,
+                new_price: meta.newPrice,
+                change_date: format(new Date(), 'yyyy-MM-dd'),
+                changed_by: currentUser.email,
+                reason: 'Manuelle Preisänderung'
+            };
+            
+            try {
+                await base44.entities.PriceHistory.create(priceHistoryData);
+            } catch (error) {
+                console.error('Failed to save price history:', error);
+            }
+        }
+
         if (editingArticle) {
             updateArticleMutation.mutate({ id: editingArticle.id, data });
         } else {
@@ -290,6 +319,8 @@ export default function Dashboard() {
                 article={editingArticle}
                 categories={categories}
                 units={units}
+                suppliers={suppliers}
+                currentUser={currentUser}
             />
 
             <InventoryForm
