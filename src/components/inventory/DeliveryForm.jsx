@@ -7,16 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function DeliveryForm({ open, onClose, onSave, articles }) {
+export default function DeliveryForm({ open, onClose, onSave, articles, suppliers }) {
     const [deliveryDate, setDeliveryDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [supplier, setSupplier] = useState('');
+    const [supplierId, setSupplierId] = useState('');
     const [deliveryNoteNumber, setDeliveryNoteNumber] = useState('');
     const [items, setItems] = useState([{ article_id: '', quantity: '' }]);
     const [notes, setNotes] = useState('');
 
     const resetForm = () => {
         setDeliveryDate(format(new Date(), 'yyyy-MM-dd'));
-        setSupplier('');
+        setSupplierId('');
         setDeliveryNoteNumber('');
         setItems([{ article_id: '', quantity: '' }]);
         setNotes('');
@@ -57,9 +57,11 @@ export default function DeliveryForm({ open, onClose, onSave, articles }) {
                 };
             });
 
+        const selectedSupplier = suppliers?.find(s => s.id === supplierId);
+        
         const deliveryData = {
             delivery_date: deliveryDate,
-            supplier,
+            supplier: selectedSupplier?.name || '',
             delivery_note_number: deliveryNoteNumber,
             items: deliveryItems,
             notes,
@@ -126,23 +128,25 @@ export default function DeliveryForm({ open, onClose, onSave, articles }) {
                                 const selectedArticle = articles.find(a => a.id === item.article_id);
                                 return (
                                     <div key={index} className="flex gap-2 items-start">
-                                        <div className="flex-1">
-                                            <Select 
-                                                value={item.article_id} 
-                                                onValueChange={(val) => updateItem(index, 'article_id', val)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Artikel..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {articles.map(article => (
-                                                        <SelectItem key={article.id} value={article.id}>
-                                                            {article.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                    <div className="flex-1">
+                                        <Select 
+                                            value={item.article_id} 
+                                            onValueChange={(val) => updateItem(index, 'article_id', val)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Artikel..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {articles
+                                                    .filter(a => !supplierId || a.supplier_id === supplierId)
+                                                    .map(article => (
+                                                    <SelectItem key={article.id} value={article.id}>
+                                                        {article.name} ({article.supplier_name})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                         <div className="w-24">
                                             <Input
                                                 type="number"

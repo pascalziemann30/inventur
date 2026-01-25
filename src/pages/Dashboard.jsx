@@ -335,6 +335,7 @@ export default function Dashboard() {
                 onClose={() => setShowDeliveryForm(false)}
                 onSave={handleSaveDelivery}
                 articles={articles}
+                suppliers={suppliers}
             />
         </div>
     );
