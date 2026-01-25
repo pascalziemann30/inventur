@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { jsPDF } from 'npm:jspdf@2.5.2';
+import { createPDF, validationString } from './pdfConfig.js';
 
 Deno.serve(async (req) => {
     try {
@@ -24,62 +24,59 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Delivery not found' }, { status: 404 });
         }
 
-        const doc = new jsPDF();
-
-        // Title
-        doc.setFontSize(20);
-        doc.text('Lieferung', 20, 20);
-
-        // Delivery info
-        doc.setFontSize(10);
-        doc.text(`Datum: ${new Date(delivery.delivery_date).toLocaleDateString('de-DE')}`, 20, 35);
-        doc.text(`Lieferant: ${delivery.supplier_name || '-'}`, 20, 42);
-        doc.text(`Lieferschein-Nr.: ${delivery.delivery_note_number || '-'}`, 20, 49);
-
-        // Table headers
-        doc.setFontSize(12);
-        doc.text('Artikel', 20, 65);
-        doc.text('Menge', 100, 65);
-        doc.text('Einheit', 130, 65);
-        doc.text('Preis', 160, 65);
-        doc.text('Gesamt', 180, 65);
-
-        // Table content
-        let y = 75;
         const items = delivery.items || [];
-        let totalValue = 0;
+
+        // Build table rows
+        const tableBody = [
+            [
+                { text: 'Artikel', style: 'tableHeader' },
+                { text: 'Menge', style: 'tableHeader', alignment: 'right' },
+                { text: 'Einzelpreis', style: 'tableHeader', alignment: 'right' },
+                { text: 'Gesamtwert', style: 'tableHeader', alignment: 'right' }
+            ]
+        ];
+
+        let totalDeliveryValue = 0;
 
         for (const item of items) {
-            if (y > 270) {
-                doc.addPage();
-                y = 20;
-            }
+            const totalValue = (item.quantity || 0) * (item.price || 0);
+            totalDeliveryValue += totalValue;
 
-            const itemTotal = (item.quantity || 0) * (item.price || 0);
-            totalValue += itemTotal;
-
-            doc.setFontSize(10);
-            doc.text(item.article_name || '-', 20, y);
-            doc.text((item.quantity || 0).toFixed(2), 100, y);
-            doc.text(item.unit_abbreviation || '-', 130, y);
-            doc.text(`${(item.price || 0).toFixed(2)} €`, 160, y);
-            doc.text(`${itemTotal.toFixed(2)} €`, 180, y);
-            y += 10;
+            tableBody.push([
+                item.article_name || '-',
+                { text: `${item.quantity} ${item.unit_abbreviation || ''}`, alignment: 'right' },
+                { text: `${(item.price || 0).toFixed(2)} €`, alignment: 'right' },
+                { text: `${totalValue.toFixed(2)} €`, alignment: 'right' }
+            ]);
         }
 
-        // Total
-        y += 10;
-        doc.setFontSize(12);
-        doc.text(`Gesamtwert: ${totalValue.toFixed(2)} €`, 20, y);
+        // Create PDF document definition
+        const docDefinition = {
+            content: [
+                { text: 'Lieferschein', style: 'header' },
+                { text: `Datum: ${new Date(delivery.delivery_date).toLocaleDateString('de-DE')}`, margin: [0, 5, 0, 3] },
+                { text: `Lieferant: ${delivery.supplier_name || '-'}`, margin: [0, 0, 0, 3] },
+                { text: `Lieferschein-Nr.: ${delivery.delivery_note_number || '-'}`, margin: [0, 0, 0, 3] },
+                delivery.notes ? { text: `Bemerkungen: ${delivery.notes}`, margin: [0, 0, 0, 10] } : { text: '', margin: [0, 0, 0, 10] },
+                {
+                    table: {
+                        headerRows: 1,
+                        widths: ['*', 'auto', 'auto', 'auto'],
+                        body: tableBody
+                    },
+                    layout: {
+                        fillColor: function (rowIndex) {
+                            return (rowIndex === 0) ? '#eeeeee' : null;
+                        }
+                    }
+                },
+                { text: `Gesamtwert: ${totalDeliveryValue.toFixed(2)} €`, style: 'total', margin: [0, 15, 0, 0] },
+                { text: `\nValidierung: ${validationString}`, style: 'small', color: '#999999' }
+            ]
+        };
 
-        // Notes
-        if (delivery.notes) {
-            y += 10;
-            doc.setFontSize(10);
-            doc.text(`Bemerkungen: ${delivery.notes}`, 20, y);
-        }
-
-        const pdfBytes = doc.output('arraybuffer');
+        const pdfBase64 = await createPDF(docDefinition);
+        const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
 
         return new Response(pdfBytes, {
             status: 200,
