@@ -23,6 +23,10 @@ import ArticleTable from '../components/inventory/ArticleTable';
 import ArticleForm from '../components/inventory/ArticleForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
 import ConsumptionView from '../components/inventory/ConsumptionView';
+import ArticlesOverview from '../components/inventory/ArticlesOverview';
+import LowStockOverview from '../components/inventory/LowStockOverview';
+import InventoriesOverview from '../components/inventory/InventoriesOverview';
+import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
@@ -33,6 +37,12 @@ export default function Dashboard() {
     const [showArticleForm, setShowArticleForm] = useState(false);
     const [showDeliveryForm, setShowDeliveryForm] = useState(false);
     const [editingArticle, setEditingArticle] = useState(null);
+    
+    // Overview modals
+    const [showArticlesOverview, setShowArticlesOverview] = useState(false);
+    const [showLowStockOverview, setShowLowStockOverview] = useState(false);
+    const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
+    const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
 
     // Data queries
     const { data: articles = [], isLoading: loadingArticles } = useQuery({
@@ -63,6 +73,11 @@ export default function Dashboard() {
     const { data: inventories = [] } = useQuery({
         queryKey: ['inventories'],
         queryFn: () => base44.entities.Inventory.list('-inventory_date')
+    });
+
+    const { data: inventorySessions = [] } = useQuery({
+        queryKey: ['inventorySessions'],
+        queryFn: () => base44.entities.InventorySession.list('-session_date')
     });
 
     const { data: deliveries = [] } = useQuery({
@@ -238,8 +253,12 @@ export default function Dashboard() {
                 {/* Stats */}
                 <StatsCards 
                     articles={articles} 
-                    inventories={inventories} 
-                    deliveries={deliveries} 
+                    inventories={inventorySessions} 
+                    deliveries={deliveries}
+                    onArticlesClick={() => setShowArticlesOverview(true)}
+                    onLowStockClick={() => setShowLowStockOverview(true)}
+                    onInventoriesClick={() => setShowInventoriesOverview(true)}
+                    onDeliveriesClick={() => setShowDeliveriesOverview(true)}
                 />
 
                 {/* Tabs */}
@@ -326,6 +345,31 @@ export default function Dashboard() {
                 articles={articles}
                 suppliers={suppliers}
             />
-        </div>
-    );
-}
+
+            {/* Overview Modals */}
+            <ArticlesOverview
+                open={showArticlesOverview}
+                onClose={() => setShowArticlesOverview(false)}
+                articles={articles}
+            />
+
+            <LowStockOverview
+                open={showLowStockOverview}
+                onClose={() => setShowLowStockOverview(false)}
+                articles={articles}
+            />
+
+            <InventoriesOverview
+                open={showInventoriesOverview}
+                onClose={() => setShowInventoriesOverview(false)}
+                sessions={inventorySessions}
+            />
+
+            <DeliveriesOverview
+                open={showDeliveriesOverview}
+                onClose={() => setShowDeliveriesOverview(false)}
+                deliveries={deliveries}
+            />
+            </div>
+            );
+            }
