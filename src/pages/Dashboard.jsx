@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
     Plus, 
     Search, 
@@ -11,7 +12,8 @@ import {
     Truck, 
     BarChart3,
     Package,
-    RefreshCw
+    RefreshCw,
+    ArrowUpDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -32,6 +34,7 @@ export default function Dashboard() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('articles');
+    const [sortBy, setSortBy] = useState('name');
     
     // Modal states
     const [showArticleForm, setShowArticleForm] = useState(false);
@@ -202,13 +205,24 @@ export default function Dashboard() {
         createDeliveryMutation.mutate(data);
     };
 
-    // Filter articles
+    // Filter and sort articles
     const filteredArticles = articles.filter(article =>
         article.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         article.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const activeArticles = filteredArticles.filter(a => a.is_active !== false);
+    const sortedArticles = [...filteredArticles].sort((a, b) => {
+        if (sortBy === 'name') {
+            return (a.name || '').localeCompare(b.name || '');
+        } else if (sortBy === 'category') {
+            const catCompare = (a.category_name || '').localeCompare(b.category_name || '');
+            if (catCompare !== 0) return catCompare;
+            return (a.name || '').localeCompare(b.name || '');
+        }
+        return 0;
+    });
+
+    const activeArticles = sortedArticles.filter(a => a.is_active !== false);
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -276,6 +290,16 @@ export default function Dashboard() {
                         </TabsList>
 
                         <div className="flex gap-2">
+                            <Select value={sortBy} onValueChange={setSortBy}>
+                                <SelectTrigger className="w-[180px] bg-white">
+                                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="name">Nach Alphabet</SelectItem>
+                                    <SelectItem value="category">Nach Kategorie</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <div className="relative flex-1 sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <Input
