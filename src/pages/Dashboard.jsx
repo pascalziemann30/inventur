@@ -13,6 +13,8 @@ import {
     Package,
     RefreshCw
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
 
 import StatsCards from '../components/inventory/StatsCards';
@@ -175,6 +177,15 @@ export default function Dashboard() {
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Link to={createPageUrl('InventoryCapture')}>
+                                <Button 
+                                    size="sm"
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                    <ClipboardCheck className="w-4 h-4 mr-2" />
+                                    Inventur starten
+                                </Button>
+                            </Link>
                             <Button 
                                 variant="outline" 
                                 size="sm"

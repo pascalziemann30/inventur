@@ -1,11 +1,13 @@
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
+import InventoryCapture from './pages/InventoryCapture';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "History": History,
+    "InventoryCapture": InventoryCapture,
 }
 
 export const pagesConfig = {
