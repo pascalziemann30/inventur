@@ -41,6 +41,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         setCategoryId('');
         setUnitId('');
         setSupplierId('');
+        setSupplierName('');
         setPurchasePrice('');
         setInitialStock('');
         setMinStock('');
