@@ -228,19 +228,48 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Lieferant *</Label>
-                            <Select value={supplierId} onValueChange={setSupplierId} required>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Wählen..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {suppliers?.filter(s => s.is_active !== false).map(supplier => (
-                                        <SelectItem key={supplier.id} value={supplier.id}>
-                                            {supplier.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="supplierName">Lieferant *</Label>
+                            <div className="relative">
+                                <Input
+                                    id="supplierName"
+                                    value={supplierName}
+                                    onChange={(e) => {
+                                        setSupplierName(e.target.value);
+                                        setSupplierId('');
+                                        setShowSupplierDropdown(e.target.value.length > 0);
+                                    }}
+                                    onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
+                                    placeholder="Lieferant eingeben..."
+                                    required
+                                />
+                                {showSupplierDropdown && suppliers?.filter(s => 
+                                    s.is_active !== false && 
+                                    s.name.toLowerCase().includes(supplierName.toLowerCase())
+                                ).length > 0 && (
+                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
+                                        {suppliers
+                                            .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
+                                            .map(supplier => (
+                                                <button
+                                                    key={supplier.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSupplierId(supplier.id);
+                                                        setSupplierName(supplier.name);
+                                                        setShowSupplierDropdown(false);
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left hover:bg-slate-100 text-sm"
+                                                >
+                                                    {supplier.name}
+                                                </button>
+                                            ))
+                                        }
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                {supplierId ? 'Aus Liste gewählt' : 'Neuer Lieferant wird angelegt'}
+                            </p>
                         </div>
 
                         <div className="space-y-2">
