@@ -26,6 +26,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setCategoryId(article.category_id || '');
             setUnitId(article.unit_id || '');
             setSupplierId(article.supplier_id || '');
+            setSupplierName(article.supplier_name || '');
             setPurchasePrice(article.purchase_price?.toString() || '');
             setInitialStock(article.initial_stock?.toString() || '');
             setMinStock(article.min_stock?.toString() || '');
