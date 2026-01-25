@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 
 import StatsCards from '../components/inventory/StatsCards';
 import ArticleTable from '../components/inventory/ArticleTable';
+import CategoryArticleView from '../components/inventory/CategoryArticleView';
 import ArticleForm from '../components/inventory/ArticleForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
 import ConsumptionView from '../components/inventory/ConsumptionView';
@@ -332,7 +333,7 @@ export default function Dashboard() {
                     </div>
 
                     <TabsContent value="articles" className="mt-0">
-                        <ArticleTable
+                        <CategoryArticleView
                             articles={activeArticles}
                             inventories={inventories}
                             onEdit={handleEditArticle}
