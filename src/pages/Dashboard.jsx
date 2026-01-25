@@ -21,7 +21,6 @@ import { format } from 'date-fns';
 import StatsCards from '../components/inventory/StatsCards';
 import ArticleTable from '../components/inventory/ArticleTable';
 import ArticleForm from '../components/inventory/ArticleForm';
-import InventoryForm from '../components/inventory/InventoryForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
 import ConsumptionView from '../components/inventory/ConsumptionView';
 
@@ -32,7 +31,6 @@ export default function Dashboard() {
     
     // Modal states
     const [showArticleForm, setShowArticleForm] = useState(false);
-    const [showInventoryForm, setShowInventoryForm] = useState(false);
     const [showDeliveryForm, setShowDeliveryForm] = useState(false);
     const [editingArticle, setEditingArticle] = useState(null);
 
@@ -100,21 +98,7 @@ export default function Dashboard() {
         }
     });
 
-    const createInventoryMutation = useMutation({
-        mutationFn: async ({ inventoryData, article }) => {
-            await base44.entities.Inventory.create(inventoryData);
-            // Update article stock
-            await base44.entities.Article.update(article.id, {
-                current_stock: inventoryData.counted_quantity
-            });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['inventories'] });
-            queryClient.invalidateQueries({ queryKey: ['articles'] });
-            toast.success('Inventur gespeichert');
-            setShowInventoryForm(false);
-        }
-    });
+
 
     const createDeliveryMutation = useMutation({
         mutationFn: async (data) => {
@@ -197,9 +181,7 @@ export default function Dashboard() {
         }
     };
 
-    const handleSaveInventory = (inventoryData, article) => {
-        createInventoryMutation.mutate({ inventoryData, article });
-    };
+
 
     const handleSaveDelivery = (data) => {
         createDeliveryMutation.mutate(data);
@@ -298,14 +280,6 @@ export default function Dashboard() {
                         </Button>
                         <Button 
                             variant="outline" 
-                            onClick={() => setShowInventoryForm(true)}
-                            disabled={articles.length === 0}
-                        >
-                            <ClipboardCheck className="w-4 h-4 mr-2" />
-                            Inventur
-                        </Button>
-                        <Button 
-                            variant="outline" 
                             onClick={() => setShowDeliveryForm(true)}
                             disabled={articles.length === 0}
                         >
@@ -343,13 +317,6 @@ export default function Dashboard() {
                 units={units}
                 suppliers={suppliers}
                 currentUser={currentUser}
-            />
-
-            <InventoryForm
-                open={showInventoryForm}
-                onClose={() => setShowInventoryForm(false)}
-                onSave={handleSaveInventory}
-                articles={articles}
             />
 
             <DeliveryForm
