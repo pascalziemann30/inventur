@@ -36,16 +36,25 @@ Deno.serve(async (req) => {
         doc.text(`Bearbeiter: ${session.employee_name || '-'}`, 20, 42);
         doc.text(`Art: ${session.period_type}`, 20, 49);
 
+        // Fetch article details for prices and suppliers
+        const articleIds = session.entries?.map(e => e.article_id).filter(Boolean) || [];
+        let articles = [];
+        if (articleIds.length > 0) {
+            articles = await base44.entities.Article.list();
+        }
+
         // Table headers
-        doc.setFontSize(12);
-        doc.text('Artikel', 20, 65);
-        doc.text('Vorher', 100, 65);
-        doc.text('Gezählt', 130, 65);
-        doc.text('Differenz', 160, 65);
+        doc.setFontSize(8);
+        doc.text('Artikel', 15, 65);
+        doc.text('Lieferant', 70, 65);
+        doc.text('Menge', 110, 65);
+        doc.text('Preis', 135, 65);
+        doc.text('Gesamt', 160, 65);
 
         // Table content
-        let y = 75;
-        const entries = session.entries || [];
+        let y = 73;
+        const entries = session.entries?.filter(e => e.counted_quantity !== null) || [];
+        let totalInventoryValue = 0;
 
         for (const entry of entries) {
             if (y > 270) {
@@ -53,18 +62,30 @@ Deno.serve(async (req) => {
                 y = 20;
             }
 
-            doc.setFontSize(10);
-            doc.text(entry.article_name || '-', 20, y);
-            doc.text((entry.last_stock || 0).toFixed(2), 100, y);
-            doc.text((entry.counted_quantity || 0).toFixed(2), 130, y);
-            doc.text((entry.difference || 0).toFixed(2), 160, y);
-            y += 10;
+            // Find article for price and supplier
+            const article = articles.find(a => a.id === entry.article_id);
+            const price = article?.purchase_price || 0;
+            const supplier = article?.supplier_name || '-';
+            const totalValue = (entry.counted_quantity || 0) * price;
+            totalInventoryValue += totalValue;
+
+            doc.setFontSize(8);
+            doc.text((entry.article_name || '-').substring(0, 30), 15, y);
+            doc.text(supplier.substring(0, 20), 70, y);
+            doc.text(`${(entry.counted_quantity || 0).toFixed(2)} ${entry.unit_abbreviation || ''}`, 110, y);
+            doc.text(`${price.toFixed(2)} €`, 135, y);
+            doc.text(`${totalValue.toFixed(2)} €`, 160, y);
+            y += 7;
         }
 
         // Summary
         y += 10;
+        doc.setFontSize(10);
+        doc.text(`Artikel gezählt: ${session.total_items_counted || entries.length}`, 15, y);
+        y += 8;
         doc.setFontSize(12);
-        doc.text(`Gesamt gezählt: ${session.total_items_counted || entries.length} Artikel`, 20, y);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Gesamtwert: ${totalInventoryValue.toFixed(2)} €`, 15, y);
 
         const pdfBytes = doc.output('arraybuffer');
 
