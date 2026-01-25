@@ -119,19 +119,40 @@ export default function Dashboard() {
     const createDeliveryMutation = useMutation({
         mutationFn: async (data) => {
             await base44.entities.Delivery.create(data);
-            // Update article stocks
+            // Update article stocks and prices
             for (const item of data.items) {
                 const article = articles.find(a => a.id === item.article_id);
                 if (article) {
-                    await base44.entities.Article.update(item.article_id, {
+                    const updateData = {
                         current_stock: (article.current_stock || 0) + item.quantity
-                    });
+                    };
+                    
+                    // Update price in article master if requested
+                    if (item.update_master_price && item.price !== article.purchase_price) {
+                        updateData.purchase_price = item.price;
+                        
+                        // Track price change
+                        if (currentUser) {
+                            await base44.entities.PriceHistory.create({
+                                article_id: article.id,
+                                article_name: article.name,
+                                old_price: article.purchase_price,
+                                new_price: item.price,
+                                change_date: format(new Date(), 'yyyy-MM-dd'),
+                                changed_by: currentUser.email,
+                                reason: 'Preisänderung bei Lieferung'
+                            });
+                        }
+                    }
+                    
+                    await base44.entities.Article.update(item.article_id, updateData);
                 }
             }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['deliveries'] });
             queryClient.invalidateQueries({ queryKey: ['articles'] });
+            queryClient.invalidateQueries({ queryKey: ['suppliers'] });
             toast.success('Lieferung erfasst');
             setShowDeliveryForm(false);
         }

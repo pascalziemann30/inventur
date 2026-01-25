@@ -14,6 +14,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [supplierId, setSupplierId] = useState('');
     const [supplierName, setSupplierName] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [showNewSupplierInput, setShowNewSupplierInput] = useState(false);
+    const [newSupplierName, setNewSupplierName] = useState('');
     const [purchasePrice, setPurchasePrice] = useState('');
     const [initialStock, setInitialStock] = useState('');
     const [minStock, setMinStock] = useState('');
@@ -42,6 +44,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         setUnitId('');
         setSupplierId('');
         setSupplierName('');
+        setShowNewSupplierInput(false);
+        setNewSupplierName('');
         setPurchasePrice('');
         setInitialStock('');
         setMinStock('');
@@ -112,22 +116,24 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         
         // Create or get supplier
         let finalSupplierId = supplierId;
-        let finalSupplierName = supplierName.trim();
+        let finalSupplierName = supplierName;
         
-        if (!finalSupplierId && finalSupplierName) {
-            // Create new supplier
+        // If new supplier should be created
+        if (showNewSupplierInput && newSupplierName.trim()) {
             try {
                 const newSupplier = await base44.entities.Supplier.create({
-                    name: finalSupplierName,
+                    name: newSupplierName.trim(),
                     is_active: true
                 });
                 finalSupplierId = newSupplier.id;
+                finalSupplierName = newSupplier.name;
             } catch (error) {
                 console.error('Supplier creation failed:', error);
+                return;
             }
-        } else if (finalSupplierId) {
-            const selectedSupplier = suppliers.find(s => s.id === finalSupplierId);
-            finalSupplierName = selectedSupplier?.name || '';
+        } else if (!finalSupplierId) {
+            alert('Bitte wählen Sie einen Lieferanten aus');
+            return;
         }
         
         const articleData = {
@@ -228,48 +234,82 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="supplierName">Lieferant *</Label>
-                            <div className="relative">
-                                <Input
-                                    id="supplierName"
-                                    value={supplierName}
-                                    onChange={(e) => {
-                                        setSupplierName(e.target.value);
-                                        setSupplierId('');
-                                        setShowSupplierDropdown(e.target.value.length > 0);
-                                    }}
-                                    onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
-                                    placeholder="Lieferant eingeben..."
-                                    required
-                                />
-                                {showSupplierDropdown && suppliers?.filter(s => 
-                                    s.is_active !== false && 
-                                    s.name.toLowerCase().includes(supplierName.toLowerCase())
-                                ).length > 0 && (
-                                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
-                                        {suppliers
-                                            .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
-                                            .map(supplier => (
-                                                <button
-                                                    key={supplier.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSupplierId(supplier.id);
-                                                        setSupplierName(supplier.name);
-                                                        setShowSupplierDropdown(false);
-                                                    }}
-                                                    className="w-full px-3 py-2 text-left hover:bg-slate-100 text-sm"
-                                                >
-                                                    {supplier.name}
-                                                </button>
-                                            ))
-                                        }
+                            <Label>Lieferant *</Label>
+                            {!showNewSupplierInput ? (
+                                <>
+                                    <div className="relative">
+                                        <Input
+                                            value={supplierName}
+                                            onChange={(e) => {
+                                                setSupplierName(e.target.value);
+                                                setSupplierId('');
+                                                setShowSupplierDropdown(e.target.value.length > 0);
+                                            }}
+                                            onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
+                                            placeholder="Lieferant suchen..."
+                                            required={!showNewSupplierInput}
+                                        />
+                                        {showSupplierDropdown && suppliers?.filter(s => 
+                                            s.is_active !== false && 
+                                            s.name.toLowerCase().includes(supplierName.toLowerCase())
+                                        ).length > 0 && (
+                                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
+                                                {suppliers
+                                                    .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
+                                                    .map(supplier => (
+                                                        <button
+                                                            key={supplier.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSupplierId(supplier.id);
+                                                                setSupplierName(supplier.name);
+                                                                setShowSupplierDropdown(false);
+                                                            }}
+                                                            className="w-full px-3 py-2 text-left hover:bg-slate-100 text-sm"
+                                                        >
+                                                            {supplier.name}
+                                                        </button>
+                                                    ))
+                                                }
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                            <p className="text-xs text-slate-500">
-                                {supplierId ? 'Aus Liste gewählt' : 'Neuer Lieferant wird angelegt'}
-                            </p>
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowNewSupplierInput(true);
+                                            setSupplierId('');
+                                            setSupplierName('');
+                                        }}
+                                        className="h-auto p-0 text-xs text-blue-600"
+                                    >
+                                        + Neuen Lieferanten anlegen
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Input
+                                        value={newSupplierName}
+                                        onChange={(e) => setNewSupplierName(e.target.value)}
+                                        placeholder="Name des neuen Lieferanten..."
+                                        required
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowNewSupplierInput(false);
+                                            setNewSupplierName('');
+                                        }}
+                                        className="h-auto p-0 text-xs text-slate-600"
+                                    >
+                                        ← Zurück zur Auswahl
+                                    </Button>
+                                </>
+                            )}
                         </div>
 
                         <div className="space-y-2">
