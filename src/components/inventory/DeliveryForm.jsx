@@ -95,7 +95,8 @@ export default function DeliveryForm({ open, onClose, onSave, articles, supplier
         
         const deliveryData = {
             delivery_date: deliveryDate,
-            supplier: selectedSupplier?.name || '',
+            supplier_id: supplierId,
+            supplier_name: selectedSupplier?.name || '',
             delivery_note_number: deliveryNoteNumber,
             items: deliveryItems,
             notes,
