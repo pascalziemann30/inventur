@@ -12,6 +12,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [categoryId, setCategoryId] = useState('');
     const [unitId, setUnitId] = useState('');
     const [supplierId, setSupplierId] = useState('');
+    const [supplierName, setSupplierName] = useState('');
+    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
     const [purchasePrice, setPurchasePrice] = useState('');
     const [initialStock, setInitialStock] = useState('');
     const [minStock, setMinStock] = useState('');
