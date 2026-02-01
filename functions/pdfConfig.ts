@@ -8,8 +8,7 @@ pdfMake.vfs = pdfFonts.pdfMake.vfs;
 export const pdfConfig = {
     defaultStyle: {
         font: 'Roboto',
-        fontSize: 10,
-        encoding: 'utf-8'
+        fontSize: 10
     },
     styles: {
         header: {
