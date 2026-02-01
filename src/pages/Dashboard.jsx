@@ -13,7 +13,8 @@ import {
     BarChart3,
     Package,
     RefreshCw,
-    ArrowUpDown
+    ArrowUpDown,
+    ArrowRightLeft
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -25,6 +26,7 @@ import ArticleTable from '../components/inventory/ArticleTable';
 import CategoryArticleView from '../components/inventory/CategoryArticleView';
 import ArticleForm from '../components/inventory/ArticleForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
+import OutletTransferForm from '../components/inventory/OutletTransferForm';
 import ConsumptionView from '../components/inventory/ConsumptionView';
 import ArticlesOverview from '../components/inventory/ArticlesOverview';
 import LowStockOverview from '../components/inventory/LowStockOverview';
@@ -40,6 +42,7 @@ export default function Dashboard() {
     // Modal states
     const [showArticleForm, setShowArticleForm] = useState(false);
     const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+    const [showTransferForm, setShowTransferForm] = useState(false);
     const [editingArticle, setEditingArticle] = useState(null);
     
     // Overview modals
@@ -87,6 +90,11 @@ export default function Dashboard() {
     const { data: deliveries = [] } = useQuery({
         queryKey: ['deliveries'],
         queryFn: () => base44.entities.Delivery.list('-delivery_date')
+    });
+
+    const { data: outlets = [] } = useQuery({
+        queryKey: ['outlets'],
+        queryFn: () => base44.entities.Outlet.list()
     });
 
     // Mutations
@@ -161,6 +169,54 @@ export default function Dashboard() {
         }
     });
 
+    const createTransferMutation = useMutation({
+        mutationFn: async (data) => {
+            const transfer = await base44.entities.OutletTransfer.create(data);
+            
+            // Create stock movements for each item
+            for (const item of data.items) {
+                // OUT movement from source outlet
+                await base44.entities.StockMovement.create({
+                    movement_date: data.transfer_date,
+                    movement_type: 'outlet_transfer_out',
+                    article_id: item.article_id,
+                    article_name: item.article_name,
+                    outlet_id: data.from_outlet_id,
+                    outlet_name: data.from_outlet_name,
+                    delta_quantity: -item.quantity,
+                    unit_abbreviation: item.unit_abbreviation,
+                    source_document_id: transfer.id,
+                    source_document_type: 'transfer',
+                    notes: `Transfer zu ${data.to_outlet_name}`
+                });
+
+                // IN movement to destination outlet
+                await base44.entities.StockMovement.create({
+                    movement_date: data.transfer_date,
+                    movement_type: 'outlet_transfer_in',
+                    article_id: item.article_id,
+                    article_name: item.article_name,
+                    outlet_id: data.to_outlet_id,
+                    outlet_name: data.to_outlet_name,
+                    delta_quantity: item.quantity,
+                    unit_abbreviation: item.unit_abbreviation,
+                    source_document_id: transfer.id,
+                    source_document_type: 'transfer',
+                    notes: `Transfer von ${data.from_outlet_name}`
+                });
+            }
+
+            // Mark transfer as applied
+            await base44.entities.OutletTransfer.update(transfer.id, { status: 'applied' });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['outlets'] });
+            queryClient.invalidateQueries({ queryKey: ['articles'] });
+            toast.success('Transfer erfasst und gebucht');
+            setShowTransferForm(false);
+        }
+    });
+
     // Handlers
     const handleSaveArticle = async (data, meta) => {
         // Track price change
@@ -204,6 +260,10 @@ export default function Dashboard() {
 
     const handleSaveDelivery = (data) => {
         createDeliveryMutation.mutate(data);
+    };
+
+    const handleSaveTransfer = (data) => {
+        createTransferMutation.mutate(data);
     };
 
     // Filter and sort articles
@@ -330,6 +390,14 @@ export default function Dashboard() {
                             <Truck className="w-4 h-4 mr-2" />
                             Lieferung
                         </Button>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowTransferForm(true)}
+                            disabled={articles.length === 0 || outlets.length < 2}
+                        >
+                            <ArrowRightLeft className="w-4 h-4 mr-2" />
+                            Outlet Transfer
+                        </Button>
                     </div>
 
                     <TabsContent value="articles" className="mt-0">
@@ -369,6 +437,14 @@ export default function Dashboard() {
                 onSave={handleSaveDelivery}
                 articles={articles}
                 suppliers={suppliers}
+            />
+
+            <OutletTransferForm
+                open={showTransferForm}
+                onClose={() => setShowTransferForm(false)}
+                onSave={handleSaveTransfer}
+                articles={articles}
+                outlets={outlets}
             />
 
             {/* Overview Modals */}
