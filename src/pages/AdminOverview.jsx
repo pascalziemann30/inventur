@@ -96,7 +96,6 @@ export default function AdminOverview() {
     // Sort data
     const sortedData = useMemo(() => {
         const data = [...filteredData];
-        const data = [...aggregatedData];
         switch (sortBy) {
             case 'value':
                 return data.sort((a, b) => b.total_value - a.total_value);
