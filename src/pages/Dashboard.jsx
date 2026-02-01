@@ -739,7 +739,7 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                                Café Inventar
+                                Inventar
                             </h1>
                             <p className="text-sm text-slate-500 hidden sm:block">
                                 Bestandsverwaltung & Inventur
