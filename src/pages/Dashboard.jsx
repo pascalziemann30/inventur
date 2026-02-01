@@ -759,13 +759,22 @@ export default function Dashboard() {
                                     className="bg-emerald-600 hover:bg-emerald-700"
                                 >
                                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                                    Bestandsaufnahme
+                                    Inventur starten
                                 </Button>
                             </Link>
                             <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => queryClient.invalidateQueries()}
+                                onClick={() => {
+                                    queryClient.invalidateQueries({ queryKey: ['outlet-stocks'] });
+                                    queryClient.invalidateQueries({ queryKey: ['outlet-items'] });
+                                    queryClient.invalidateQueries({ queryKey: ['all-outlet-stocks'] });
+                                    queryClient.invalidateQueries({ queryKey: ['all-outlet-items'] });
+                                    queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+                                    queryClient.invalidateQueries({ queryKey: ['inventorySessions'] });
+                                    queryClient.invalidateQueries({ queryKey: ['wastes'] });
+                                    toast.success('Daten aktualisiert');
+                                }}
                                 className="hidden sm:flex"
                             >
                                 <RefreshCw className="w-4 h-4 mr-2" />
