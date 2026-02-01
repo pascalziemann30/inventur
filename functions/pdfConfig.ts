@@ -4,10 +4,20 @@ import pdfFonts from 'npm:pdfmake@0.2.7/build/vfs_fonts.js';
 // Initialize pdfMake with fonts
 pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
+// Configure fonts to support UTF-8
+pdfMake.fonts = {
+    Roboto: {
+        normal: 'Roboto-Regular.ttf',
+        bold: 'Roboto-Medium.ttf',
+        italics: 'Roboto-Italic.ttf',
+        bolditalics: 'Roboto-MediumItalic.ttf'
+    }
+};
+
 // Central PDF Configuration
 export const pdfConfig = {
     defaultStyle: {
-        font: 'Courier',
+        font: 'Roboto',
         fontSize: 10
     },
     styles: {
