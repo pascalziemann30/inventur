@@ -737,13 +737,20 @@ export default function Dashboard() {
             <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                                Inventar
-                            </h1>
-                            <p className="text-sm text-slate-500 hidden sm:block">
-                                Bestandsverwaltung & Inventur
-                            </p>
+                        <div className="flex items-center gap-4">
+                            <img 
+                                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6975d510bbe0422af7fe76ca/19feb6d1b_ChatGPTImage1Feb202616_14_34.png" 
+                                alt="Kolek Schröder Logo" 
+                                className="h-12 w-auto"
+                            />
+                            <div>
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                                    Bestandsverwaltung
+                                </h1>
+                                <p className="text-sm text-slate-500 hidden sm:block">
+                                    Inventar & Verbrauch
+                                </p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <Link to={createPageUrl('InventoryCapture')}>
@@ -752,7 +759,7 @@ export default function Dashboard() {
                                     className="bg-emerald-600 hover:bg-emerald-700"
                                 >
                                     <ClipboardCheck className="w-4 h-4 mr-2" />
-                                    Inventur starten
+                                    Bestandsaufnahme
                                 </Button>
                             </Link>
                             <Button 
