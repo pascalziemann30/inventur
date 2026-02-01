@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Package, History, Settings, LogOut, Store } from 'lucide-react';
 import { Toaster } from "sonner";
-import { useOutlet } from './components/outlet/OutletContext';
+import { OutletProvider, useOutlet } from './components/outlet/OutletContext';
 import { Button } from "@/components/ui/button";
 
-export default function Layout({ children }) {
+function LayoutContent({ children }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentOutletName, clearOutlet } = useOutlet();
@@ -82,5 +82,13 @@ export default function Layout({ children }) {
             
             <Toaster position="top-center" richColors />
         </div>
+    );
+}
+
+export default function Layout({ children }) {
+    return (
+        <OutletProvider>
+            <LayoutContent>{children}</LayoutContent>
+        </OutletProvider>
     );
 }
