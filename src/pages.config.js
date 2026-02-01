@@ -54,6 +54,8 @@ import InventoryCapture from './pages/InventoryCapture';
 import Settings from './pages/Settings';
 import Suppliers from './pages/Suppliers';
 import Users from './pages/Users';
+import OutletLogin from './pages/OutletLogin';
+import AdminOverview from './pages/AdminOverview';
 import __Layout from './Layout.jsx';
 
 
@@ -65,6 +67,8 @@ export const PAGES = {
     "Settings": Settings,
     "Suppliers": Suppliers,
     "Users": Users,
+    "OutletLogin": OutletLogin,
+    "AdminOverview": AdminOverview,
 }
 
 export const pagesConfig = {
