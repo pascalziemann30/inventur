@@ -76,8 +76,11 @@ export default function ConsumptionView({ articles }) {
                 })
                 .sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
 
+            // article.id ist die outlet_item_id
+            const outletItemId = article.outlet_item_id || article.id;
+            
             const inventoryEntries = periodSessions.flatMap(session => 
-                session.entries?.filter(e => e.article_id === article.id && e.counted_quantity !== null) || []
+                session.entries?.filter(e => e.article_id === outletItemId && e.counted_quantity !== null) || []
             );
 
             // Lieferungen im Zeitraum
@@ -86,7 +89,7 @@ export default function ConsumptionView({ articles }) {
                     const deliveryDate = parseISO(del.delivery_date);
                     return isAfter(deliveryDate, periodStart) && deliveryDate <= periodEnd;
                 })
-                .flatMap(del => del.items?.filter(item => item.article_id === article.id) || []);
+                .flatMap(del => del.items?.filter(item => item.article_id === outletItemId) || []);
 
             const totalDelivered = periodDeliveries.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
@@ -96,7 +99,7 @@ export default function ConsumptionView({ articles }) {
                     const wasteDate = parseISO(w.waste_date);
                     return isAfter(wasteDate, periodStart) && wasteDate <= periodEnd;
                 })
-                .flatMap(w => w.items?.filter(item => item.article_id === article.id) || []);
+                .flatMap(w => w.items?.filter(item => item.article_id === outletItemId) || []);
 
             const totalWaste = periodWastes.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
@@ -106,14 +109,14 @@ export default function ConsumptionView({ articles }) {
                     const transferDate = parseISO(t.transfer_date);
                     return t.from_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
                 })
-                .flatMap(t => t.items?.filter(item => item.article_id === article.id) || []);
+                .flatMap(t => t.items?.filter(item => item.article_id === outletItemId) || []);
 
             const transfersIn = transfers
                 .filter(t => {
                     const transferDate = parseISO(t.transfer_date);
                     return t.to_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
                 })
-                .flatMap(t => t.items?.filter(item => item.article_id === article.id) || []);
+                .flatMap(t => t.items?.filter(item => item.article_id === outletItemId) || []);
 
             const totalTransferOut = transfersOut.reduce((sum, item) => sum + (item.quantity || 0), 0);
             const totalTransferIn = transfersIn.reduce((sum, item) => sum + (item.quantity || 0), 0);
