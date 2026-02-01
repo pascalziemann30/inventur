@@ -66,6 +66,15 @@ export default function Dashboard() {
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
 
+    // Check if current outlet is aggregator
+    const { data: currentOutlet } = useQuery({
+        queryKey: ['current-outlet', currentOutletId],
+        queryFn: () => base44.entities.Outlet.filter({ id: currentOutletId }).then(r => r[0]),
+        enabled: !!currentOutletId
+    });
+
+    const isAggregatorOutlet = currentOutlet?.type === 'AGGREGATOR';
+
     // Data queries - for AGGREGATOR load ALL, for NORMAL load only current outlet
     const { data: allOutletStocks = [] } = useQuery({
         queryKey: ['all-outlet-stocks'],
@@ -209,15 +218,6 @@ export default function Dashboard() {
         queryFn: () => base44.entities.Waste.filter({ outlet_id: currentOutletId }, '-waste_date'),
         enabled: !!currentOutletId
     });
-
-    // Check if current outlet is aggregator
-    const { data: currentOutlet } = useQuery({
-        queryKey: ['current-outlet', currentOutletId],
-        queryFn: () => base44.entities.Outlet.filter({ id: currentOutletId }).then(r => r[0]),
-        enabled: !!currentOutletId
-    });
-
-    const isAggregatorOutlet = currentOutlet?.type === 'AGGREGATOR';
 
     // Mutations
     const createArticleMutation = useMutation({
