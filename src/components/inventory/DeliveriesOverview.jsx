@@ -16,11 +16,18 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
                 deliveryId: delivery.id
             });
             
-            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            // Decode base64 to binary
+            const binaryString = atob(response.data.data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.xlsx`;
+            a.download = response.data.filename || `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.xlsx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

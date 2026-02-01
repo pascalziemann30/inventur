@@ -78,15 +78,12 @@ Deno.serve(async (req) => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Lieferung');
 
-        // Generate Excel file
-        const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // Generate Excel file as base64
+        const excelData = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
 
-        return new Response(excelBuffer, {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition': `attachment; filename=Lieferung_${delivery.delivery_date}_${delivery.supplier_name}.xlsx`
-            }
+        return Response.json({
+            data: excelData,
+            filename: `Lieferung_${delivery.delivery_date}_${delivery.supplier_name}.xlsx`
         });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
