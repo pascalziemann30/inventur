@@ -883,8 +883,6 @@ export default function Dashboard() {
                     <TabsContent value="consumption" className="mt-0">
                         <ConsumptionView
                             articles={articlesWithStock}
-                            inventories={inventories}
-                            deliveries={deliveries}
                         />
                     </TabsContent>
 

@@ -24,12 +24,8 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Session not found' }, { status: 404 });
         }
 
-        // Fetch article details for prices and suppliers
-        const articleIds = session.entries?.map(e => e.article_id).filter(Boolean) || [];
-        let articles = [];
-        if (articleIds.length > 0) {
-            articles = await base44.entities.Article.list();
-        }
+        // Fetch outlet items for prices and suppliers
+        const outletItems = await base44.entities.OutletItem.filter({ outlet_id: session.outlet_id });
 
         const entries = session.entries?.filter(e => e.counted_quantity !== null) || [];
         let totalInventoryValue = 0;
@@ -46,9 +42,9 @@ Deno.serve(async (req) => {
         ];
 
         for (const entry of entries) {
-            const article = articles.find(a => a.id === entry.article_id);
-            const price = article?.purchase_price || 0;
-            const supplier = article?.supplier_name || '-';
+            const outletItem = outletItems.find(a => a.id === entry.article_id);
+            const price = outletItem?.net_purchase_price || 0;
+            const supplier = outletItem?.supplier_name || '-';
             const totalValue = (entry.counted_quantity || 0) * price;
             totalInventoryValue += totalValue;
 
