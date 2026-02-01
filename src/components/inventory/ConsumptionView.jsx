@@ -67,18 +67,26 @@ export default function ConsumptionView({ articles }) {
     const consumptionData = useMemo(() => {
         if (!articles || articles.length === 0) return [];
         
-        return articles.map(article => {
+        console.log('Computing consumption for', articles.length, 'articles');
+        console.log('Period:', periodStart, 'to', periodEnd);
+        console.log('Sessions:', inventorySessions.length);
+        console.log('Deliveries:', deliveries.length);
+        console.log('Wastes:', wastes.length);
+        console.log('Transfers:', transfers.length);
+        
+        const results = articles.map(article => {
+            // article.id ist bei normalen Outlets die outlet_item_id
+            // bei Aggregatoren kann es komplexer sein
+            const outletItemId = article.outlet_item_id || article.id;
+            
             // Inventuren im Zeitraum
             const periodSessions = inventorySessions
                 .filter(session => {
-                    const sessionDate = parseISO(session.session_date);
-                    return isAfter(sessionDate, periodStart) && sessionDate <= periodEnd;
+                    const sessionDate = new Date(session.session_date);
+                    return sessionDate >= periodStart && sessionDate <= periodEnd;
                 })
                 .sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
 
-            // article.id ist die outlet_item_id
-            const outletItemId = article.outlet_item_id || article.id;
-            
             const inventoryEntries = periodSessions.flatMap(session => 
                 session.entries?.filter(e => e.article_id === outletItemId && e.counted_quantity !== null) || []
             );
@@ -86,8 +94,8 @@ export default function ConsumptionView({ articles }) {
             // Lieferungen im Zeitraum
             const periodDeliveries = deliveries
                 .filter(del => {
-                    const deliveryDate = parseISO(del.delivery_date);
-                    return isAfter(deliveryDate, periodStart) && deliveryDate <= periodEnd;
+                    const deliveryDate = new Date(del.delivery_date);
+                    return deliveryDate >= periodStart && deliveryDate <= periodEnd;
                 })
                 .flatMap(del => del.items?.filter(item => item.article_id === outletItemId) || []);
 
@@ -96,8 +104,8 @@ export default function ConsumptionView({ articles }) {
             // Waste im Zeitraum
             const periodWastes = wastes
                 .filter(w => {
-                    const wasteDate = parseISO(w.waste_date);
-                    return isAfter(wasteDate, periodStart) && wasteDate <= periodEnd;
+                    const wasteDate = new Date(w.waste_date);
+                    return wasteDate >= periodStart && wasteDate <= periodEnd;
                 })
                 .flatMap(w => w.items?.filter(item => item.article_id === outletItemId) || []);
 
@@ -106,38 +114,39 @@ export default function ConsumptionView({ articles }) {
             // Outlet Transfers im Zeitraum
             const transfersOut = transfers
                 .filter(t => {
-                    const transferDate = parseISO(t.transfer_date);
-                    return t.from_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
+                    const transferDate = new Date(t.transfer_date);
+                    return t.from_outlet_id === currentOutletId && transferDate >= periodStart && transferDate <= periodEnd;
                 })
                 .flatMap(t => t.items?.filter(item => item.article_id === outletItemId) || []);
 
             const transfersIn = transfers
                 .filter(t => {
-                    const transferDate = parseISO(t.transfer_date);
-                    return t.to_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
+                    const transferDate = new Date(t.transfer_date);
+                    return t.to_outlet_id === currentOutletId && transferDate >= periodStart && transferDate <= periodEnd;
                 })
                 .flatMap(t => t.items?.filter(item => item.article_id === outletItemId) || []);
 
             const totalTransferOut = transfersOut.reduce((sum, item) => sum + (item.quantity || 0), 0);
             const totalTransferIn = transfersIn.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
-            // Anfangsbestand = älteste Inventur im Zeitraum oder aktueller Bestand als Fallback
+            // Anfangsbestand = älteste Inventur im Zeitraum ODER aktueller Bestand
             const startStock = inventoryEntries.length > 0 
-                ? inventoryEntries[0].last_stock 
-                : article.current_stock || 0;
+                ? (inventoryEntries[0].last_stock || 0)
+                : (article.current_stock || 0);
 
-            // Endbestand = neueste Inventur oder aktueller Bestand
+            // Endbestand = neueste Inventur ODER aktueller Bestand
             const endStock = inventoryEntries.length > 0 
                 ? inventoryEntries[inventoryEntries.length - 1].counted_quantity 
                 : article.current_stock || 0;
 
-            // Verbrauch = Anfangsbestand + Lieferungen + Transfers IN - Transfers OUT - Waste - Endbestand (Inventur gezählt)
+            // Verbrauch = Start + Lieferungen + Transfers IN - Transfers OUT - Waste - Ende
             const consumption = startStock + totalDelivered + totalTransferIn - totalTransferOut - totalWaste - endStock;
 
             const hasActivity = totalDelivered > 0 || totalWaste > 0 || totalTransferOut > 0 || totalTransferIn > 0 || inventoryEntries.length > 0;
 
             return {
                 ...article,
+                outletItemId,
                 startStock,
                 totalDelivered,
                 totalWaste,
@@ -146,6 +155,7 @@ export default function ConsumptionView({ articles }) {
                 endStock,
                 consumption: Math.max(0, consumption),
                 hasInventory: inventoryEntries.length > 0,
+                hasActivity,
                 movements: {
                     deliveries: periodDeliveries,
                     wastes: periodWastes,
@@ -153,7 +163,13 @@ export default function ConsumptionView({ articles }) {
                     transfersIn
                 }
             };
-        }).filter(a => a.hasActivity);
+        });
+        
+        const filtered = results.filter(a => a.hasActivity);
+        console.log('Articles with activity:', filtered.length);
+        console.log('Sample:', filtered[0]);
+        
+        return filtered;
     }, [articles, inventorySessions, deliveries, wastes, transfers, periodStart, periodEnd, currentOutletId]);
 
     const periodLabels = {
