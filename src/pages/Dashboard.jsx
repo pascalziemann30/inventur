@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { useOutlet } from '../components/outlet/OutletContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,9 +40,18 @@ import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
+    const { currentOutletId, currentOutletName } = useOutlet();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('articles');
     const [sortBy, setSortBy] = useState('name');
+
+    // Redirect to login if no outlet selected
+    useEffect(() => {
+        if (!currentOutletId) {
+            navigate('/OutletLogin');
+        }
+    }, [currentOutletId, navigate]);
     
     // Modal states
     const [showArticleForm, setShowArticleForm] = useState(false);
@@ -55,11 +66,28 @@ export default function Dashboard() {
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
 
-    // Data queries
+    // Data queries - filtered by current outlet
+    const { data: outletStocks = [], isLoading: loadingStocks } = useQuery({
+        queryKey: ['outlet-stocks', currentOutletId],
+        queryFn: () => base44.entities.OutletStock.filter({ outlet_id: currentOutletId }),
+        enabled: !!currentOutletId
+    });
+
     const { data: articles = [], isLoading: loadingArticles } = useQuery({
         queryKey: ['articles'],
         queryFn: () => base44.entities.Article.list('-created_date')
     });
+
+    // Merge articles with outlet stock
+    const articlesWithStock = React.useMemo(() => {
+        return articles.map(article => {
+            const stock = outletStocks.find(s => s.article_id === article.id);
+            return {
+                ...article,
+                current_stock: stock?.on_hand_quantity || 0
+            };
+        });
+    }, [articles, outletStocks]);
 
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
@@ -87,13 +115,15 @@ export default function Dashboard() {
     });
 
     const { data: inventorySessions = [] } = useQuery({
-        queryKey: ['inventorySessions'],
-        queryFn: () => base44.entities.InventorySession.list('-session_date')
+        queryKey: ['inventorySessions', currentOutletId],
+        queryFn: () => base44.entities.InventorySession.filter({ outlet_id: currentOutletId }, '-session_date'),
+        enabled: !!currentOutletId
     });
 
     const { data: deliveries = [] } = useQuery({
-        queryKey: ['deliveries'],
-        queryFn: () => base44.entities.Delivery.list('-delivery_date')
+        queryKey: ['deliveries', currentOutletId],
+        queryFn: () => base44.entities.Delivery.filter({ outlet_id: currentOutletId }, '-delivery_date'),
+        enabled: !!currentOutletId
     });
 
     const { data: outlets = [] } = useQuery({
@@ -102,8 +132,9 @@ export default function Dashboard() {
     });
 
     const { data: wastes = [] } = useQuery({
-        queryKey: ['wastes'],
-        queryFn: () => base44.entities.Waste.list('-waste_date')
+        queryKey: ['wastes', currentOutletId],
+        queryFn: () => base44.entities.Waste.filter({ outlet_id: currentOutletId }, '-waste_date'),
+        enabled: !!currentOutletId
     });
 
     // Mutations
@@ -138,41 +169,77 @@ export default function Dashboard() {
 
     const createDeliveryMutation = useMutation({
         mutationFn: async (data) => {
-            await base44.entities.Delivery.create(data);
-            // Update article stocks and prices
+            // Add outlet info to delivery
+            const deliveryData = {
+                ...data,
+                outlet_id: currentOutletId,
+                outlet_name: currentOutletName
+            };
+            
+            const delivery = await base44.entities.Delivery.create(deliveryData);
+            
+            // Update outlet stock and article prices
             for (const item of data.items) {
                 const article = articles.find(a => a.id === item.article_id);
-                if (article) {
-                    const updateData = {
-                        current_stock: (article.current_stock || 0) + item.quantity
-                    };
+                if (!article) continue;
+                
+                // Update or create OutletStock
+                const existingStock = outletStocks.find(s => s.article_id === item.article_id);
+                if (existingStock) {
+                    await base44.entities.OutletStock.update(existingStock.id, {
+                        on_hand_quantity: (existingStock.on_hand_quantity || 0) + item.quantity
+                    });
+                } else {
+                    await base44.entities.OutletStock.create({
+                        outlet_id: currentOutletId,
+                        outlet_name: currentOutletName,
+                        article_id: item.article_id,
+                        article_name: item.article_name,
+                        on_hand_quantity: item.quantity,
+                        unit_abbreviation: item.unit_abbreviation
+                    });
+                }
+                
+                // Create stock movement
+                await base44.entities.StockMovement.create({
+                    movement_date: data.delivery_date,
+                    movement_type: 'purchase',
+                    outlet_id: currentOutletId,
+                    outlet_name: currentOutletName,
+                    article_id: item.article_id,
+                    article_name: item.article_name,
+                    delta_quantity: item.quantity,
+                    unit_abbreviation: item.unit_abbreviation,
+                    source_document_id: delivery.id,
+                    source_document_type: 'delivery',
+                    notes: `Lieferung von ${data.supplier_name}`
+                });
                     
-                    // Update price in article master if requested
-                    if (item.update_master_price && item.price !== article.purchase_price) {
-                        updateData.purchase_price = item.price;
+                // Update price in article master if requested
+                if (item.update_master_price && item.price !== article.purchase_price) {
+                    await base44.entities.Article.update(item.article_id, {
+                        purchase_price: item.price
+                    });
                         
-                        // Track price change
-                        if (currentUser) {
-                            await base44.entities.PriceHistory.create({
-                                article_id: article.id,
-                                article_name: article.name,
-                                old_price: article.purchase_price,
-                                new_price: item.price,
-                                change_date: format(new Date(), 'yyyy-MM-dd'),
-                                changed_by: currentUser.email,
-                                reason: 'Preisänderung bei Lieferung'
-                            });
-                        }
+                    // Track price change
+                    if (currentUser) {
+                        await base44.entities.PriceHistory.create({
+                            article_id: article.id,
+                            article_name: article.name,
+                            old_price: article.purchase_price,
+                            new_price: item.price,
+                            change_date: format(new Date(), 'yyyy-MM-dd'),
+                            changed_by: currentUser.email,
+                            reason: 'Preisänderung bei Lieferung'
+                        });
                     }
-                    
-                    await base44.entities.Article.update(item.article_id, updateData);
                 }
             }
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+            queryClient.invalidateQueries({ queryKey: ['deliveries', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks', currentOutletId] });
             queryClient.invalidateQueries({ queryKey: ['articles'] });
-            queryClient.invalidateQueries({ queryKey: ['suppliers'] });
             toast.success('Lieferung erfasst');
             setShowDeliveryForm(false);
         }
@@ -228,15 +295,22 @@ export default function Dashboard() {
 
     const createWasteMutation = useMutation({
         mutationFn: async (data) => {
-            const waste = await base44.entities.Waste.create(data);
+            // Add outlet info
+            const wasteData = {
+                ...data,
+                outlet_id: currentOutletId,
+                outlet_name: currentOutletName
+            };
             
-            // Create stock movements and reduce article stock
+            const waste = await base44.entities.Waste.create(wasteData);
+            
+            // Create stock movements and reduce outlet stock
             for (const item of data.items) {
-                // Reduce article stock
-                const article = articles.find(a => a.id === item.article_id);
-                if (article) {
-                    await base44.entities.Article.update(item.article_id, {
-                        current_stock: (article.current_stock || 0) - item.quantity
+                // Reduce outlet stock
+                const stock = outletStocks.find(s => s.article_id === item.article_id);
+                if (stock) {
+                    await base44.entities.OutletStock.update(stock.id, {
+                        on_hand_quantity: Math.max(0, (stock.on_hand_quantity || 0) - item.quantity)
                     });
                 }
 
@@ -244,6 +318,8 @@ export default function Dashboard() {
                 await base44.entities.StockMovement.create({
                     movement_date: data.waste_date,
                     movement_type: 'waste',
+                    outlet_id: currentOutletId,
+                    outlet_name: currentOutletName,
                     article_id: item.article_id,
                     article_name: item.article_name,
                     delta_quantity: -item.quantity,
@@ -258,8 +334,8 @@ export default function Dashboard() {
             await base44.entities.Waste.update(waste.id, { status: 'applied' });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['wastes'] });
-            queryClient.invalidateQueries({ queryKey: ['articles'] });
+            queryClient.invalidateQueries({ queryKey: ['wastes', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks', currentOutletId] });
             toast.success('Waste erfasst und Bestand reduziert');
             setShowWasteForm(false);
         }
@@ -318,8 +394,8 @@ export default function Dashboard() {
         createWasteMutation.mutate(data);
     };
 
-    // Filter and sort articles
-    const filteredArticles = articles.filter(article =>
+    // Filter and sort articles (with outlet stock)
+    const filteredArticles = articlesWithStock.filter(article =>
         article.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         article.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -379,7 +455,7 @@ export default function Dashboard() {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
                 {/* Stats */}
                 <StatsCards 
-                    articles={articles} 
+                    articles={articlesWithStock} 
                     inventories={inventorySessions} 
                     deliveries={deliveries}
                     onArticlesClick={() => setShowArticlesOverview(true)}
@@ -476,7 +552,7 @@ export default function Dashboard() {
 
                     <TabsContent value="consumption" className="mt-0">
                         <ConsumptionView
-                            articles={articles}
+                            articles={articlesWithStock}
                             inventories={inventories}
                             deliveries={deliveries}
                         />
@@ -532,13 +608,13 @@ export default function Dashboard() {
             <ArticlesOverview
                 open={showArticlesOverview}
                 onClose={() => setShowArticlesOverview(false)}
-                articles={articles}
+                articles={articlesWithStock}
             />
 
             <LowStockOverview
                 open={showLowStockOverview}
                 onClose={() => setShowLowStockOverview(false)}
-                articles={articles}
+                articles={articlesWithStock}
             />
 
             <InventoriesOverview

@@ -1,11 +1,15 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Package, History, Settings } from 'lucide-react';
+import { Package, History, Settings, LogOut, Store } from 'lucide-react';
 import { Toaster } from "sonner";
+import { useOutlet } from './components/outlet/OutletContext';
+import { Button } from "@/components/ui/button";
 
 export default function Layout({ children }) {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { currentOutletName, clearOutlet } = useOutlet();
     
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },
@@ -18,8 +22,39 @@ export default function Layout({ children }) {
         return location.pathname === pageUrl || location.pathname === pageUrl + '/';
     };
 
+    const handleLogout = () => {
+        clearOutlet();
+        navigate('/OutletLogin');
+    };
+
+    // Don't show layout on login page
+    if (location.pathname === createPageUrl('OutletLogin') || location.pathname === createPageUrl('AdminOverview')) {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-slate-50">
+            {/* Outlet Header Bar */}
+            {currentOutletName && (
+                <div className="bg-slate-900 text-white py-2 px-4">
+                    <div className="max-w-7xl mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                            <Store className="w-4 h-4" />
+                            <span className="font-medium">{currentOutletName}</span>
+                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={handleLogout}
+                            className="text-white hover:bg-slate-800 h-7"
+                        >
+                            <LogOut className="w-3 h-3 mr-2" />
+                            Logout
+                        </Button>
+                    </div>
+                </div>
+            )}
+            
             {children}
             
             {/* Bottom Navigation - Mobile */}
