@@ -3,11 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Search } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Search, Download, Loader2 } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { toast } from "sonner";
 
-export default function ArticlesOverview({ open, onClose, articles }) {
+export default function ArticlesOverview({ open, onClose, articles, outletName }) {
     const [sortBy, setSortBy] = useState('name');
     const [searchTerm, setSearchTerm] = useState('');
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const sortedArticles = useMemo(() => {
         let filtered = articles.filter(a => 
@@ -37,11 +41,52 @@ export default function ArticlesOverview({ open, onClose, articles }) {
         sum + ((article.current_stock || 0) * (article.purchase_price || 0)), 0
     );
 
+    const handleDownloadPDF = async () => {
+        setIsDownloading(true);
+        try {
+            const response = await base44.functions.invoke('generateArticlesPDF', {
+                articles: sortedArticles,
+                outletName: outletName
+            });
+            
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Artikel_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            toast.success('PDF heruntergeladen');
+        } catch (error) {
+            toast.error('Fehler beim Erstellen des PDFs');
+            console.error(error);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Artikel-Übersicht</DialogTitle>
+                    <div className="flex items-center justify-between">
+                        <DialogTitle>Artikel-Übersicht</DialogTitle>
+                        <Button 
+                            onClick={handleDownloadPDF} 
+                            disabled={isDownloading || sortedArticles.length === 0}
+                            size="sm"
+                            variant="outline"
+                        >
+                            {isDownloading ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4 mr-2" />
+                            )}
+                            PDF Download
+                        </Button>
+                    </div>
                 </DialogHeader>
 
                 <div className="flex gap-3 items-center">

@@ -942,6 +942,7 @@ export default function Dashboard() {
                 open={showArticlesOverview}
                 onClose={() => setShowArticlesOverview(false)}
                 articles={articlesWithStock}
+                outletName={currentOutletName}
             />
 
             <LowStockOverview
