@@ -721,10 +721,10 @@ export default function Dashboard() {
     const sortedArticles = [...filteredArticles].sort((a, b) => {
         if (sortBy === 'name') {
             return (a.name || '').localeCompare(b.name || '');
-        } else if (sortBy === 'category') {
-            const catCompare = (a.category_name || '').localeCompare(b.category_name || '');
-            if (catCompare !== 0) return catCompare;
-            return (a.name || '').localeCompare(b.name || '');
+        } else if (sortBy === 'quantity') {
+            const qtyA = a.current_stock || 0;
+            const qtyB = b.current_stock || 0;
+            return qtyB - qtyA; // Höchste Menge zuerst
         }
         return 0;
     });
@@ -808,7 +808,7 @@ export default function Dashboard() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="name">Nach Alphabet</SelectItem>
-                                    <SelectItem value="category">Nach Kategorie</SelectItem>
+                                    <SelectItem value="quantity">Nach Menge</SelectItem>
                                 </SelectContent>
                             </Select>
                             <div className="relative flex-1 sm:w-64">
