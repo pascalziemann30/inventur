@@ -393,7 +393,7 @@ export default function Dashboard() {
                         <Button 
                             variant="outline" 
                             onClick={() => setShowTransferForm(true)}
-                            disabled={articles.length === 0 || outlets.length < 2}
+                            disabled={articles.length === 0}
                         >
                             <ArrowRightLeft className="w-4 h-4 mr-2" />
                             Outlet Transfer
