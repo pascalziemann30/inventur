@@ -109,6 +109,7 @@ export default function Dashboard() {
             allOutletItems.forEach(item => {
                 const key = item.global_item_id;
                 const stock = allOutletStocks.find(s => s.outlet_item_id === item.id);
+                const globalItem = globalItems.find(g => g.id === item.global_item_id);
                 
                 if (aggregatedMap.has(key)) {
                     const existing = aggregatedMap.get(key);
@@ -123,9 +124,9 @@ export default function Dashboard() {
                     aggregatedMap.set(key, {
                         id: item.id,
                         name: item.display_name,
-                        category_id: item.category_id,
-                        category_name: item.category_name,
-                        unit_abbreviation: stock?.unit_abbreviation || '',
+                        category_id: globalItem?.category_id,
+                        category_name: globalItem?.category_name,
+                        unit_abbreviation: stock?.unit_abbreviation || globalItem?.unit_abbreviation || '',
                         supplier_id: item.supplier_id,
                         supplier_name: item.supplier_name,
                         purchase_price: item.net_purchase_price,
@@ -149,13 +150,14 @@ export default function Dashboard() {
             // Normal outlet - show only its items
             return outletItems.map(item => {
                 const stock = outletStocks.find(s => s.outlet_item_id === item.id);
+                const globalItem = globalItems.find(g => g.id === item.global_item_id);
                 return {
                     id: item.id,
                     name: item.display_name,
-                    category_id: item.category_id,
-                    category_name: item.category_name,
-                    unit_id: item.unit_id,
-                    unit_abbreviation: stock?.unit_abbreviation || '',
+                    category_id: globalItem?.category_id,
+                    category_name: globalItem?.category_name,
+                    unit_id: globalItem?.unit_id,
+                    unit_abbreviation: stock?.unit_abbreviation || globalItem?.unit_abbreviation || '',
                     supplier_id: item.supplier_id,
                     supplier_name: item.supplier_name,
                     purchase_price: item.net_purchase_price,
@@ -169,7 +171,7 @@ export default function Dashboard() {
                 };
             });
         }
-    }, [outletItems, outletStocks, allOutletItems, allOutletStocks, isAggregatorOutlet]);
+    }, [outletItems, outletStocks, allOutletItems, allOutletStocks, isAggregatorOutlet, globalItems]);
 
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
@@ -211,6 +213,11 @@ export default function Dashboard() {
     const { data: outlets = [] } = useQuery({
         queryKey: ['outlets'],
         queryFn: () => base44.entities.Outlet.list()
+    });
+
+    const { data: globalItems = [] } = useQuery({
+        queryKey: ['global-items'],
+        queryFn: () => base44.entities.GlobalItem.list()
     });
 
     const { data: wastes = [] } = useQuery({
