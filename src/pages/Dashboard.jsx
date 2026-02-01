@@ -283,6 +283,21 @@ export default function Dashboard() {
                 unit_abbreviation: data.unit_abbreviation
             });
 
+            // Step 4: Create StockMovement for initial stock if > 0
+            if (data.initial_stock && data.initial_stock > 0) {
+                await base44.entities.StockMovement.create({
+                    movement_date: format(new Date(), 'yyyy-MM-dd'),
+                    movement_type: 'inventory_adjustment',
+                    outlet_id: currentOutletId,
+                    outlet_name: currentOutletName,
+                    article_id: globalItem.id,
+                    article_name: data.name,
+                    delta_quantity: data.initial_stock,
+                    unit_abbreviation: data.unit_abbreviation,
+                    notes: 'Anfangsbestand bei Artikelanlage'
+                });
+            }
+
             return { outletItem, globalItem };
         },
         onSuccess: () => {
