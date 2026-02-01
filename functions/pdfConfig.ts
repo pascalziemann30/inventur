@@ -7,7 +7,7 @@ pdfMake.vfs = pdfFonts.pdfMake.vfs;
 // Central PDF Configuration
 export const pdfConfig = {
     defaultStyle: {
-        font: 'Helvetica',
+        font: 'Courier',
         fontSize: 10
     },
     styles: {
