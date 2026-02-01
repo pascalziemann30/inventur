@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Building2, Package, TrendingUp } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Building2, Package, Search, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 export default function AdminOverview() {
     const [selectedOutletId, setSelectedOutletId] = useState('all');
     const [sortBy, setSortBy] = useState('value');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('all');
 
     const { data: outlets = [] } = useQuery({
         queryKey: ['outlets'],
@@ -27,8 +33,13 @@ export default function AdminOverview() {
         queryFn: () => base44.entities.Article.list()
     });
 
+    const { data: categories = [] } = useQuery({
+        queryKey: ['categories'],
+        queryFn: () => base44.entities.Category.list()
+    });
+
     // Calculate aggregated data
-    const aggregatedData = React.useMemo(() => {
+    const aggregatedData = useMemo(() => {
         const dataMap = new Map();
 
         outletStocks.forEach(stock => {
@@ -68,8 +79,23 @@ export default function AdminOverview() {
         }));
     }, [outletStocks, articles, selectedOutletId]);
 
+    // Filter by search and category
+    const filteredData = useMemo(() => {
+        return aggregatedData.filter(item => {
+            const matchesSearch = !searchTerm || 
+                item.article_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesCategory = categoryFilter === 'all' || 
+                item.category_name === categoryFilter;
+            
+            return matchesSearch && matchesCategory;
+        });
+    }, [aggregatedData, searchTerm, categoryFilter]);
+
     // Sort data
-    const sortedData = React.useMemo(() => {
+    const sortedData = useMemo(() => {
+        const data = [...filteredData];
         const data = [...aggregatedData];
         switch (sortBy) {
             case 'value':
@@ -83,23 +109,32 @@ export default function AdminOverview() {
             default:
                 return data;
         }
-    }, [aggregatedData, sortBy]);
+    }, [filteredData, sortBy]);
 
-    const totalValue = aggregatedData.reduce((sum, item) => sum + item.total_value, 0);
-    const totalArticles = aggregatedData.length;
+    const totalValue = sortedData.reduce((sum, item) => sum + item.total_value, 0);
+    const totalArticles = sortedData.length;
+    const totalQuantity = sortedData.reduce((sum, item) => sum + item.total_quantity, 0);
 
     return (
         <div className="min-h-screen bg-slate-50 p-4 sm:p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                            Zentrale Übersicht
-                        </h1>
-                        <p className="text-slate-600 mt-1">
-                            Bestände und Werte über alle Outlets
-                        </p>
+                    <div className="flex items-center gap-4">
+                        <Link to={createPageUrl('Dashboard')}>
+                            <Button variant="ghost" size="sm">
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Zurück
+                            </Button>
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                                Zentrale Übersicht
+                            </h1>
+                            <p className="text-slate-600 mt-1">
+                                Bestände und Werte über alle Outlets
+                            </p>
+                        </div>
                     </div>
                     <Building2 className="w-8 h-8 text-slate-400" />
                 </div>
@@ -133,13 +168,16 @@ export default function AdminOverview() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-slate-600">
-                                Aktive Outlets
+                                Gesamtmenge
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-slate-900">
-                                {outlets.filter(o => o.is_active !== false).length}
+                                {totalQuantity.toFixed(0)}
                             </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                                {outlets.filter(o => o.is_active !== false).length} Outlets
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
@@ -147,7 +185,7 @@ export default function AdminOverview() {
                 {/* Filters */}
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-2">
                                 <Label>Outlet Filter</Label>
                                 <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
@@ -159,6 +197,22 @@ export default function AdminOverview() {
                                         {outlets.filter(o => o.is_active !== false).map(outlet => (
                                             <SelectItem key={outlet.id} value={outlet.id}>
                                                 {outlet.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Kategorie</Label>
+                                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Alle Kategorien</SelectItem>
+                                        {categories.map(cat => (
+                                            <SelectItem key={cat.id} value={cat.name}>
+                                                {cat.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -177,6 +231,18 @@ export default function AdminOverview() {
                                         <SelectItem value="category">Kategorie</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Suche</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        placeholder="Artikel suchen..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </CardContent>

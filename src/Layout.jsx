@@ -16,6 +16,10 @@ function LayoutContent({ children }) {
         { name: 'Historie', page: 'History', icon: History },
         { name: 'Einstellungen', page: 'Settings', icon: Settings },
     ];
+    
+    const adminNavigation = [
+        { name: 'Zentrale Übersicht', page: 'AdminOverview', icon: Store }
+    ];
 
     const isActive = (page) => {
         const pageUrl = createPageUrl(page);
@@ -38,9 +42,19 @@ function LayoutContent({ children }) {
             {currentOutletName && (
                 <div className="bg-slate-900 text-white py-2 px-4">
                     <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm">
-                            <Store className="w-4 h-4" />
-                            <span className="font-medium">{currentOutletName}</span>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 text-sm">
+                                <Store className="w-4 h-4" />
+                                <span className="font-medium">{currentOutletName}</span>
+                            </div>
+                            <div className="hidden sm:block h-4 w-px bg-slate-700" />
+                            <Link 
+                                to={createPageUrl('AdminOverview')}
+                                className="hidden sm:flex items-center gap-2 text-xs text-slate-300 hover:text-white transition-colors"
+                            >
+                                <Store className="w-3 h-3" />
+                                Admin Übersicht
+                            </Link>
                         </div>
                         <Button 
                             variant="ghost" 
