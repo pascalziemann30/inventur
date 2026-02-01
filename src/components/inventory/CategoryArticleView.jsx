@@ -6,30 +6,20 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, AlertCircle, Package } from 'lucide-react';
 import { format } from 'date-fns';
 
-const categoryColors = {
-    'Getränke': 'bg-blue-50 border-blue-200',
-    'Lebensmittel': 'bg-green-50 border-green-200',
-    'Fleisch & Wurst': 'bg-red-50 border-red-200',
-    'Milchprodukte': 'bg-yellow-50 border-yellow-200',
-    'Backwaren': 'bg-orange-50 border-orange-200',
-    'Obst & Gemüse': 'bg-emerald-50 border-emerald-200',
-    'Tiefkühl': 'bg-cyan-50 border-cyan-200',
-    'Süßwaren': 'bg-pink-50 border-pink-200',
-    'Gewürze': 'bg-amber-50 border-amber-200',
-    'Sonstiges': 'bg-slate-50 border-slate-200'
-};
-
-const categoryBadgeColors = {
-    'Getränke': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Lebensmittel': 'bg-green-100 text-green-800 border-green-200',
-    'Fleisch & Wurst': 'bg-red-100 text-red-800 border-red-200',
-    'Milchprodukte': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'Backwaren': 'bg-orange-100 text-orange-800 border-orange-200',
-    'Obst & Gemüse': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    'Tiefkühl': 'bg-cyan-100 text-cyan-800 border-cyan-200',
-    'Süßwaren': 'bg-pink-100 text-pink-800 border-pink-200',
-    'Gewürze': 'bg-amber-100 text-amber-800 border-amber-200',
-    'Sonstiges': 'bg-slate-100 text-slate-800 border-slate-200'
+const getCategoryColor = (category) => {
+    const colors = {
+        'Getränke': { bg: 'bg-blue-50', border: 'border-blue-300', badge: 'bg-blue-500 text-white' },
+        'Lebensmittel': { bg: 'bg-green-50', border: 'border-green-300', badge: 'bg-green-600 text-white' },
+        'Fleisch & Wurst': { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-600 text-white' },
+        'Milchprodukte': { bg: 'bg-yellow-50', border: 'border-yellow-300', badge: 'bg-yellow-500 text-white' },
+        'Backwaren': { bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-orange-600 text-white' },
+        'Obst & Gemüse': { bg: 'bg-emerald-50', border: 'border-emerald-300', badge: 'bg-emerald-600 text-white' },
+        'Tiefkühl': { bg: 'bg-cyan-50', border: 'border-cyan-300', badge: 'bg-cyan-600 text-white' },
+        'Süßwaren': { bg: 'bg-pink-50', border: 'border-pink-300', badge: 'bg-pink-600 text-white' },
+        'Gewürze': { bg: 'bg-amber-50', border: 'border-amber-300', badge: 'bg-amber-600 text-white' },
+        'Sonstiges': { bg: 'bg-slate-50', border: 'border-slate-300', badge: 'bg-slate-600 text-white' }
+    };
+    return colors[category] || { bg: 'bg-white', border: 'border-slate-200', badge: 'bg-slate-600 text-white' };
 };
 
 export default function CategoryArticleView({ articles, inventories, onEdit, onDelete, isAggregator }) {
@@ -84,18 +74,20 @@ export default function CategoryArticleView({ articles, inventories, onEdit, onD
                     const categoryArticles = groupedArticles[category];
                     const lowStockCount = categoryArticles.filter(isLowStock).length;
 
+                    const colors = getCategoryColor(category);
+                    
                     return (
                         <AccordionItem 
                             key={category} 
                             value={category}
-                            className={`border rounded-lg mb-3 ${categoryColors[category] || 'bg-white border-slate-200'}`}
+                            className={`border-2 rounded-lg mb-3 ${colors.bg} ${colors.border}`}
                         >
                             <AccordionTrigger className="px-4 py-3 hover:opacity-90">
                                 <div className="flex items-center justify-between w-full pr-4">
                                     <div className="flex items-center gap-3">
                                         <Package className="w-5 h-5 text-slate-700" />
                                         <span className="font-semibold text-slate-900">{category}</span>
-                                        <Badge variant="outline" className={`text-xs ${categoryBadgeColors[category] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>
+                                        <Badge className={`text-xs ${colors.badge}`}>
                                             {categoryArticles.length} Artikel
                                         </Badge>
                                         {lowStockCount > 0 && (
