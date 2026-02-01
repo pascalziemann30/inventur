@@ -5,27 +5,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Trash2, Plus, AlertTriangle, Edit2 } from 'lucide-react';
+import { Search, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function WasteForm({ open, onClose, onSave, articles, suppliers }) {
     const [wasteDate, setWasteDate] = useState(new Date().toISOString().split('T')[0]);
-    const [notes, setNotes] = useState('');
+    const [selectedSupplierId, setSelectedSupplierId] = useState('');
+    const [globalReason, setGlobalReason] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedSupplierId, setSelectedSupplierId] = useState('all');
-    const [wasteList, setWasteList] = useState([]);
-    const [addingArticleId, setAddingArticleId] = useState(null);
-    const [tempQuantity, setTempQuantity] = useState('');
-    const [tempReason, setTempReason] = useState('');
-    const [editingItemId, setEditingItemId] = useState(null);
+    const [quantities, setQuantities] = useState({});
 
     // Filter articles by selected supplier
     const supplierArticles = useMemo(() => {
-        if (selectedSupplierId === 'all') {
-            return articles.filter(a => a.is_active !== false);
-        }
+        if (!selectedSupplierId) return [];
         return articles.filter(a => a.supplier_id === selectedSupplierId && a.is_active !== false);
     }, [selectedSupplierId, articles]);
 
@@ -37,89 +31,55 @@ export default function WasteForm({ open, onClose, onSave, articles, suppliers }
         );
     }, [supplierArticles, searchTerm]);
 
-    const handleStartAddingArticle = (article) => {
-        setAddingArticleId(article.id);
-        setTempQuantity('');
-        setTempReason('');
-    };
-
-    const handleConfirmAddArticle = () => {
-        if (!addingArticleId || !tempQuantity || parseFloat(tempQuantity) <= 0 || !tempReason.trim()) {
-            return;
-        }
-
-        const article = articles.find(a => a.id === addingArticleId);
-        if (!article) return;
-
-        // Check if article already in waste list
-        const existingIndex = wasteList.findIndex(item => item.article_id === article.id);
-        
-        if (existingIndex >= 0) {
-            // Add quantity and append reason
-            const updatedList = [...wasteList];
-            const existingReason = updatedList[existingIndex].reason;
-            updatedList[existingIndex] = {
-                ...updatedList[existingIndex],
-                quantity: updatedList[existingIndex].quantity + parseFloat(tempQuantity),
-                reason: existingReason + '; ' + tempReason
-            };
-            setWasteList(updatedList);
-        } else {
-            // Add as new item
-            setWasteList([...wasteList, {
+    // Get items with quantities > 0
+    const selectedItems = useMemo(() => {
+        return filteredArticles
+            .filter(article => quantities[article.id] && parseFloat(quantities[article.id]) > 0)
+            .map(article => ({
                 article_id: article.id,
                 article_name: article.name,
                 supplier_name: article.supplier_name,
-                quantity: parseFloat(tempQuantity),
+                quantity: parseFloat(quantities[article.id]),
                 unit_abbreviation: article.unit_abbreviation,
-                reason: tempReason
-            }]);
-        }
+                reason: globalReason
+            }));
+    }, [filteredArticles, quantities, globalReason]);
 
-        setAddingArticleId(null);
-        setTempQuantity('');
-        setTempReason('');
+    const handleQuantityChange = (articleId, value) => {
+        setQuantities(prev => ({
+            ...prev,
+            [articleId]: value
+        }));
     };
 
-    const handleRemoveFromWasteList = (articleId) => {
-        setWasteList(wasteList.filter(item => item.article_id !== articleId));
-    };
-
-    const handleStartEditItem = (item) => {
-        setEditingItemId(item.article_id);
-        setTempQuantity(item.quantity.toString());
-        setTempReason(item.reason);
-    };
-
-    const handleConfirmEditItem = () => {
-        if (!editingItemId || !tempQuantity || parseFloat(tempQuantity) <= 0 || !tempReason.trim()) {
-            return;
-        }
-
-        setWasteList(wasteList.map(item => 
-            item.article_id === editingItemId 
-                ? { ...item, quantity: parseFloat(tempQuantity), reason: tempReason }
-                : item
-        ));
-
-        setEditingItemId(null);
-        setTempQuantity('');
-        setTempReason('');
+    const handleReset = () => {
+        setQuantities({});
+        setGlobalReason('');
+        setSearchTerm('');
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        const validItems = wasteList.filter(item => item.quantity > 0 && item.reason?.trim());
-        if (validItems.length === 0) {
-            alert('Bitte mindestens einen Artikel mit Menge und Grund hinzufügen');
+        if (!selectedSupplierId) {
+            alert('Bitte Lieferant auswählen');
+            return;
+        }
+
+        if (selectedItems.length === 0) {
+            alert('Bitte mindestens einen Artikel mit Menge > 0 eingeben');
+            return;
+        }
+
+        if (!globalReason.trim()) {
+            alert('Bitte Grund angeben');
             return;
         }
 
         onSave({
             waste_date: wasteDate,
-            items: validItems,
-            notes,
+            items: selectedItems,
+            notes: '',
             status: 'draft'
         });
 
@@ -128,19 +88,15 @@ export default function WasteForm({ open, onClose, onSave, articles, suppliers }
 
     const resetForm = () => {
         setWasteDate(new Date().toISOString().split('T')[0]);
-        setNotes('');
+        setSelectedSupplierId('');
+        setGlobalReason('');
         setSearchTerm('');
-        setSelectedSupplierId('all');
-        setWasteList([]);
-        setAddingArticleId(null);
-        setTempQuantity('');
-        setTempReason('');
-        setEditingItemId(null);
+        setQuantities({});
     };
 
     return (
         <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="px-6 pt-6 pb-4 border-b">
                     <DialogTitle className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-orange-600" />
@@ -150,171 +106,158 @@ export default function WasteForm({ open, onClose, onSave, articles, suppliers }
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                     <div className="overflow-y-auto px-6 py-4 space-y-6 flex-1">
-                        {/* Waste Details */}
-                        <div className="space-y-2">
-                            <Label>Datum *</Label>
-                            <Input
-                                type="date"
-                                value={wasteDate}
-                                onChange={(e) => setWasteDate(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        {/* Supplier & Article Selection */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4 text-orange-600" />
-                                <h3 className="font-semibold text-sm text-slate-900">Artikel hinzufügen</h3>
+                        {/* Header Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Datum *</Label>
+                                <Input
+                                    type="date"
+                                    value={wasteDate}
+                                    onChange={(e) => setWasteDate(e.target.value)}
+                                    required
+                                />
                             </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Lieferant (Filter)</Label>
-                                    <Select value={selectedSupplierId} onValueChange={(value) => {
+
+                            <div className="space-y-2">
+                                <Label>Lieferant *</Label>
+                                <Select 
+                                    value={selectedSupplierId} 
+                                    onValueChange={(value) => {
                                         setSelectedSupplierId(value);
                                         setSearchTerm('');
-                                        setAddingArticleId(null);
-                                    }}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Alle Lieferanten</SelectItem>
-                                            {suppliers?.filter(s => s.is_active !== false).map(supplier => (
-                                                <SelectItem key={supplier.id} value={supplier.id}>
-                                                    {supplier.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label>Artikel suchen</Label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <Input
-                                            placeholder="Artikel suchen..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-10"
-                                        />
-                                    </div>
-                                </div>
+                                        setQuantities({});
+                                    }}
+                                    required
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Lieferant wählen..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {suppliers?.filter(s => s.is_active !== false).map(supplier => (
+                                            <SelectItem key={supplier.id} value={supplier.id}>
+                                                {supplier.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
 
-                            {/* Article List */}
-                            {searchTerm && (
-                                <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
+                            <div className="space-y-2">
+                                <Label>Grund *</Label>
+                                <Input
+                                    value={globalReason}
+                                    onChange={(e) => setGlobalReason(e.target.value)}
+                                    placeholder="z.B. abgelaufen, Bruch..."
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Article List */}
+                        {selectedSupplierId && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-sm text-slate-900">
+                                        Artikel erfassen
+                                    </h3>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleReset}
+                                        className="text-slate-600 hover:text-slate-900"
+                                    >
+                                        <RotateCcw className="w-4 h-4 mr-2" />
+                                        Zurücksetzen
+                                    </Button>
+                                </div>
+
+                                {/* Search */}
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        placeholder="Artikel suchen..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
+
+                                {/* Article Table */}
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
                                     {filteredArticles.length > 0 ? (
-                                        filteredArticles.map(article => (
-                                            <div key={article.id} className="border-b last:border-b-0">
-                                                {addingArticleId === article.id ? (
-                                                    <div className="p-4 bg-orange-50 space-y-3">
-                                                        <div className="flex items-center justify-between">
-                                                            <div>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-12">#</TableHead>
+                                                    <TableHead>Artikel</TableHead>
+                                                    <TableHead className="hidden sm:table-cell">Kategorie</TableHead>
+                                                    <TableHead className="w-32">Menge *</TableHead>
+                                                    <TableHead className="w-24">Einheit</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {filteredArticles.map((article, index) => {
+                                                    const hasQuantity = quantities[article.id] && parseFloat(quantities[article.id]) > 0;
+                                                    return (
+                                                        <TableRow 
+                                                            key={article.id}
+                                                            className={hasQuantity ? 'bg-orange-50' : ''}
+                                                        >
+                                                            <TableCell className="text-slate-500 text-sm">
+                                                                {index + 1}
+                                                            </TableCell>
+                                                            <TableCell>
                                                                 <div className="font-medium text-sm">{article.name}</div>
-                                                                <div className="text-xs text-slate-500">
-                                                                    {article.supplier_name} • {article.unit_abbreviation}
+                                                                <div className="text-xs text-slate-500 sm:hidden">
+                                                                    {article.category_name}
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs">Menge *</Label>
+                                                            </TableCell>
+                                                            <TableCell className="text-sm text-slate-600 hidden sm:table-cell">
+                                                                {article.category_name}
+                                                            </TableCell>
+                                                            <TableCell>
                                                                 <Input
                                                                     type="number"
                                                                     step="0.01"
-                                                                    min="0.01"
-                                                                    value={tempQuantity}
-                                                                    onChange={(e) => setTempQuantity(e.target.value)}
+                                                                    min="0"
+                                                                    value={quantities[article.id] || ''}
+                                                                    onChange={(e) => handleQuantityChange(article.id, e.target.value)}
                                                                     placeholder="0"
                                                                     className="h-9"
                                                                 />
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <Label className="text-xs">Grund *</Label>
-                                                                <Input
-                                                                    value={tempReason}
-                                                                    onChange={(e) => setTempReason(e.target.value)}
-                                                                    placeholder="z.B. abgelaufen"
-                                                                    className="h-9"
-                                                                    onKeyPress={(e) => {
-                                                                        if (e.key === 'Enter') {
-                                                                            e.preventDefault();
-                                                                            handleConfirmAddArticle();
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                onClick={handleConfirmAddArticle}
-                                                                disabled={!tempQuantity || parseFloat(tempQuantity) <= 0 || !tempReason.trim()}
-                                                                className="bg-orange-600 hover:bg-orange-700 flex-1"
-                                                            >
-                                                                <Plus className="w-4 h-4 mr-1" />
-                                                                Hinzufügen
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setAddingArticleId(null);
-                                                                    setTempQuantity('');
-                                                                    setTempReason('');
-                                                                }}
-                                                            >
-                                                                Abbrechen
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleStartAddingArticle(article)}
-                                                        className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between group"
-                                                    >
-                                                        <div>
-                                                            <div className="font-medium text-sm">{article.name}</div>
-                                                            <div className="text-xs text-slate-500">
-                                                                {article.supplier_name} • {article.category_name} • {article.unit_abbreviation}
-                                                            </div>
-                                                        </div>
-                                                        {wasteList.some(item => item.article_id === article.id) ? (
-                                                            <Badge variant="secondary" className="text-xs">
-                                                                In Liste
-                                                            </Badge>
-                                                        ) : (
-                                                            <Plus className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
-                                                        )}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))
+                                                            </TableCell>
+                                                            <TableCell className="text-sm text-slate-600">
+                                                                {article.unit_abbreviation}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
                                     ) : (
-                                        <div className="p-4 text-center text-sm text-slate-500">
-                                            Keine Artikel gefunden
+                                        <div className="p-8 text-center text-slate-500">
+                                            {searchTerm ? 'Keine Artikel gefunden' : 'Dieser Lieferant hat keine Artikel'}
                                         </div>
                                     )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
-                        {/* Waste List */}
-                        {wasteList.length > 0 && (
+                        {/* Review / Selected Items */}
+                        {selectedItems.length > 0 && (
                             <Card className="border-2 border-orange-300 bg-orange-50">
                                 <div className="p-4 space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <AlertTriangle className="w-4 h-4 text-orange-700" />
-                                        <h3 className="font-semibold text-sm text-slate-900">
-                                            Waste-Liste ({wasteList.length} Artikel)
-                                        </h3>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <AlertTriangle className="w-4 h-4 text-orange-700" />
+                                            <h3 className="font-semibold text-sm text-slate-900">
+                                                Zur Buchung ({selectedItems.length} Artikel)
+                                            </h3>
+                                        </div>
+                                        <Badge variant="secondary" className="bg-orange-200 text-orange-800">
+                                            Grund: {globalReason}
+                                        </Badge>
                                     </div>
                                     
                                     <div className="border border-orange-200 rounded-lg overflow-hidden bg-white">
@@ -322,110 +265,22 @@ export default function WasteForm({ open, onClose, onSave, articles, suppliers }
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Artikel</TableHead>
-                                                    <TableHead className="hidden sm:table-cell">Lieferant</TableHead>
-                                                    <TableHead className="w-24">Menge</TableHead>
+                                                    <TableHead className="text-right">Menge</TableHead>
                                                     <TableHead className="w-20">Einheit</TableHead>
-                                                    <TableHead>Grund</TableHead>
-                                                    <TableHead className="w-20"></TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {wasteList.map(item => (
+                                                {selectedItems.map(item => (
                                                     <TableRow key={item.article_id}>
-                                                        {editingItemId === item.article_id ? (
-                                                            <>
-                                                                <TableCell colSpan={6} className="p-4 bg-orange-50">
-                                                                    <div className="space-y-3">
-                                                                        <div className="font-medium text-sm">{item.article_name}</div>
-                                                                        <div className="grid grid-cols-2 gap-2">
-                                                                            <div className="space-y-1">
-                                                                                <Label className="text-xs">Menge *</Label>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    step="0.01"
-                                                                                    min="0.01"
-                                                                                    value={tempQuantity}
-                                                                                    onChange={(e) => setTempQuantity(e.target.value)}
-                                                                                    className="h-8"
-                                                                                />
-                                                                            </div>
-                                                                            <div className="space-y-1">
-                                                                                <Label className="text-xs">Grund *</Label>
-                                                                                <Input
-                                                                                    value={tempReason}
-                                                                                    onChange={(e) => setTempReason(e.target.value)}
-                                                                                    className="h-8"
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex gap-2">
-                                                                            <Button
-                                                                                type="button"
-                                                                                size="sm"
-                                                                                onClick={handleConfirmEditItem}
-                                                                                disabled={!tempQuantity || parseFloat(tempQuantity) <= 0 || !tempReason.trim()}
-                                                                                className="bg-orange-600 hover:bg-orange-700"
-                                                                            >
-                                                                                Speichern
-                                                                            </Button>
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                onClick={() => {
-                                                                                    setEditingItemId(null);
-                                                                                    setTempQuantity('');
-                                                                                    setTempReason('');
-                                                                                }}
-                                                                            >
-                                                                                Abbrechen
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <TableCell>
-                                                                    <div className="font-medium text-sm">{item.article_name}</div>
-                                                                    <div className="text-xs text-slate-500 sm:hidden">
-                                                                        {item.supplier_name}
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-sm text-slate-600 hidden sm:table-cell">
-                                                                    {item.supplier_name}
-                                                                </TableCell>
-                                                                <TableCell className="font-medium">{item.quantity}</TableCell>
-                                                                <TableCell className="text-sm text-slate-600">
-                                                                    {item.unit_abbreviation}
-                                                                </TableCell>
-                                                                <TableCell className="text-sm text-slate-600 max-w-xs truncate">
-                                                                    {item.reason}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <div className="flex gap-1">
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => handleStartEditItem(item)}
-                                                                            className="h-8 w-8"
-                                                                        >
-                                                                            <Edit2 className="w-4 h-4 text-slate-600" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => handleRemoveFromWasteList(item.article_id)}
-                                                                            className="h-8 w-8"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4 text-red-600" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </TableCell>
-                                                            </>
-                                                        )}
+                                                        <TableCell className="font-medium text-sm">
+                                                            {item.article_name}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-medium">
+                                                            {item.quantity}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-slate-600">
+                                                            {item.unit_abbreviation}
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -434,30 +289,27 @@ export default function WasteForm({ open, onClose, onSave, articles, suppliers }
                                 </div>
                             </Card>
                         )}
-
-                        {/* Notes */}
-                        <div className="space-y-2">
-                            <Label>Bemerkungen</Label>
-                            <Textarea
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Optional..."
-                                rows={2}
-                            />
-                        </div>
                     </div>
 
                     {/* Footer */}
                     <div className="flex gap-3 px-6 py-4 border-t bg-white sticky bottom-0">
-                        <Button type="button" variant="outline" onClick={() => { onClose(); resetForm(); }} className="flex-1">
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => { 
+                                onClose(); 
+                                resetForm(); 
+                            }} 
+                            className="flex-1"
+                        >
                             Abbrechen
                         </Button>
                         <Button 
                             type="submit" 
                             className="flex-1 bg-orange-600 hover:bg-orange-700"
-                            disabled={wasteList.length === 0}
+                            disabled={selectedItems.length === 0 || !globalReason.trim()}
                         >
-                            Waste buchen ({wasteList.length})
+                            Waste buchen ({selectedItems.length})
                         </Button>
                     </div>
                 </form>
