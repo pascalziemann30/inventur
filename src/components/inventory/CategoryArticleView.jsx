@@ -82,8 +82,9 @@ export default function CategoryArticleView({ articles, inventories, onEdit, onD
                                             <TableHead>Artikel</TableHead>
                                             <TableHead className="hidden sm:table-cell">Kategorie</TableHead>
                                             <TableHead className="text-right">Bestand</TableHead>
+                                            {isAggregator && <TableHead className="hidden lg:table-cell">Outlets</TableHead>}
                                             <TableHead className="hidden md:table-cell">Letzte Inventur</TableHead>
-                                            <TableHead className="text-right">Aktionen</TableHead>
+                                            {!isAggregator && <TableHead className="text-right">Aktionen</TableHead>}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -113,29 +114,42 @@ export default function CategoryArticleView({ articles, inventories, onEdit, onD
                                                             {article.current_stock?.toFixed(2) || '0.00'} {article.unit_abbreviation}
                                                         </span>
                                                     </TableCell>
+                                                    {isAggregator && article.outlets && (
+                                                        <TableCell className="hidden lg:table-cell">
+                                                            <div className="space-y-1">
+                                                                {article.outlets.map(o => (
+                                                                    <div key={o.outlet_id} className="text-xs text-slate-600">
+                                                                        {o.outlet_name}: <span className="font-medium">{o.stock?.toFixed(2) || 0}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell className="hidden md:table-cell text-slate-500 text-sm">
                                                         {lastInv ? format(new Date(lastInv), 'dd.MM.yyyy') : '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => onEdit(article)}
-                                                                className="h-8 w-8"
-                                                            >
-                                                                <Pencil className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => onDelete(article)}
-                                                                className="h-8 w-8 text-red-600 hover:text-red-700"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
+                                                    {!isAggregator && (
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => onEdit(article)}
+                                                                    className="h-8 w-8"
+                                                                >
+                                                                    <Pencil className="w-4 h-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => onDelete(article)}
+                                                                    className="h-8 w-8 text-red-600 hover:text-red-700"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             );
                                         })}
