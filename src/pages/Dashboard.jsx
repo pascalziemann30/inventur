@@ -100,6 +100,11 @@ export default function Dashboard() {
         enabled: !!currentOutletId && !isAggregatorOutlet
     });
 
+    const { data: globalItems = [] } = useQuery({
+        queryKey: ['global-items'],
+        queryFn: () => base44.entities.GlobalItem.list()
+    });
+
     // Merge outlet items with outlet stock
     const articlesWithStock = React.useMemo(() => {
         if (isAggregatorOutlet) {
@@ -213,11 +218,6 @@ export default function Dashboard() {
     const { data: outlets = [] } = useQuery({
         queryKey: ['outlets'],
         queryFn: () => base44.entities.Outlet.list()
-    });
-
-    const { data: globalItems = [] } = useQuery({
-        queryKey: ['global-items'],
-        queryFn: () => base44.entities.GlobalItem.list()
     });
 
     const { data: wastes = [] } = useQuery({
