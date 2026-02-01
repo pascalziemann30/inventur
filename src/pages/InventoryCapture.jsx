@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { useOutlet } from '../components/outlet/OutletContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ export default function InventoryCapture() {
     const queryClient = useQueryClient();
     const [searchParams] = useSearchParams();
     const sessionId = searchParams.get('session');
+    const { currentOutletId, currentOutletName } = useOutlet();
 
     const [currentSession, setCurrentSession] = useState(null);
     const [entries, setEntries] = useState([]);
@@ -33,25 +35,36 @@ export default function InventoryCapture() {
     const [periodType, setPeriodType] = useState('weekly');
     const [employeeName, setEmployeeName] = useState('');
 
+    // Redirect to login if no outlet selected
+    useEffect(() => {
+        if (!currentOutletId) {
+            navigate('/OutletLogin');
+        }
+    }, [currentOutletId, navigate]);
+
     // Data queries
-    const { data: articles = [] } = useQuery({
-        queryKey: ['articles'],
-        queryFn: () => base44.entities.Article.list()
+    const { data: outletItems = [] } = useQuery({
+        queryKey: ['outlet-items', currentOutletId],
+        queryFn: () => base44.entities.OutletItem.filter({ outlet_id: currentOutletId }),
+        enabled: !!currentOutletId
     });
 
-    const { data: inventories = [] } = useQuery({
-        queryKey: ['inventories'],
-        queryFn: () => base44.entities.Inventory.list('-inventory_date')
+    const { data: outletStocks = [] } = useQuery({
+        queryKey: ['outlet-stocks', currentOutletId],
+        queryFn: () => base44.entities.OutletStock.filter({ outlet_id: currentOutletId }),
+        enabled: !!currentOutletId
     });
 
     const { data: deliveries = [] } = useQuery({
-        queryKey: ['deliveries'],
-        queryFn: () => base44.entities.Delivery.list('-delivery_date')
+        queryKey: ['deliveries', currentOutletId],
+        queryFn: () => base44.entities.Delivery.filter({ outlet_id: currentOutletId }, '-delivery_date'),
+        enabled: !!currentOutletId
     });
 
     const { data: sessions = [] } = useQuery({
-        queryKey: ['inventory-sessions'],
-        queryFn: () => base44.entities.InventorySession.list('-created_date')
+        queryKey: ['inventory-sessions', currentOutletId],
+        queryFn: () => base44.entities.InventorySession.filter({ outlet_id: currentOutletId }, '-created_date'),
+        enabled: !!currentOutletId
     });
 
     // Load existing session
@@ -68,40 +81,43 @@ export default function InventoryCapture() {
 
     // Filter and sort articles based on inventory interval
     const sortedArticles = useMemo(() => {
-        if (!articles.length) return [];
+        if (!outletItems.length) return [];
 
-        const activeArticles = articles.filter(a => a.is_active !== false);
+        const activeItems = outletItems.filter(a => a.is_active !== false);
 
         // Filter by period type if session exists
-        let filteredArticles = activeArticles;
+        let filteredItems = activeItems;
         if (currentSession?.period_type && currentSession.period_type !== 'adhoc') {
-            filteredArticles = activeArticles.filter(article => 
-                article.inventory_intervals?.includes(currentSession.period_type)
+            filteredItems = activeItems.filter(item => 
+                item.inventory_intervals?.includes(currentSession.period_type)
             );
         }
 
-        const articlesWithFrequency = filteredArticles.map(article => {
-            // Count consumption from inventories
-            const articleInventories = inventories.filter(inv => inv.article_id === article.id);
-            const consumptionCount = articleInventories.length;
+        const itemsWithFrequency = filteredItems.map(item => {
+            const stock = outletStocks.find(s => s.outlet_item_id === item.id);
 
             // Count deliveries
             const deliveryCount = deliveries.filter(del => 
-                del.items?.some(item => item.article_id === article.id)
+                del.items?.some(delItem => delItem.article_id === item.id)
             ).length;
 
             // Total activity = higher is more important
-            const frequency = consumptionCount + deliveryCount;
+            const frequency = deliveryCount;
 
             return {
-                ...article,
+                id: item.id,
+                name: item.display_name,
+                unit_abbreviation: stock?.unit_abbreviation || '',
+                current_stock: stock?.on_hand_quantity || 0,
+                inventory_intervals: item.inventory_intervals || [],
+                is_active: item.is_active,
                 frequency
             };
         });
 
         // Sort by frequency (descending)
-        return articlesWithFrequency.sort((a, b) => b.frequency - a.frequency);
-    }, [articles, inventories, deliveries, currentSession]);
+        return itemsWithFrequency.sort((a, b) => b.frequency - a.frequency);
+    }, [outletItems, outletStocks, deliveries, currentSession]);
 
     // Create new session
     const createSessionMutation = useMutation({
@@ -117,6 +133,8 @@ export default function InventoryCapture() {
 
             const sessionData = {
                 ...data,
+                outlet_id: currentOutletId,
+                outlet_name: currentOutletName,
                 entries: initialEntries,
                 status: 'in_progress',
                 total_items_counted: 0
@@ -128,7 +146,7 @@ export default function InventoryCapture() {
             setCurrentSession(newSession);
             setEntries(newSession.entries || []);
             setShowNewSessionForm(false);
-            queryClient.invalidateQueries({ queryKey: ['inventory-sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory-sessions', currentOutletId] });
             toast.success('Inventur-Session gestartet');
         }
     });
@@ -137,7 +155,7 @@ export default function InventoryCapture() {
     const updateSessionMutation = useMutation({
         mutationFn: ({ id, data }) => base44.entities.InventorySession.update(id, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['inventory-sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['inventory-sessions', currentOutletId] });
         }
     });
 
@@ -146,26 +164,39 @@ export default function InventoryCapture() {
         mutationFn: async () => {
             const validEntries = entries.filter(e => e.counted_quantity !== null);
             
-            // Create inventory records and update article stocks
+            // Update outlet stocks and create stock movements
             for (const entry of validEntries) {
-                const inventoryData = {
-                    article_id: entry.article_id,
-                    article_name: entry.article_name,
-                    counted_quantity: entry.counted_quantity,
-                    unit_abbreviation: entry.unit_abbreviation,
-                    inventory_date: currentSession.session_date,
-                    inventory_type: currentSession.period_type,
-                    previous_stock: entry.last_stock,
-                    difference: entry.difference,
-                    notes: `Erfasst von: ${currentSession.employee_name || 'System'}`
-                };
-                
-                await base44.entities.Inventory.create(inventoryData);
-                
-                // Update article stock
-                await base44.entities.Article.update(entry.article_id, {
-                    current_stock: entry.counted_quantity
+                // Update OutletStock
+                const stocks = await base44.entities.OutletStock.filter({ 
+                    outlet_id: currentOutletId,
+                    outlet_item_id: entry.article_id
                 });
+                
+                if (stocks.length > 0) {
+                    const stock = stocks[0];
+                    const oldQuantity = stock.on_hand_quantity || 0;
+                    const difference = entry.counted_quantity - oldQuantity;
+                    
+                    await base44.entities.OutletStock.update(stock.id, {
+                        on_hand_quantity: entry.counted_quantity
+                    });
+
+                    // Create stock movement for the adjustment
+                    if (difference !== 0) {
+                        const outletItem = outletItems.find(oi => oi.id === entry.article_id);
+                        await base44.entities.StockMovement.create({
+                            movement_date: currentSession.session_date,
+                            movement_type: 'inventory_adjustment',
+                            outlet_id: currentOutletId,
+                            outlet_name: currentOutletName,
+                            article_id: outletItem?.global_item_id || entry.article_id,
+                            article_name: entry.article_name,
+                            delta_quantity: difference,
+                            unit_abbreviation: entry.unit_abbreviation,
+                            notes: `Inventur ${currentSession.period_type} - Mitarbeiter: ${currentSession.employee_name || 'System'}`
+                        });
+                    }
+                }
             }
 
             // Mark session as completed
@@ -175,9 +206,8 @@ export default function InventoryCapture() {
             });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['inventories'] });
-            queryClient.invalidateQueries({ queryKey: ['articles'] });
-            queryClient.invalidateQueries({ queryKey: ['inventory-sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['inventory-sessions', currentOutletId] });
             toast.success('Inventur erfolgreich abgeschlossen!');
             navigate(createPageUrl('Dashboard'));
         }
