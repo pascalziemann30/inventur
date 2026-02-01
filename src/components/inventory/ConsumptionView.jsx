@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, Truck, AlertTriangle, ArrowRightLeft } from 'lucide-react';
-import { subDays, subWeeks, subMonths, isAfter, parseISO } from 'date-fns';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TrendingDown, Truck, AlertTriangle, ArrowRightLeft, Calendar } from 'lucide-react';
+import { subDays, subWeeks, subMonths, isAfter, parseISO, format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { useOutlet } from '../outlet/OutletContext';
@@ -13,6 +15,9 @@ export default function ConsumptionView({ articles }) {
     const { currentOutletId } = useOutlet();
     const [period, setPeriod] = useState('week');
     const [expandedRows, setExpandedRows] = useState(new Set());
+    const [customPeriod, setCustomPeriod] = useState(false);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const { data: inventorySessions = [] } = useQuery({
         queryKey: ['inventory-sessions', currentOutletId],
@@ -39,6 +44,9 @@ export default function ConsumptionView({ articles }) {
     });
 
     const periodStart = useMemo(() => {
+        if (customPeriod && startDate) {
+            return parseISO(startDate);
+        }
         const now = new Date();
         switch(period) {
             case 'week': return subWeeks(now, 1);
@@ -47,13 +55,25 @@ export default function ConsumptionView({ articles }) {
             case 'year': return subMonths(now, 12);
             default: return subWeeks(now, 1);
         }
-    }, [period]);
+    }, [period, customPeriod, startDate]);
+
+    const periodEnd = useMemo(() => {
+        if (customPeriod && endDate) {
+            return parseISO(endDate);
+        }
+        return new Date();
+    }, [customPeriod, endDate]);
 
     const consumptionData = useMemo(() => {
+        if (!articles || articles.length === 0) return [];
+        
         return articles.map(article => {
             // Inventuren im Zeitraum
             const periodSessions = inventorySessions
-                .filter(session => isAfter(parseISO(session.session_date), periodStart))
+                .filter(session => {
+                    const sessionDate = parseISO(session.session_date);
+                    return isAfter(sessionDate, periodStart) && sessionDate <= periodEnd;
+                })
                 .sort((a, b) => new Date(a.session_date) - new Date(b.session_date));
 
             const inventoryEntries = periodSessions.flatMap(session => 
@@ -62,25 +82,37 @@ export default function ConsumptionView({ articles }) {
 
             // Lieferungen im Zeitraum
             const periodDeliveries = deliveries
-                .filter(del => isAfter(parseISO(del.delivery_date), periodStart))
+                .filter(del => {
+                    const deliveryDate = parseISO(del.delivery_date);
+                    return isAfter(deliveryDate, periodStart) && deliveryDate <= periodEnd;
+                })
                 .flatMap(del => del.items?.filter(item => item.article_id === article.id) || []);
 
             const totalDelivered = periodDeliveries.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
             // Waste im Zeitraum
             const periodWastes = wastes
-                .filter(w => isAfter(parseISO(w.waste_date), periodStart))
+                .filter(w => {
+                    const wasteDate = parseISO(w.waste_date);
+                    return isAfter(wasteDate, periodStart) && wasteDate <= periodEnd;
+                })
                 .flatMap(w => w.items?.filter(item => item.article_id === article.id) || []);
 
             const totalWaste = periodWastes.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
             // Outlet Transfers im Zeitraum
             const transfersOut = transfers
-                .filter(t => t.from_outlet_id === currentOutletId && isAfter(parseISO(t.transfer_date), periodStart))
+                .filter(t => {
+                    const transferDate = parseISO(t.transfer_date);
+                    return t.from_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
+                })
                 .flatMap(t => t.items?.filter(item => item.article_id === article.id) || []);
 
             const transfersIn = transfers
-                .filter(t => t.to_outlet_id === currentOutletId && isAfter(parseISO(t.transfer_date), periodStart))
+                .filter(t => {
+                    const transferDate = parseISO(t.transfer_date);
+                    return t.to_outlet_id === currentOutletId && isAfter(transferDate, periodStart) && transferDate <= periodEnd;
+                })
                 .flatMap(t => t.items?.filter(item => item.article_id === article.id) || []);
 
             const totalTransferOut = transfersOut.reduce((sum, item) => sum + (item.quantity || 0), 0);
@@ -119,7 +151,7 @@ export default function ConsumptionView({ articles }) {
                 }
             };
         }).filter(a => a.hasActivity);
-    }, [articles, inventorySessions, deliveries, wastes, transfers, periodStart, currentOutletId]);
+    }, [articles, inventorySessions, deliveries, wastes, transfers, periodStart, periodEnd, currentOutletId]);
 
     const periodLabels = {
         week: 'Letzte Woche',
@@ -131,19 +163,57 @@ export default function ConsumptionView({ articles }) {
     return (
         <Card className="bg-white border-slate-200">
             <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <CardTitle className="text-lg font-semibold">Verbrauchsübersicht</CardTitle>
-                    <Select value={period} onValueChange={setPeriod}>
-                        <SelectTrigger className="w-40">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="week">Letzte Woche</SelectItem>
-                            <SelectItem value="month">Letzter Monat</SelectItem>
-                            <SelectItem value="quarter">Letztes Quartal</SelectItem>
-                            <SelectItem value="year">Letztes Jahr</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Select 
+                            value={customPeriod ? 'custom' : period} 
+                            onValueChange={(val) => {
+                                if (val === 'custom') {
+                                    setCustomPeriod(true);
+                                    setStartDate(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
+                                    setEndDate(format(new Date(), 'yyyy-MM-dd'));
+                                } else {
+                                    setCustomPeriod(false);
+                                    setPeriod(val);
+                                }
+                            }}
+                        >
+                            <SelectTrigger className="w-40">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="week">Letzte Woche</SelectItem>
+                                <SelectItem value="month">Letzter Monat</SelectItem>
+                                <SelectItem value="quarter">Letztes Quartal</SelectItem>
+                                <SelectItem value="year">Letztes Jahr</SelectItem>
+                                <SelectItem value="custom">Benutzerdefiniert</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        
+                        {customPeriod && (
+                            <div className="flex gap-2 items-center">
+                                <div className="flex flex-col gap-1">
+                                    <Label className="text-xs text-slate-500">Von</Label>
+                                    <Input 
+                                        type="date" 
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-36"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <Label className="text-xs text-slate-500">Bis</Label>
+                                    <Input 
+                                        type="date" 
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-36"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
