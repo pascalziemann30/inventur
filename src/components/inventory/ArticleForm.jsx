@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 
@@ -171,16 +173,31 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         resetForm();
     };
 
+    const intervalOptions = [
+        { value: 'weekly', label: 'Wöchentlich' },
+        { value: 'monthly', label: 'Monatlich' },
+        { value: 'yearly', label: 'Jährlich' }
+    ];
+
+    const toggleInterval = (value) => {
+        if (inventoryIntervals.includes(value)) {
+            setInventoryIntervals(inventoryIntervals.filter(i => i !== value));
+        } else {
+            setInventoryIntervals([...inventoryIntervals, value]);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0">
+                <DialogHeader className="px-6 pt-6 pb-4">
                     <DialogTitle className="text-lg font-semibold">
                         {article ? 'Artikel bearbeiten' : 'Neuer Artikel'}
                     </DialogTitle>
                 </DialogHeader>
                 
-                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                    <div className="overflow-y-auto px-6 space-y-4 flex-1">
                     <div className="space-y-2">
                         <Label htmlFor="name">Artikelname *</Label>
                         <div className="relative">
@@ -371,59 +388,82 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
                     <div className="space-y-2">
                         <Label>Inventur-Intervalle</Label>
-                        <div className="space-y-3 border border-slate-200 rounded-lg p-4 bg-slate-50">
-                            <p className="text-xs text-slate-600 mb-2">
-                                Wählen Sie, bei welchen Inventuren dieser Artikel gezählt werden soll:
-                            </p>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id="interval-weekly"
-                                    checked={inventoryIntervals.includes('weekly')}
-                                    onCheckedChange={(checked) => {
-                                        if (checked) {
-                                            setInventoryIntervals([...inventoryIntervals, 'weekly']);
-                                        } else {
-                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'weekly'));
-                                        }
-                                    }}
-                                />
-                                <Label htmlFor="interval-weekly" className="text-sm font-normal cursor-pointer">
-                                    Wöchentlich
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id="interval-monthly"
-                                    checked={inventoryIntervals.includes('monthly')}
-                                    onCheckedChange={(checked) => {
-                                        if (checked) {
-                                            setInventoryIntervals([...inventoryIntervals, 'monthly']);
-                                        } else {
-                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'monthly'));
-                                        }
-                                    }}
-                                />
-                                <Label htmlFor="interval-monthly" className="text-sm font-normal cursor-pointer">
-                                    Monatlich
-                                </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                    id="interval-yearly"
-                                    checked={inventoryIntervals.includes('yearly')}
-                                    onCheckedChange={(checked) => {
-                                        if (checked) {
-                                            setInventoryIntervals([...inventoryIntervals, 'yearly']);
-                                        } else {
-                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'yearly'));
-                                        }
-                                    }}
-                                />
-                                <Label htmlFor="interval-yearly" className="text-sm font-normal cursor-pointer">
-                                    Jährlich
-                                </Label>
-                            </div>
-                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    type="button"
+                                    className="w-full justify-between font-normal h-auto min-h-[40px] py-2"
+                                >
+                                    <div className="flex flex-wrap gap-1">
+                                        {inventoryIntervals.length > 0 ? (
+                                            inventoryIntervals.map(interval => {
+                                                const option = intervalOptions.find(o => o.value === interval);
+                                                return (
+                                                    <Badge 
+                                                        key={interval} 
+                                                        variant="secondary" 
+                                                        className="text-xs"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleInterval(interval);
+                                                        }}
+                                                    >
+                                                        {option?.label}
+                                                        <X className="ml-1 h-3 w-3" />
+                                                    </Badge>
+                                                );
+                                            })
+                                        ) : (
+                                            <span className="text-slate-500">Intervalle wählen...</span>
+                                        )}
+                                    </div>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-2" align="start">
+                                <div className="max-h-[200px] overflow-y-auto space-y-1">
+                                    {intervalOptions.map(option => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => toggleInterval(option.value)}
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-slate-100 transition-colors"
+                                        >
+                                            <div className={`h-4 w-4 border rounded flex items-center justify-center ${
+                                                inventoryIntervals.includes(option.value) 
+                                                    ? 'bg-slate-900 border-slate-900' 
+                                                    : 'border-slate-300'
+                                            }`}>
+                                                {inventoryIntervals.includes(option.value) && (
+                                                    <Check className="h-3 w-3 text-white" />
+                                                )}
+                                            </div>
+                                            <span>{option.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 mt-2 pt-2 border-t">
+                                    <button
+                                        type="button"
+                                        onClick={() => setInventoryIntervals(intervalOptions.map(o => o.value))}
+                                        className="flex-1 text-xs py-1 text-slate-600 hover:text-slate-900"
+                                    >
+                                        Alle wählen
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setInventoryIntervals([])}
+                                        className="flex-1 text-xs py-1 text-slate-600 hover:text-slate-900"
+                                    >
+                                        Alle entfernen
+                                    </button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-xs text-slate-500">
+                            Wählen Sie, bei welchen Inventuren dieser Artikel gezählt werden soll
+                        </p>
                     </div>
 
                     <div className="space-y-2">
@@ -435,8 +475,9 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                             placeholder="Optional..."
                         />
                     </div>
+                    </div>
 
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 px-6 py-4 border-t bg-white sticky bottom-0">
                         <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                             Abbrechen
                         </Button>
