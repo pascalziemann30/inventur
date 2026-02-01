@@ -66,43 +66,101 @@ export default function Dashboard() {
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
 
-    // Data queries - filtered by current outlet
+    // Data queries - for AGGREGATOR load ALL, for NORMAL load only current outlet
+    const { data: allOutletStocks = [] } = useQuery({
+        queryKey: ['all-outlet-stocks'],
+        queryFn: () => base44.entities.OutletStock.list(),
+        enabled: isAggregatorOutlet
+    });
+
+    const { data: allOutletItems = [] } = useQuery({
+        queryKey: ['all-outlet-items'],
+        queryFn: () => base44.entities.OutletItem.list(),
+        enabled: isAggregatorOutlet
+    });
+
     const { data: outletStocks = [], isLoading: loadingStocks } = useQuery({
         queryKey: ['outlet-stocks', currentOutletId],
         queryFn: () => base44.entities.OutletStock.filter({ outlet_id: currentOutletId }),
-        enabled: !!currentOutletId
+        enabled: !!currentOutletId && !isAggregatorOutlet
     });
 
     const { data: outletItems = [], isLoading: loadingArticles } = useQuery({
         queryKey: ['outlet-items', currentOutletId],
         queryFn: () => base44.entities.OutletItem.filter({ outlet_id: currentOutletId }),
-        enabled: !!currentOutletId
+        enabled: !!currentOutletId && !isAggregatorOutlet
     });
 
     // Merge outlet items with outlet stock
     const articlesWithStock = React.useMemo(() => {
-        return outletItems.map(item => {
-            const stock = outletStocks.find(s => s.outlet_item_id === item.id);
-            return {
-                id: item.id,
-                name: item.display_name,
-                category_id: item.category_id,
-                category_name: item.category_name,
-                unit_id: item.unit_id,
-                unit_abbreviation: stock?.unit_abbreviation || '',
-                supplier_id: item.supplier_id,
-                supplier_name: item.supplier_name,
-                purchase_price: item.net_purchase_price,
-                current_stock: stock?.on_hand_quantity || 0,
-                min_stock: item.min_stock,
-                inventory_intervals: item.inventory_intervals || [],
-                notes: item.notes,
-                is_active: item.is_active,
-                outlet_item_id: item.id,
-                global_item_id: item.global_item_id
-            };
-        });
-    }, [outletItems, outletStocks]);
+        if (isAggregatorOutlet) {
+            // Aggregate by global_item_id across all outlets
+            const aggregatedMap = new Map();
+            
+            allOutletItems.forEach(item => {
+                const key = item.global_item_id;
+                const stock = allOutletStocks.find(s => s.outlet_item_id === item.id);
+                
+                if (aggregatedMap.has(key)) {
+                    const existing = aggregatedMap.get(key);
+                    existing.current_stock += (stock?.on_hand_quantity || 0);
+                    existing.outlets.push({
+                        outlet_id: item.outlet_id,
+                        outlet_name: item.outlet_name,
+                        stock: stock?.on_hand_quantity || 0,
+                        price: item.net_purchase_price
+                    });
+                } else {
+                    aggregatedMap.set(key, {
+                        id: item.id,
+                        name: item.display_name,
+                        category_id: item.category_id,
+                        category_name: item.category_name,
+                        unit_abbreviation: stock?.unit_abbreviation || '',
+                        supplier_id: item.supplier_id,
+                        supplier_name: item.supplier_name,
+                        purchase_price: item.net_purchase_price,
+                        current_stock: stock?.on_hand_quantity || 0,
+                        min_stock: item.min_stock,
+                        notes: item.notes,
+                        is_active: item.is_active,
+                        global_item_id: item.global_item_id,
+                        outlets: [{
+                            outlet_id: item.outlet_id,
+                            outlet_name: item.outlet_name,
+                            stock: stock?.on_hand_quantity || 0,
+                            price: item.net_purchase_price
+                        }]
+                    });
+                }
+            });
+            
+            return Array.from(aggregatedMap.values());
+        } else {
+            // Normal outlet - show only its items
+            return outletItems.map(item => {
+                const stock = outletStocks.find(s => s.outlet_item_id === item.id);
+                return {
+                    id: item.id,
+                    name: item.display_name,
+                    category_id: item.category_id,
+                    category_name: item.category_name,
+                    unit_id: item.unit_id,
+                    unit_abbreviation: stock?.unit_abbreviation || '',
+                    supplier_id: item.supplier_id,
+                    supplier_name: item.supplier_name,
+                    purchase_price: item.net_purchase_price,
+                    current_stock: stock?.on_hand_quantity || 0,
+                    min_stock: item.min_stock,
+                    inventory_intervals: item.inventory_intervals || [],
+                    notes: item.notes,
+                    is_active: item.is_active,
+                    outlet_item_id: item.id,
+                    global_item_id: item.global_item_id
+                };
+            });
+        }
+    }, [outletItems, outletStocks, allOutletItems, allOutletStocks, isAggregatorOutlet]);
 
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
@@ -628,49 +686,59 @@ export default function Dashboard() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        <Button 
-                            onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
-                            className="bg-slate-900 hover:bg-slate-800"
-                            disabled={isAggregatorOutlet}
-                            title={isAggregatorOutlet ? 'Artikel können nicht im Aggregator-Outlet angelegt werden' : ''}
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Artikel
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setShowDeliveryForm(true)}
-                            disabled={articlesWithStock.length === 0}
-                        >
-                            <Truck className="w-4 h-4 mr-2" />
-                            Lieferung
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setShowTransferForm(true)}
-                            disabled={articlesWithStock.length === 0}
-                        >
-                            <ArrowRightLeft className="w-4 h-4 mr-2" />
-                            Outlet Transfer
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setShowWasteForm(true)}
-                            disabled={articlesWithStock.length === 0}
-                            className="border-orange-200 text-orange-700 hover:bg-orange-50"
-                        >
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            Waste
-                        </Button>
-                    </div>
+                    {!isAggregatorOutlet && (
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            <Button 
+                                onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
+                                className="bg-slate-900 hover:bg-slate-800"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Artikel
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setShowDeliveryForm(true)}
+                                disabled={articlesWithStock.length === 0}
+                            >
+                                <Truck className="w-4 h-4 mr-2" />
+                                Lieferung
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setShowTransferForm(true)}
+                                disabled={articlesWithStock.length === 0}
+                            >
+                                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                                Outlet Transfer
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setShowWasteForm(true)}
+                                disabled={articlesWithStock.length === 0}
+                                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                            >
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                Waste
+                            </Button>
+                        </div>
+                    )}
+
+                    {isAggregatorOutlet && (
+                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                                <strong>Zentrale Übersicht:</strong> Dieser Bereich zeigt die aggregierten Bestände aller Outlets. 
+                                Keine Buchungen möglich - nur zur Übersicht.
+                            </p>
+                        </div>
+                    )}
 
                     <TabsContent value="articles" className="mt-0">
                         <CategoryArticleView
                             articles={activeArticles}
                             inventories={inventories}
-                            onEdit={handleEditArticle}
-                            onDelete={handleDeleteArticle}
+                            onEdit={isAggregatorOutlet ? null : handleEditArticle}
+                            onDelete={isAggregatorOutlet ? null : handleDeleteArticle}
+                            isAggregator={isAggregatorOutlet}
                         />
                     </TabsContent>
 

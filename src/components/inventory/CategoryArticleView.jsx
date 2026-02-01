@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, AlertCircle, Package } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function CategoryArticleView({ articles, inventories, onEdit, onDelete }) {
+export default function CategoryArticleView({ articles, inventories, onEdit, onDelete, isAggregator }) {
     const [openCategories, setOpenCategories] = useState(() => {
         const saved = localStorage.getItem('openCategories');
         return saved ? JSON.parse(saved) : [];
