@@ -336,9 +336,40 @@ export default function Dashboard() {
                     default_net_price: data.purchase_price
                 });
             }
+
+            // Update stock if initial_stock was changed
+            if (data.initial_stock !== undefined && data.initial_stock !== null) {
+                const stock = outletStocks.find(s => s.outlet_item_id === id);
+                if (stock) {
+                    const oldQuantity = stock.on_hand_quantity || 0;
+                    const newQuantity = data.initial_stock;
+                    const difference = newQuantity - oldQuantity;
+
+                    if (difference !== 0) {
+                        // Update OutletStock
+                        await base44.entities.OutletStock.update(stock.id, {
+                            on_hand_quantity: newQuantity
+                        });
+
+                        // Create StockMovement for the adjustment
+                        await base44.entities.StockMovement.create({
+                            movement_date: format(new Date(), 'yyyy-MM-dd'),
+                            movement_type: 'inventory_adjustment',
+                            outlet_id: currentOutletId,
+                            outlet_name: currentOutletName,
+                            article_id: outletItem.global_item_id,
+                            article_name: data.name,
+                            delta_quantity: difference,
+                            unit_abbreviation: data.unit_abbreviation,
+                            notes: 'Bestandsanpassung bei Artikelbearbeitung'
+                        });
+                    }
+                }
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['outlet-items', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks', currentOutletId] });
             queryClient.invalidateQueries({ queryKey: ['global-items'] });
             toast.success('Artikel aktualisiert');
             setShowArticleForm(false);

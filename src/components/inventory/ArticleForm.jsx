@@ -34,7 +34,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setSupplierId(article.supplier_id || '');
             setSupplierName(article.supplier_name || '');
             setPurchasePrice(article.purchase_price?.toString() || '');
-            setInitialStock(article.initial_stock?.toString() || '');
+            setInitialStock(article.current_stock?.toString() || '');
             setMinStock(article.min_stock?.toString() || '');
             setNotes(article.notes || '');
             setInventoryIntervals(article.inventory_intervals || []);
