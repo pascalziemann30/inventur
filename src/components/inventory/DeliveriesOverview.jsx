@@ -9,26 +9,26 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 export default function DeliveriesOverview({ open, onClose, deliveries }) {
-    const handleDownloadPDF = async (delivery) => {
+    const handleDownloadExcel = async (delivery) => {
         try {
-            toast.loading('PDF wird erstellt...');
-            const response = await base44.functions.invoke('generateDeliveryPDF', {
+            toast.loading('Excel wird erstellt...');
+            const response = await base44.functions.invoke('generateDeliveryExcel', {
                 deliveryId: delivery.id
             });
             
-            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.pdf`;
+            a.download = `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.xlsx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('PDF heruntergeladen');
+            toast.success('Excel heruntergeladen');
         } catch (error) {
-            console.error('PDF generation failed:', error);
-            toast.error('PDF-Erstellung fehlgeschlagen');
+            console.error('Excel generation failed:', error);
+            toast.error('Excel-Erstellung fehlgeschlagen');
         }
     };
 
@@ -80,10 +80,11 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => handleDownloadPDF(delivery)}
+                                                onClick={() => handleDownloadExcel(delivery)}
+                                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                             >
                                                 <Download className="w-4 h-4 mr-1" />
-                                                PDF
+                                                Excel
                                             </Button>
                                         </TableCell>
                                     </TableRow>

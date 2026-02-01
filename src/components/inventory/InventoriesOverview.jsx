@@ -17,26 +17,26 @@ const periodTypeLabels = {
 };
 
 export default function InventoriesOverview({ open, onClose, sessions }) {
-    const handleDownloadPDF = async (session) => {
+    const handleDownloadExcel = async (session) => {
         try {
-            toast.loading('PDF wird erstellt...');
-            const response = await base44.functions.invoke('generateInventoryPDF', {
+            toast.loading('Excel wird erstellt...');
+            const response = await base44.functions.invoke('generateInventoryExcel', {
                 sessionId: session.id
             });
             
-            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Inventur_${format(new Date(session.session_date), 'yyyy-MM-dd')}.pdf`;
+            a.download = `Inventur_${format(new Date(session.session_date), 'yyyy-MM-dd')}.xlsx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('PDF heruntergeladen');
+            toast.success('Excel heruntergeladen');
         } catch (error) {
-            console.error('PDF generation failed:', error);
-            toast.error('PDF-Erstellung fehlgeschlagen');
+            console.error('Excel generation failed:', error);
+            toast.error('Excel-Erstellung fehlgeschlagen');
         }
     };
 
@@ -86,10 +86,11 @@ export default function InventoriesOverview({ open, onClose, sessions }) {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => handleDownloadPDF(session)}
+                                                onClick={() => handleDownloadExcel(session)}
+                                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                             >
                                                 <Download className="w-4 h-4 mr-1" />
-                                                PDF
+                                                Excel
                                             </Button>
                                         </TableCell>
                                     </TableRow>

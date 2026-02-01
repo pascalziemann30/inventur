@@ -41,26 +41,26 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
         sum + ((article.current_stock || 0) * (article.purchase_price || 0)), 0
     );
 
-    const handleDownloadPDF = async () => {
+    const handleDownloadExcel = async () => {
         setIsDownloading(true);
         try {
-            const response = await base44.functions.invoke('generateArticlesPDF', {
+            const response = await base44.functions.invoke('generateArticlesExcel', {
                 articles: sortedArticles,
                 outletName: outletName
             });
             
-            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Artikel_${new Date().toISOString().split('T')[0]}.pdf`;
+            a.download = `Artikel_${new Date().toISOString().split('T')[0]}.xlsx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('PDF heruntergeladen');
+            toast.success('Excel heruntergeladen');
         } catch (error) {
-            toast.error('Fehler beim Erstellen des PDFs');
+            toast.error('Fehler beim Erstellen der Excel-Datei');
             console.error(error);
         } finally {
             setIsDownloading(false);
@@ -74,17 +74,17 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
                     <div className="flex items-center justify-between">
                         <DialogTitle>Artikel-Übersicht</DialogTitle>
                         <Button 
-                            onClick={handleDownloadPDF} 
+                            onClick={handleDownloadExcel} 
                             disabled={isDownloading || sortedArticles.length === 0}
                             size="sm"
-                            variant="outline"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
                             {isDownloading ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                                 <Download className="w-4 h-4 mr-2" />
                             )}
-                            PDF Download
+                            Excel Download
                         </Button>
                     </div>
                 </DialogHeader>
