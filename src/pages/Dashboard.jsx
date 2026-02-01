@@ -14,7 +14,8 @@ import {
     Package,
     RefreshCw,
     ArrowUpDown,
-    ArrowRightLeft
+    ArrowRightLeft,
+    AlertTriangle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -27,7 +28,9 @@ import CategoryArticleView from '../components/inventory/CategoryArticleView';
 import ArticleForm from '../components/inventory/ArticleForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
 import OutletTransferForm from '../components/inventory/OutletTransferForm';
+import WasteForm from '../components/inventory/WasteForm';
 import ConsumptionView from '../components/inventory/ConsumptionView';
+import WasteOverview from '../components/inventory/WasteOverview';
 import ArticlesOverview from '../components/inventory/ArticlesOverview';
 import LowStockOverview from '../components/inventory/LowStockOverview';
 import InventoriesOverview from '../components/inventory/InventoriesOverview';
@@ -43,6 +46,7 @@ export default function Dashboard() {
     const [showArticleForm, setShowArticleForm] = useState(false);
     const [showDeliveryForm, setShowDeliveryForm] = useState(false);
     const [showTransferForm, setShowTransferForm] = useState(false);
+    const [showWasteForm, setShowWasteForm] = useState(false);
     const [editingArticle, setEditingArticle] = useState(null);
     
     // Overview modals
@@ -95,6 +99,11 @@ export default function Dashboard() {
     const { data: outlets = [] } = useQuery({
         queryKey: ['outlets'],
         queryFn: () => base44.entities.Outlet.list()
+    });
+
+    const { data: wastes = [] } = useQuery({
+        queryKey: ['wastes'],
+        queryFn: () => base44.entities.Waste.list('-waste_date')
     });
 
     // Mutations
@@ -217,6 +226,45 @@ export default function Dashboard() {
         }
     });
 
+    const createWasteMutation = useMutation({
+        mutationFn: async (data) => {
+            const waste = await base44.entities.Waste.create(data);
+            
+            // Create stock movements and reduce article stock
+            for (const item of data.items) {
+                // Reduce article stock
+                const article = articles.find(a => a.id === item.article_id);
+                if (article) {
+                    await base44.entities.Article.update(item.article_id, {
+                        current_stock: (article.current_stock || 0) - item.quantity
+                    });
+                }
+
+                // Create waste stock movement
+                await base44.entities.StockMovement.create({
+                    movement_date: data.waste_date,
+                    movement_type: 'waste',
+                    article_id: item.article_id,
+                    article_name: item.article_name,
+                    delta_quantity: -item.quantity,
+                    unit_abbreviation: item.unit_abbreviation,
+                    source_document_id: waste.id,
+                    source_document_type: 'waste',
+                    notes: `Waste: ${item.reason}`
+                });
+            }
+
+            // Mark waste as applied
+            await base44.entities.Waste.update(waste.id, { status: 'applied' });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['wastes'] });
+            queryClient.invalidateQueries({ queryKey: ['articles'] });
+            toast.success('Waste erfasst und Bestand reduziert');
+            setShowWasteForm(false);
+        }
+    });
+
     // Handlers
     const handleSaveArticle = async (data, meta) => {
         // Track price change
@@ -264,6 +312,10 @@ export default function Dashboard() {
 
     const handleSaveTransfer = (data) => {
         createTransferMutation.mutate(data);
+    };
+
+    const handleSaveWaste = (data) => {
+        createWasteMutation.mutate(data);
     };
 
     // Filter and sort articles
@@ -348,6 +400,10 @@ export default function Dashboard() {
                                 <BarChart3 className="w-4 h-4" />
                                 <span className="hidden sm:inline">Verbrauch</span>
                             </TabsTrigger>
+                            <TabsTrigger value="waste" className="gap-2">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="hidden sm:inline">Waste</span>
+                            </TabsTrigger>
                         </TabsList>
 
                         <div className="flex gap-2">
@@ -398,6 +454,15 @@ export default function Dashboard() {
                             <ArrowRightLeft className="w-4 h-4 mr-2" />
                             Outlet Transfer
                         </Button>
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowWasteForm(true)}
+                            disabled={articles.length === 0}
+                            className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                        >
+                            <AlertTriangle className="w-4 h-4 mr-2" />
+                            Waste
+                        </Button>
                     </div>
 
                     <TabsContent value="articles" className="mt-0">
@@ -414,6 +479,13 @@ export default function Dashboard() {
                             articles={articles}
                             inventories={inventories}
                             deliveries={deliveries}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="waste" className="mt-0">
+                        <WasteOverview
+                            wastes={wastes}
+                            suppliers={suppliers}
                         />
                     </TabsContent>
                 </Tabs>
@@ -445,6 +517,14 @@ export default function Dashboard() {
                 onSave={handleSaveTransfer}
                 articles={articles}
                 outlets={outlets}
+                suppliers={suppliers}
+            />
+
+            <WasteForm
+                open={showWasteForm}
+                onClose={() => setShowWasteForm(false)}
+                onSave={handleSaveWaste}
+                articles={articles}
                 suppliers={suppliers}
             />
 
