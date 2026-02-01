@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [minStock, setMinStock] = useState('');
     const [notes, setNotes] = useState('');
     const [isDetecting, setIsDetecting] = useState(false);
+    const [inventoryIntervals, setInventoryIntervals] = useState([]);
 
     useEffect(() => {
         if (article) {
@@ -33,6 +35,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setInitialStock(article.initial_stock?.toString() || '');
             setMinStock(article.min_stock?.toString() || '');
             setNotes(article.notes || '');
+            setInventoryIntervals(article.inventory_intervals || []);
         } else {
             resetForm();
         }
@@ -50,6 +53,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         setInitialStock('');
         setMinStock('');
         setNotes('');
+        setInventoryIntervals([]);
     };
 
     const detectCategoryAndUnit = async (articleName) => {
@@ -148,6 +152,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             initial_stock: parseFloat(initialStock) || 0,
             current_stock: article ? article.current_stock : (parseFloat(initialStock) || 0),
             min_stock: parseFloat(minStock) || null,
+            inventory_intervals: inventoryIntervals,
             notes,
             is_active: true
         };
@@ -361,6 +366,63 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                 onChange={(e) => setMinStock(e.target.value)}
                                 placeholder="Optional"
                             />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Inventur-Intervalle</Label>
+                        <div className="space-y-3 border border-slate-200 rounded-lg p-4 bg-slate-50">
+                            <p className="text-xs text-slate-600 mb-2">
+                                Wählen Sie, bei welchen Inventuren dieser Artikel gezählt werden soll:
+                            </p>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                    id="interval-weekly"
+                                    checked={inventoryIntervals.includes('weekly')}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setInventoryIntervals([...inventoryIntervals, 'weekly']);
+                                        } else {
+                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'weekly'));
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="interval-weekly" className="text-sm font-normal cursor-pointer">
+                                    Wöchentlich
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                    id="interval-monthly"
+                                    checked={inventoryIntervals.includes('monthly')}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setInventoryIntervals([...inventoryIntervals, 'monthly']);
+                                        } else {
+                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'monthly'));
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="interval-monthly" className="text-sm font-normal cursor-pointer">
+                                    Monatlich
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                    id="interval-yearly"
+                                    checked={inventoryIntervals.includes('yearly')}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setInventoryIntervals([...inventoryIntervals, 'yearly']);
+                                        } else {
+                                            setInventoryIntervals(inventoryIntervals.filter(i => i !== 'yearly'));
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="interval-yearly" className="text-sm font-normal cursor-pointer">
+                                    Jährlich
+                                </Label>
+                            </div>
                         </div>
                     </div>
 

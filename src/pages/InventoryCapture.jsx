@@ -66,13 +66,21 @@ export default function InventoryCapture() {
         }
     }, [sessionId, sessions]);
 
-    // Calculate article frequency (consumption + deliveries)
+    // Filter and sort articles based on inventory interval
     const sortedArticles = useMemo(() => {
         if (!articles.length) return [];
 
         const activeArticles = articles.filter(a => a.is_active !== false);
 
-        const articlesWithFrequency = activeArticles.map(article => {
+        // Filter by period type if session exists
+        let filteredArticles = activeArticles;
+        if (currentSession?.period_type && currentSession.period_type !== 'adhoc') {
+            filteredArticles = activeArticles.filter(article => 
+                article.inventory_intervals?.includes(currentSession.period_type)
+            );
+        }
+
+        const articlesWithFrequency = filteredArticles.map(article => {
             // Count consumption from inventories
             const articleInventories = inventories.filter(inv => inv.article_id === article.id);
             const consumptionCount = articleInventories.length;
@@ -93,7 +101,7 @@ export default function InventoryCapture() {
 
         // Sort by frequency (descending)
         return articlesWithFrequency.sort((a, b) => b.frequency - a.frequency);
-    }, [articles, inventories, deliveries]);
+    }, [articles, inventories, deliveries, currentSession]);
 
     // Create new session
     const createSessionMutation = useMutation({
@@ -303,7 +311,7 @@ export default function InventoryCapture() {
 
                             <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-900">
                                 <p className="font-semibold mb-1">Hinweis:</p>
-                                <p>Die Artikel werden automatisch nach Bestellhäufigkeit sortiert. Die wichtigsten Artikel erscheinen zuerst.</p>
+                                <p>Es werden nur Artikel angezeigt, die diesem Inventur-Intervall zugeordnet sind. Die Sortierung erfolgt nach Bestellhäufigkeit.</p>
                             </div>
 
                             <div className="flex gap-3 pt-4">
@@ -350,6 +358,9 @@ export default function InventoryCapture() {
                             </h1>
                             <p className="text-sm text-slate-500">
                                 {countedItems} von {sortedArticles.length} gezählt
+                                {sortedArticles.length === 0 && currentSession?.period_type !== 'adhoc' && (
+                                    <span className="text-amber-600 ml-2">⚠ Keine Artikel diesem Intervall zugeordnet</span>
+                                )}
                             </p>
                         </div>
                         <Button
