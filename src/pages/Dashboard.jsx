@@ -137,13 +137,83 @@ export default function Dashboard() {
         enabled: !!currentOutletId
     });
 
+    // Check if current outlet is aggregator
+    const { data: currentOutlet } = useQuery({
+        queryKey: ['current-outlet', currentOutletId],
+        queryFn: () => base44.entities.Outlet.filter({ id: currentOutletId }).then(r => r[0]),
+        enabled: !!currentOutletId
+    });
+
+    const isAggregatorOutlet = currentOutlet?.type === 'AGGREGATOR';
+
     // Mutations
     const createArticleMutation = useMutation({
-        mutationFn: (data) => base44.entities.Article.create(data),
+        mutationFn: async (data) => {
+            if (!currentOutletId) {
+                throw new Error('Kein Outlet ausgewählt');
+            }
+            if (isAggregatorOutlet) {
+                throw new Error('Artikel können nicht im Aggregator-Outlet angelegt werden');
+            }
+
+            // Step 1: Find or create GlobalItem
+            const globalItems = await base44.entities.GlobalItem.filter({
+                canonical_name: data.name,
+                unit_abbreviation: data.unit_abbreviation
+            });
+
+            let globalItem;
+            if (globalItems.length > 0) {
+                globalItem = globalItems[0];
+            } else {
+                globalItem = await base44.entities.GlobalItem.create({
+                    canonical_name: data.name,
+                    unit_id: data.unit_id,
+                    unit_abbreviation: data.unit_abbreviation,
+                    category_id: data.category_id,
+                    category_name: data.category_name,
+                    default_net_price: data.purchase_price,
+                    notes: data.notes
+                });
+            }
+
+            // Step 2: Create OutletItem ONLY for current outlet
+            const outletItem = await base44.entities.OutletItem.create({
+                outlet_id: currentOutletId,
+                outlet_name: currentOutletName,
+                global_item_id: globalItem.id,
+                display_name: data.name,
+                supplier_id: data.supplier_id,
+                supplier_name: data.supplier_name,
+                net_purchase_price: data.purchase_price || 0,
+                min_stock: data.min_stock,
+                inventory_intervals: data.inventory_intervals || [],
+                notes: data.notes,
+                is_active: true
+            });
+
+            // Step 3: Create OutletStock ONLY for current outlet
+            await base44.entities.OutletStock.create({
+                outlet_id: currentOutletId,
+                outlet_name: currentOutletName,
+                outlet_item_id: outletItem.id,
+                global_item_id: globalItem.id,
+                display_name: data.name,
+                on_hand_quantity: data.initial_stock || 0,
+                unit_abbreviation: data.unit_abbreviation
+            });
+
+            return { outletItem, globalItem };
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['articles'] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-items', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks', currentOutletId] });
+            queryClient.invalidateQueries({ queryKey: ['global-items'] });
             toast.success('Artikel hinzugefügt');
             setShowArticleForm(false);
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Fehler beim Erstellen des Artikels');
         }
     });
 
@@ -510,6 +580,8 @@ export default function Dashboard() {
                         <Button 
                             onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
                             className="bg-slate-900 hover:bg-slate-800"
+                            disabled={isAggregatorOutlet}
+                            title={isAggregatorOutlet ? 'Artikel können nicht im Aggregator-Outlet angelegt werden' : ''}
                         >
                             <Plus className="w-4 h-4 mr-2" />
                             Artikel
@@ -577,6 +649,9 @@ export default function Dashboard() {
                 units={units}
                 suppliers={suppliers}
                 currentUser={currentUser}
+                outletId={currentOutletId}
+                outletName={currentOutletName}
+                isAggregator={isAggregatorOutlet}
             />
 
             <DeliveryForm

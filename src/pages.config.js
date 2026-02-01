@@ -47,28 +47,28 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import AdminOverview from './pages/AdminOverview';
 import Analytics from './pages/Analytics';
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import InventoryCapture from './pages/InventoryCapture';
+import OutletLogin from './pages/OutletLogin';
 import Settings from './pages/Settings';
 import Suppliers from './pages/Suppliers';
 import Users from './pages/Users';
-import OutletLogin from './pages/OutletLogin';
-import AdminOverview from './pages/AdminOverview';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "AdminOverview": AdminOverview,
     "Analytics": Analytics,
     "Dashboard": Dashboard,
     "History": History,
     "InventoryCapture": InventoryCapture,
+    "OutletLogin": OutletLogin,
     "Settings": Settings,
     "Suppliers": Suppliers,
     "Users": Users,
-    "OutletLogin": OutletLogin,
-    "AdminOverview": AdminOverview,
 }
 
 export const pagesConfig = {

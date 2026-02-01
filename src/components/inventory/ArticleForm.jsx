@@ -10,7 +10,7 @@ import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 
-export default function ArticleForm({ open, onClose, onSave, article, categories, units, suppliers, currentUser }) {
+export default function ArticleForm({ open, onClose, onSave, article, categories, units, suppliers, currentUser, outletId, outletName, isAggregator }) {
     const [name, setName] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [unitId, setUnitId] = useState('');
@@ -187,12 +187,38 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         }
     };
 
+    // Show warning if aggregator
+    if (isAggregator && !article) {
+        return (
+            <Dialog open={open} onOpenChange={onClose}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-semibold text-amber-600">
+                            Artikel-Anlage nicht möglich
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-slate-600">
+                            Im Aggregator-Outlet „{outletName}" können keine Artikel angelegt werden.
+                        </p>
+                        <p className="text-slate-600 mt-2">
+                            Bitte wechseln Sie zu einem normalen Outlet, um Artikel zu erstellen.
+                        </p>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button onClick={onClose}>Schließen</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="px-6 pt-6 pb-4">
                     <DialogTitle className="text-lg font-semibold">
-                        {article ? 'Artikel bearbeiten' : 'Neuer Artikel'}
+                        {article ? 'Artikel bearbeiten' : `Neuer Artikel (${outletName})`}
                     </DialogTitle>
                 </DialogHeader>
                 
