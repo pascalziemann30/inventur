@@ -445,6 +445,7 @@ export default function Dashboard() {
                 onSave={handleSaveTransfer}
                 articles={articles}
                 outlets={outlets}
+                suppliers={suppliers}
             />
 
             {/* Overview Modals */}
