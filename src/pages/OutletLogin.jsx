@@ -68,7 +68,7 @@ export default function OutletLogin() {
                     <img 
                         src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6975d510bbe0422af7fe76ca/19feb6d1b_ChatGPTImage1Feb202616_14_34.png" 
                         alt="Kolek Schröder Logo" 
-                        className="h-20 w-auto mx-auto mb-2"
+                        className="h-24 w-auto mx-auto mb-2"
                     />
                     <CardTitle className="text-2xl">Bestandsverwaltung</CardTitle>
                     <CardDescription>Outlet auswählen und anmelden</CardDescription>
