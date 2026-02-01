@@ -65,10 +65,12 @@ export default function OutletLogin() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
             <Card className="w-full max-w-md shadow-lg">
                 <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mb-2">
-                        <Store className="w-8 h-8 text-white" />
-                    </div>
-                    <CardTitle className="text-2xl">Inventur App</CardTitle>
+                    <img 
+                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6975d510bbe0422af7fe76ca/19feb6d1b_ChatGPTImage1Feb202616_14_34.png" 
+                        alt="Kolek Schröder Logo" 
+                        className="h-20 w-auto mx-auto mb-2"
+                    />
+                    <CardTitle className="text-2xl">Bestandsverwaltung</CardTitle>
                     <CardDescription>Outlet auswählen und anmelden</CardDescription>
                 </CardHeader>
                 
