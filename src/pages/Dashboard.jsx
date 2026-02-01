@@ -480,13 +480,96 @@ export default function Dashboard() {
         mutationFn: async (data) => {
             const transfer = await base44.entities.OutletTransfer.create(data);
             
-            // Create stock movements for each item
+            // Process each item
             for (const item of data.items) {
+                // Get source OutletItem to find global_item_id
+                const sourceOutletItems = await base44.entities.OutletItem.filter({ 
+                    outlet_id: data.from_outlet_id,
+                    id: item.article_id
+                });
+                const sourceOutletItem = sourceOutletItems[0];
+                
+                if (!sourceOutletItem) continue;
+
+                // 1. REDUCE stock in source outlet
+                const sourceStocks = await base44.entities.OutletStock.filter({ 
+                    outlet_id: data.from_outlet_id,
+                    outlet_item_id: item.article_id
+                });
+                const sourceStock = sourceStocks[0];
+                
+                if (sourceStock) {
+                    await base44.entities.OutletStock.update(sourceStock.id, {
+                        on_hand_quantity: Math.max(0, (sourceStock.on_hand_quantity || 0) - item.quantity)
+                    });
+                }
+
+                // 2. Check if article exists in destination outlet
+                const destOutletItems = await base44.entities.OutletItem.filter({
+                    outlet_id: data.to_outlet_id,
+                    global_item_id: sourceOutletItem.global_item_id
+                });
+                
+                let destOutletItem;
+                if (destOutletItems.length === 0) {
+                    // Article doesn't exist in destination - create it
+                    destOutletItem = await base44.entities.OutletItem.create({
+                        outlet_id: data.to_outlet_id,
+                        outlet_name: data.to_outlet_name,
+                        global_item_id: sourceOutletItem.global_item_id,
+                        display_name: item.article_name,
+                        supplier_id: sourceOutletItem.supplier_id,
+                        supplier_name: sourceOutletItem.supplier_name,
+                        net_purchase_price: sourceOutletItem.net_purchase_price,
+                        min_stock: sourceOutletItem.min_stock,
+                        inventory_intervals: sourceOutletItem.inventory_intervals || [],
+                        notes: `Automatisch angelegt durch Transfer von ${data.from_outlet_name}`,
+                        is_active: true
+                    });
+
+                    // Create initial stock for new article
+                    await base44.entities.OutletStock.create({
+                        outlet_id: data.to_outlet_id,
+                        outlet_name: data.to_outlet_name,
+                        outlet_item_id: destOutletItem.id,
+                        global_item_id: sourceOutletItem.global_item_id,
+                        display_name: item.article_name,
+                        on_hand_quantity: item.quantity,
+                        unit_abbreviation: item.unit_abbreviation
+                    });
+                } else {
+                    // Article exists - update stock
+                    destOutletItem = destOutletItems[0];
+                    const destStocks = await base44.entities.OutletStock.filter({
+                        outlet_id: data.to_outlet_id,
+                        outlet_item_id: destOutletItem.id
+                    });
+                    
+                    const destStock = destStocks[0];
+                    if (destStock) {
+                        await base44.entities.OutletStock.update(destStock.id, {
+                            on_hand_quantity: (destStock.on_hand_quantity || 0) + item.quantity
+                        });
+                    } else {
+                        // Stock record doesn't exist - create it
+                        await base44.entities.OutletStock.create({
+                            outlet_id: data.to_outlet_id,
+                            outlet_name: data.to_outlet_name,
+                            outlet_item_id: destOutletItem.id,
+                            global_item_id: sourceOutletItem.global_item_id,
+                            display_name: item.article_name,
+                            on_hand_quantity: item.quantity,
+                            unit_abbreviation: item.unit_abbreviation
+                        });
+                    }
+                }
+
+                // 3. Create stock movements
                 // OUT movement from source outlet
                 await base44.entities.StockMovement.create({
                     movement_date: data.transfer_date,
                     movement_type: 'outlet_transfer_out',
-                    article_id: item.article_id,
+                    article_id: sourceOutletItem.global_item_id,
                     article_name: item.article_name,
                     outlet_id: data.from_outlet_id,
                     outlet_name: data.from_outlet_name,
@@ -501,7 +584,7 @@ export default function Dashboard() {
                 await base44.entities.StockMovement.create({
                     movement_date: data.transfer_date,
                     movement_type: 'outlet_transfer_in',
-                    article_id: item.article_id,
+                    article_id: sourceOutletItem.global_item_id,
                     article_name: item.article_name,
                     outlet_id: data.to_outlet_id,
                     outlet_name: data.to_outlet_name,
@@ -517,8 +600,10 @@ export default function Dashboard() {
             await base44.entities.OutletTransfer.update(transfer.id, { status: 'applied' });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['outlets'] });
-            queryClient.invalidateQueries({ queryKey: ['articles'] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-items'] });
+            queryClient.invalidateQueries({ queryKey: ['outlet-stocks'] });
+            queryClient.invalidateQueries({ queryKey: ['all-outlet-items'] });
+            queryClient.invalidateQueries({ queryKey: ['all-outlet-stocks'] });
             toast.success('Transfer erfasst und gebucht');
             setShowTransferForm(false);
         }
