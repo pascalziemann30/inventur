@@ -37,6 +37,7 @@ import ArticlesOverview from '../components/inventory/ArticlesOverview';
 import LowStockOverview from '../components/inventory/LowStockOverview';
 import InventoriesOverview from '../components/inventory/InventoriesOverview';
 import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
+import StockIntelligenceDashboard from '../components/analytics/StockIntelligenceDashboard';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
@@ -65,6 +66,7 @@ export default function Dashboard() {
     const [showLowStockOverview, setShowLowStockOverview] = useState(false);
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
+    const [showStockIntelligence, setShowStockIntelligence] = useState(false);
 
     // Check if current outlet is aggregator
     const { data: currentOutlet } = useQuery({
@@ -798,6 +800,29 @@ export default function Dashboard() {
                     onDeliveriesClick={() => setShowDeliveriesOverview(true)}
                 />
 
+                {/* Stock Intelligence Dashboard Button */}
+                {!isAggregatorOutlet && (
+                    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-bold flex items-center gap-2">
+                                    <BarChart3 className="w-6 h-6" />
+                                    Stock Intelligence
+                                </h3>
+                                <p className="text-sm text-indigo-100 mt-1">
+                                    Verbrauch & Waste im Überblick – Analysieren Sie Ihre Daten
+                                </p>
+                            </div>
+                            <Button 
+                                onClick={() => setShowStockIntelligence(true)}
+                                className="bg-white text-indigo-600 hover:bg-indigo-50"
+                            >
+                                Dashboard öffnen
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -976,6 +1001,15 @@ export default function Dashboard() {
                 onClose={() => setShowDeliveriesOverview(false)}
                 deliveries={deliveries}
             />
+
+            {/* Stock Intelligence Dashboard */}
+            {showStockIntelligence && (
+                <StockIntelligenceDashboard
+                    currentOutletId={currentOutletId}
+                    currentOutletName={currentOutletName}
+                    onClose={() => setShowStockIntelligence(false)}
+                />
+            )}
             </div>
             );
             }
