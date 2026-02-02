@@ -67,25 +67,66 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
         }
     };
 
+    const handleDownloadHTML = async () => {
+        setIsDownloading(true);
+        try {
+            const response = await base44.functions.invoke('generateArticlesHTML', {
+                articles: sortedArticles,
+                outletName: outletName
+            });
+            
+            const blob = new Blob([response.data], { type: 'text/html; charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Artikel_${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            toast.success('HTML heruntergeladen');
+        } catch (error) {
+            toast.error('Fehler beim Erstellen der HTML-Datei');
+            console.error(error);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <DialogTitle>Artikel-Übersicht</DialogTitle>
-                        <Button 
-                            onClick={handleDownloadCSV} 
-                            disabled={isDownloading || sortedArticles.length === 0}
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                            {isDownloading ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                                <Download className="w-4 h-4 mr-2" />
-                            )}
-                            CSV Download
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button 
+                                onClick={handleDownloadCSV} 
+                                disabled={isDownloading || sortedArticles.length === 0}
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {isDownloading ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Download className="w-4 h-4 mr-2" />
+                                )}
+                                CSV
+                            </Button>
+                            <Button 
+                                onClick={handleDownloadHTML} 
+                                disabled={isDownloading || sortedArticles.length === 0}
+                                size="sm"
+                                variant="outline"
+                            >
+                                {isDownloading ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Download className="w-4 h-4 mr-2" />
+                                )}
+                                HTML
+                            </Button>
+                        </div>
                     </div>
                 </DialogHeader>
 

@@ -32,6 +32,29 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
         }
     };
 
+    const handleDownloadHTML = async (delivery) => {
+        try {
+            toast.loading('HTML wird erstellt...');
+            const response = await base44.functions.invoke('generateDeliveryHTML', {
+                deliveryId: delivery.id
+            });
+            
+            const blob = new Blob([response.data], { type: 'text/html; charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.html`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            toast.success('HTML heruntergeladen');
+        } catch (error) {
+            console.error('HTML generation failed:', error);
+            toast.error('HTML-Erstellung fehlgeschlagen');
+        }
+    };
+
     const sortedDeliveries = [...deliveries].sort((a, b) => 
         new Date(b.delivery_date) - new Date(a.delivery_date)
     );
@@ -77,15 +100,26 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
                                             {delivery.notes || '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleDownloadCSV(delivery)}
-                                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                            >
-                                                <Download className="w-4 h-4 mr-1" />
-                                                CSV
-                                            </Button>
+                                            <div className="flex gap-1 justify-end">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleDownloadCSV(delivery)}
+                                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                >
+                                                    <Download className="w-4 h-4 mr-1" />
+                                                    CSV
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleDownloadHTML(delivery)}
+                                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                >
+                                                    <Download className="w-4 h-4 mr-1" />
+                                                    HTML
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

@@ -40,6 +40,29 @@ export default function InventoriesOverview({ open, onClose, sessions }) {
         }
     };
 
+    const handleDownloadHTML = async (session) => {
+        try {
+            toast.loading('HTML wird erstellt...');
+            const response = await base44.functions.invoke('generateInventoryHTML', {
+                sessionId: session.id
+            });
+            
+            const blob = new Blob([response.data], { type: 'text/html; charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Inventur_${format(new Date(session.session_date), 'yyyy-MM-dd')}.html`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            toast.success('HTML heruntergeladen');
+        } catch (error) {
+            console.error('HTML generation failed:', error);
+            toast.error('HTML-Erstellung fehlgeschlagen');
+        }
+    };
+
     const completedSessions = sessions
         .filter(s => s.status === 'completed')
         .sort((a, b) => new Date(b.session_date) - new Date(a.session_date));
@@ -83,15 +106,26 @@ export default function InventoriesOverview({ open, onClose, sessions }) {
                                             {session.total_items_counted || session.entries?.length || 0}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleDownloadCSV(session)}
-                                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                            >
-                                                <Download className="w-4 h-4 mr-1" />
-                                                CSV
-                                            </Button>
+                                            <div className="flex gap-1 justify-end">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleDownloadCSV(session)}
+                                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                >
+                                                    <Download className="w-4 h-4 mr-1" />
+                                                    CSV
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleDownloadHTML(session)}
+                                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                >
+                                                    <Download className="w-4 h-4 mr-1" />
+                                                    HTML
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
