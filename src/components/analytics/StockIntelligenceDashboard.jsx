@@ -126,6 +126,10 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
             (waste.items || []).forEach(item => {
                 // Get price
                 const outletItem = outletItems.find(oi => oi.id === item.article_id);
+                
+                // Skip if article doesn't exist anymore
+                if (!outletItem) return;
+                
                 let price = outletItem?.net_purchase_price || 0;
                 
                 if (!price && outletItem?.global_item_id) {
