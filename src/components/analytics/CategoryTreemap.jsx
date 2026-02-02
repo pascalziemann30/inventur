@@ -59,7 +59,7 @@ export default function CategoryTreemap({ data, onCategoryClick }) {
                             fill="#fff"
                             fontSize={11}
                         >
-                            {value.toFixed(2)} €
+                            {(value || 0).toFixed(2)} €
                         </text>
                     </>
                 )}
