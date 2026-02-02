@@ -27,15 +27,30 @@ export default function AlertDetailDialog({ alert, items, open, onClose, onUpdat
 
         setSaving(true);
         try {
-            // Update OutletItem price
-            await base44.entities.OutletItem.update(item.article_id, {
-                net_purchase_price: parseFloat(newPrice)
+            // Find and update the OutletItem
+            const outletItems = await base44.entities.OutletItem.filter({ 
+                global_item_id: item.article_id 
             });
+            
+            if (outletItems.length === 0) {
+                toast.error('Artikel nicht gefunden');
+                return;
+            }
+
+            // Update all matching OutletItems (in case article exists in multiple outlets)
+            await Promise.all(
+                outletItems.map(outletItem => 
+                    base44.entities.OutletItem.update(outletItem.id, {
+                        net_purchase_price: parseFloat(newPrice)
+                    })
+                )
+            );
 
             toast.success('Preis aktualisiert');
             setEditingItem(null);
             onUpdate();
         } catch (error) {
+            console.error('Update error:', error);
             toast.error('Fehler beim Speichern: ' + error.message);
         } finally {
             setSaving(false);
