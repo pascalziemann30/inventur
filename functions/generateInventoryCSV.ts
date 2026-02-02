@@ -25,6 +25,7 @@ Deno.serve(async (req) => {
 
         // Fetch outlet items for prices and suppliers
         const outletItems = await base44.entities.OutletItem.filter({ outlet_id: session.outlet_id });
+        const globalItems = await base44.entities.GlobalItem.list();
 
         const entries = session.entries?.filter(e => e.counted_quantity !== null) || [];
         let totalInventoryValue = 0;
@@ -51,12 +52,25 @@ Deno.serve(async (req) => {
         // Table rows
         for (const entry of entries) {
             const outletItem = outletItems.find(a => a.id === entry.article_id);
-            const price = outletItem?.net_purchase_price || 0;
-            const supplier = outletItem?.supplier_name || '-';
-            const totalValue = (entry.counted_quantity || 0) * price;
+            
+            // Get price with fallback logic
+            let price = 0;
+            if (outletItem?.net_purchase_price) {
+                price = outletItem.net_purchase_price;
+            } else if (outletItem?.global_item_id) {
+                const globalItem = globalItems.find(g => g.id === outletItem.global_item_id);
+                price = globalItem?.default_net_price || 0;
+            }
+            
+            const supplier = outletItem?.supplier_name || '—';
+            const quantity = entry.counted_quantity || 0;
+            const totalValue = quantity * price;
             totalInventoryValue += totalValue;
 
-            csv += `${entry.article_name || '-'};${supplier};${entry.counted_quantity || 0};${entry.unit_abbreviation || ''};${price.toFixed(2)};${totalValue.toFixed(2)}\n`;
+            const priceDisplay = price > 0 ? price.toFixed(2) : '—';
+            const totalDisplay = totalValue > 0 ? totalValue.toFixed(2) : '—';
+
+            csv += `${entry.article_name || '—'};${supplier};${quantity.toFixed(2)};${entry.unit_abbreviation || ''};${priceDisplay};${totalDisplay}\n`;
         }
 
         // Summary

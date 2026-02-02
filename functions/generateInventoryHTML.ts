@@ -23,25 +23,40 @@ Deno.serve(async (req) => {
         }
 
         const outletItems = await base44.entities.OutletItem.filter({ outlet_id: session.outlet_id });
+        const globalItems = await base44.entities.GlobalItem.list();
         const entries = session.entries?.filter(e => e.counted_quantity !== null) || [];
         let totalInventoryValue = 0;
 
         let rows = '';
         for (const entry of entries) {
+            // Find OutletItem by ID (entry.article_id is the OutletItem ID)
             const outletItem = outletItems.find(a => a.id === entry.article_id);
-            const price = outletItem?.net_purchase_price || 0;
-            const supplier = outletItem?.supplier_name || '-';
-            const totalValue = (entry.counted_quantity || 0) * price;
+            
+            // Get price with fallback logic
+            let price = 0;
+            if (outletItem?.net_purchase_price) {
+                price = outletItem.net_purchase_price;
+            } else if (outletItem?.global_item_id) {
+                const globalItem = globalItems.find(g => g.id === outletItem.global_item_id);
+                price = globalItem?.default_net_price || 0;
+            }
+            
+            const supplier = outletItem?.supplier_name || '—';
+            const quantity = entry.counted_quantity || 0;
+            const totalValue = quantity * price;
             totalInventoryValue += totalValue;
 
+            const priceDisplay = price > 0 ? `${price.toFixed(2)} €` : '—';
+            const totalDisplay = totalValue > 0 ? `${totalValue.toFixed(2)} €` : '—';
+            
             rows += `
                 <tr>
-                    <td>${entry.article_name || '-'}</td>
+                    <td>${entry.article_name || '—'}</td>
                     <td>${supplier}</td>
-                    <td style="text-align: right;">${entry.counted_quantity || 0}</td>
+                    <td style="text-align: right;">${quantity.toFixed(2)}</td>
                     <td>${entry.unit_abbreviation || ''}</td>
-                    <td style="text-align: right;">${price.toFixed(2)} €</td>
-                    <td style="text-align: right;"><strong>${totalValue.toFixed(2)} €</strong></td>
+                    <td style="text-align: right;">${priceDisplay}</td>
+                    <td style="text-align: right;"><strong>${totalDisplay}</strong></td>
                 </tr>
             `;
         }

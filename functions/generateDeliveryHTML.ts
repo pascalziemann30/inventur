@@ -23,20 +23,38 @@ Deno.serve(async (req) => {
         }
 
         const items = delivery.items || [];
+        
+        // Load OutletItems as fallback for prices
+        const outletItems = await base44.entities.OutletItem.filter({ outlet_id: delivery.outlet_id });
+        
         let totalDeliveryValue = 0;
         let rows = '';
 
         for (const item of items) {
-            const totalValue = (item.quantity || 0) * (item.price || 0);
+            // Get price with fallback
+            let price = item.price || 0;
+            
+            // If no price in item, try to get from OutletItem
+            if (!price && item.article_id) {
+                const outletItem = outletItems.find(oi => oi.id === item.article_id);
+                price = outletItem?.net_purchase_price || 0;
+            }
+            
+            const quantity = item.quantity || 0;
+            const totalValue = quantity * price;
             totalDeliveryValue += totalValue;
+
+            const priceDisplay = price > 0 ? `${price.toFixed(2)} €` : '—';
+            const totalDisplay = totalValue > 0 ? `${totalValue.toFixed(2)} €` : '—';
+            const quantityDisplay = quantity > 0 ? quantity.toFixed(2) : '—';
 
             rows += `
                 <tr>
-                    <td>${item.article_name || '-'}</td>
-                    <td style="text-align: right;">${item.quantity || 0}</td>
+                    <td>${item.article_name || '—'}</td>
+                    <td style="text-align: right;">${quantityDisplay}</td>
                     <td>${item.unit_abbreviation || ''}</td>
-                    <td style="text-align: right;">${(item.price || 0).toFixed(2)} €</td>
-                    <td style="text-align: right;"><strong>${totalValue.toFixed(2)} €</strong></td>
+                    <td style="text-align: right;">${priceDisplay}</td>
+                    <td style="text-align: right;"><strong>${totalDisplay}</strong></td>
                 </tr>
             `;
         }

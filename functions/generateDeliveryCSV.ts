@@ -24,6 +24,9 @@ Deno.serve(async (req) => {
         }
 
         const items = delivery.items || [];
+        
+        // Load OutletItems as fallback for prices
+        const outletItems = await base44.entities.OutletItem.filter({ outlet_id: delivery.outlet_id });
 
         // Build CSV content
         let csv = '\uFEFF'; // UTF-8 BOM for Excel
@@ -46,10 +49,24 @@ Deno.serve(async (req) => {
 
         // Table rows
         for (const item of items) {
-            const totalValue = (item.quantity || 0) * (item.price || 0);
+            // Get price with fallback
+            let price = item.price || 0;
+            
+            // If no price in item, try to get from OutletItem
+            if (!price && item.article_id) {
+                const outletItem = outletItems.find(oi => oi.id === item.article_id);
+                price = outletItem?.net_purchase_price || 0;
+            }
+            
+            const quantity = item.quantity || 0;
+            const totalValue = quantity * price;
             totalDeliveryValue += totalValue;
 
-            csv += `${item.article_name || '-'};${item.quantity || 0};${item.unit_abbreviation || ''};${(item.price || 0).toFixed(2)};${totalValue.toFixed(2)}\n`;
+            const priceDisplay = price > 0 ? price.toFixed(2) : '—';
+            const totalDisplay = totalValue > 0 ? totalValue.toFixed(2) : '—';
+            const quantityDisplay = quantity > 0 ? quantity.toFixed(2) : '—';
+
+            csv += `${item.article_name || '—'};${quantityDisplay};${item.unit_abbreviation || ''};${priceDisplay};${totalDisplay}\n`;
         }
 
         // Summary
