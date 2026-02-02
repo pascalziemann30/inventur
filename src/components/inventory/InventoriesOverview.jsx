@@ -19,7 +19,6 @@ const periodTypeLabels = {
 export default function InventoriesOverview({ open, onClose, sessions }) {
     const handleDownloadCSV = async (session) => {
         try {
-            toast.loading('CSV wird erstellt...');
             const response = await base44.functions.invoke('generateInventoryCSV', {
                 sessionId: session.id
             });
@@ -42,7 +41,6 @@ export default function InventoriesOverview({ open, onClose, sessions }) {
 
     const handleDownloadHTML = async (session) => {
         try {
-            toast.loading('HTML wird erstellt...');
             const response = await base44.functions.invoke('generateInventoryHTML', {
                 sessionId: session.id
             });

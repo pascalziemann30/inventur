@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 export default function DeliveriesOverview({ open, onClose, deliveries }) {
     const handleDownloadCSV = async (delivery) => {
         try {
-            toast.loading('CSV wird erstellt...');
             const response = await base44.functions.invoke('generateDeliveryCSV', {
                 deliveryId: delivery.id
             });
@@ -34,7 +33,6 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
 
     const handleDownloadHTML = async (delivery) => {
         try {
-            toast.loading('HTML wird erstellt...');
             const response = await base44.functions.invoke('generateDeliveryHTML', {
                 deliveryId: delivery.id
             });
