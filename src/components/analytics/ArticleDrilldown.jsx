@@ -55,10 +55,10 @@ export default function ArticleDrilldown({ article, wasteItems, deliveries, onCl
                                             <span className="text-slate-600">
                                                 {format(parseISO(item.date), 'dd.MM.yyyy', { locale: de })}
                                             </span>
-                                            <span className="font-medium">{item.value.toFixed(2)} €</span>
+                                            <span className="font-medium">{(item.value || 0).toFixed(2)} €</span>
                                         </div>
                                         <div className="text-slate-500 mt-1">
-                                            {item.quantity} {item.unit} • {item.reason}
+                                            {item.quantity || 0} {item.unit} • {item.reason}
                                         </div>
                                     </div>
                                 ))
@@ -83,10 +83,10 @@ export default function ArticleDrilldown({ article, wasteItems, deliveries, onCl
                                             <span className="text-slate-600">
                                                 {format(parseISO(item.date), 'dd.MM.yyyy', { locale: de })}
                                             </span>
-                                            <span className="font-medium">{item.price.toFixed(2)} €</span>
+                                            <span className="font-medium">{(item.price || 0).toFixed(2)} €</span>
                                         </div>
                                         <div className="text-slate-500 mt-1">
-                                            {item.quantity} {item.unit} • {item.supplier}
+                                            {item.quantity || 0} {item.unit} • {item.supplier}
                                         </div>
                                     </div>
                                 ))

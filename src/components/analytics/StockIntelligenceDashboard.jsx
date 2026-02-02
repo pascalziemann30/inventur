@@ -189,16 +189,16 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
         // Generate CSV
         const headers = ['Datum', 'Outlet', 'Artikel', 'Lieferant', 'Kategorie', 'Menge', 'Einheit', 'Einzelpreis', 'Gesamtwert', 'Grund'];
         const rows = filteredData.wasteItems.map(item => [
-            item.date,
+            item.date || '',
             item.outlet_name || '',
-            item.article_name,
+            item.article_name || '',
             item.supplier_name || '',
             item.category || '',
-            item.quantity.toFixed(2),
-            item.unit,
-            item.price.toFixed(2),
-            item.value.toFixed(2),
-            item.reason
+            (item.quantity || 0).toFixed(2),
+            item.unit || '',
+            (item.price || 0).toFixed(2),
+            (item.value || 0).toFixed(2),
+            item.reason || ''
         ]);
 
         let csv = '\ufeff'; // UTF-8 BOM

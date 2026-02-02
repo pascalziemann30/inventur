@@ -21,7 +21,7 @@ export default function AlertsList({ wasteItems, deliveries }) {
         }
 
         // Price = 0
-        const zeroPrices = wasteItems.filter(item => item.price === 0);
+        const zeroPrices = wasteItems.filter(item => (item.price || 0) === 0);
         if (zeroPrices.length > 0) {
             result.push({
                 type: 'error',
@@ -32,7 +32,7 @@ export default function AlertsList({ wasteItems, deliveries }) {
         }
 
         // High waste items (> 100€)
-        const highWaste = wasteItems.filter(item => item.value > 100);
+        const highWaste = wasteItems.filter(item => (item.value || 0) > 100);
         if (highWaste.length > 0) {
             result.push({
                 type: 'warning',
