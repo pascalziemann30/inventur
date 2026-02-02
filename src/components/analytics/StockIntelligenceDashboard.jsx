@@ -131,7 +131,7 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
                     price = globalItem?.default_net_price || 0;
                 }
 
-                const value = (item.quantity || 0) * price;
+                const value = (item.quantity || 0) * (price || 0);
 
                 // Get category
                 const category = outletItem?.global_item_id 
@@ -143,17 +143,17 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
                 if (selectedSupplier !== 'all' && item.supplier_name !== selectedSupplier) return;
 
                 wasteItems.push({
-                    date: waste.waste_date,
-                    outlet_id: waste.outlet_id,
-                    outlet_name: waste.outlet_name,
-                    article_id: item.article_id,
-                    article_name: item.article_name,
-                    supplier_name: item.supplier_name,
-                    category: category,
+                    date: waste.waste_date || '',
+                    outlet_id: waste.outlet_id || '',
+                    outlet_name: waste.outlet_name || '',
+                    article_id: item.article_id || '',
+                    article_name: item.article_name || '',
+                    supplier_name: item.supplier_name || '',
+                    category: category || '',
                     quantity: item.quantity || 0,
-                    unit: item.unit_abbreviation,
-                    price: price,
-                    value: value,
+                    unit: item.unit_abbreviation || '',
+                    price: price || 0,
+                    value: value || 0,
                     reason: item.reason || 'Kein Grund angegeben'
                 });
             });
