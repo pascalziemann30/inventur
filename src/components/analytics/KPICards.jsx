@@ -31,7 +31,7 @@ export default function KPICards({ data }) {
         .sort((a, b) => b[1].value - a[1].value)[0];
 
     // Alerts count
-    const alerts = wasteItems.filter(item => !item.reason || item.reason === 'Kein Grund angegeben' || item.price === 0).length;
+    const alerts = wasteItems.filter(item => !item.reason || item.reason === 'Kein Grund angegeben' || (item.price || 0) === 0).length;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -42,10 +42,10 @@ export default function KPICards({ data }) {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-red-600">
-                        {totalWasteValue.toFixed(2)} €
+                        {(totalWasteValue || 0).toFixed(2)} €
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                        {totalWasteQuantity.toFixed(2)} Einheiten
+                        {(totalWasteQuantity || 0).toFixed(2)} Einheiten
                     </p>
                 </CardContent>
             </Card>
@@ -57,7 +57,7 @@ export default function KPICards({ data }) {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-blue-600">
-                        {deliveryValue.toFixed(2)} €
+                        {(deliveryValue || 0).toFixed(2)} €
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                         im Zeitraum
@@ -72,7 +72,7 @@ export default function KPICards({ data }) {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-orange-600">
-                        {wasteQuote.toFixed(1)}%
+                        {(wasteQuote || 0).toFixed(1)}%
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                         Waste / Wareneingang
@@ -90,7 +90,7 @@ export default function KPICards({ data }) {
                         {topWasteArticle ? topWasteArticle[0] : 'Keine Daten'}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                        {topWasteArticle ? `${topWasteArticle[1].value.toFixed(2)} €` : '—'}
+                        {topWasteArticle ? `${(topWasteArticle[1].value || 0).toFixed(2)} €` : '—'}
                     </p>
                 </CardContent>
             </Card>
