@@ -9,33 +9,26 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 export default function DeliveriesOverview({ open, onClose, deliveries }) {
-    const handleDownloadExcel = async (delivery) => {
+    const handleDownloadCSV = async (delivery) => {
         try {
-            toast.loading('Excel wird erstellt...');
-            const response = await base44.functions.invoke('generateDeliveryExcel', {
+            toast.loading('CSV wird erstellt...');
+            const response = await base44.functions.invoke('generateDeliveryCSV', {
                 deliveryId: delivery.id
             });
             
-            // Decode base64 to binary
-            const binaryString = atob(response.data.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const blob = new Blob([response.data], { type: 'text/csv; charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = response.data.filename || `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.xlsx`;
+            a.download = `Lieferung_${format(new Date(delivery.delivery_date), 'yyyy-MM-dd')}_${delivery.supplier_name}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('Excel heruntergeladen');
+            toast.success('CSV heruntergeladen');
         } catch (error) {
-            console.error('Excel generation failed:', error);
-            toast.error('Excel-Erstellung fehlgeschlagen');
+            console.error('CSV generation failed:', error);
+            toast.error('CSV-Erstellung fehlgeschlagen');
         }
     };
 
@@ -87,11 +80,11 @@ export default function DeliveriesOverview({ open, onClose, deliveries }) {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => handleDownloadExcel(delivery)}
+                                                onClick={() => handleDownloadCSV(delivery)}
                                                 className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                             >
                                                 <Download className="w-4 h-4 mr-1" />
-                                                Excel
+                                                CSV
                                             </Button>
                                         </TableCell>
                                     </TableRow>

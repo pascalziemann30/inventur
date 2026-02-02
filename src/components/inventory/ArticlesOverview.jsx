@@ -41,33 +41,26 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
         sum + ((article.current_stock || 0) * (article.purchase_price || 0)), 0
     );
 
-    const handleDownloadExcel = async () => {
+    const handleDownloadCSV = async () => {
         setIsDownloading(true);
         try {
-            const response = await base44.functions.invoke('generateArticlesExcel', {
+            const response = await base44.functions.invoke('generateArticlesCSV', {
                 articles: sortedArticles,
                 outletName: outletName
             });
             
-            // Decode base64 to binary
-            const binaryString = atob(response.data.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const blob = new Blob([response.data], { type: 'text/csv; charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = response.data.filename || `Artikel_${new Date().toISOString().split('T')[0]}.xlsx`;
+            a.download = `Artikel_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('Excel heruntergeladen');
+            toast.success('CSV heruntergeladen');
         } catch (error) {
-            toast.error('Fehler beim Erstellen der Excel-Datei');
+            toast.error('Fehler beim Erstellen der CSV-Datei');
             console.error(error);
         } finally {
             setIsDownloading(false);
@@ -81,7 +74,7 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
                     <div className="flex items-center justify-between">
                         <DialogTitle>Artikel-Übersicht</DialogTitle>
                         <Button 
-                            onClick={handleDownloadExcel} 
+                            onClick={handleDownloadCSV} 
                             disabled={isDownloading || sortedArticles.length === 0}
                             size="sm"
                             className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -91,7 +84,7 @@ export default function ArticlesOverview({ open, onClose, articles, outletName }
                             ) : (
                                 <Download className="w-4 h-4 mr-2" />
                             )}
-                            Excel Download
+                            CSV Download
                         </Button>
                     </div>
                 </DialogHeader>

@@ -17,33 +17,26 @@ const periodTypeLabels = {
 };
 
 export default function InventoriesOverview({ open, onClose, sessions }) {
-    const handleDownloadExcel = async (session) => {
+    const handleDownloadCSV = async (session) => {
         try {
-            toast.loading('Excel wird erstellt...');
-            const response = await base44.functions.invoke('generateInventoryExcel', {
+            toast.loading('CSV wird erstellt...');
+            const response = await base44.functions.invoke('generateInventoryCSV', {
                 sessionId: session.id
             });
             
-            // Decode base64 to binary
-            const binaryString = atob(response.data.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const blob = new Blob([response.data], { type: 'text/csv; charset=utf-8' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = response.data.filename || `Inventur_${format(new Date(session.session_date), 'yyyy-MM-dd')}.xlsx`;
+            a.download = `Inventur_${format(new Date(session.session_date), 'yyyy-MM-dd')}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            toast.success('Excel heruntergeladen');
+            toast.success('CSV heruntergeladen');
         } catch (error) {
-            console.error('Excel generation failed:', error);
-            toast.error('Excel-Erstellung fehlgeschlagen');
+            console.error('CSV generation failed:', error);
+            toast.error('CSV-Erstellung fehlgeschlagen');
         }
     };
 
@@ -93,11 +86,11 @@ export default function InventoriesOverview({ open, onClose, sessions }) {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => handleDownloadExcel(session)}
+                                                onClick={() => handleDownloadCSV(session)}
                                                 className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                             >
                                                 <Download className="w-4 h-4 mr-1" />
-                                                Excel
+                                                CSV
                                             </Button>
                                         </TableCell>
                                     </TableRow>
