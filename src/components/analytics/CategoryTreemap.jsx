@@ -11,7 +11,7 @@ export default function CategoryTreemap({ data, onCategoryClick }) {
             if (!byCategory[category]) {
                 byCategory[category] = 0;
             }
-            byCategory[category] += item.value;
+            byCategory[category] += (item.value || 0);
         });
 
         // Convert to array

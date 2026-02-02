@@ -11,14 +11,14 @@ export default function OutletComparisonChart({ data, deliveryValue }) {
             if (!byOutlet[outlet]) {
                 byOutlet[outlet] = { waste: 0 };
             }
-            byOutlet[outlet].waste += item.value;
+            byOutlet[outlet].waste += (item.value || 0);
         });
 
         // Calculate waste quote (simplified - using total delivery value)
         return Object.entries(byOutlet).map(([name, values]) => ({
             name,
-            waste: values.waste,
-            quote: deliveryValue > 0 ? (values.waste / deliveryValue) * 100 : 0
+            waste: values.waste || 0,
+            quote: (deliveryValue || 0) > 0 ? ((values.waste || 0) / (deliveryValue || 1)) * 100 : 0
         }));
     }, [data, deliveryValue]);
 

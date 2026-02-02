@@ -10,8 +10,8 @@ export default function TopWasteChart({ data, onArticleClick }) {
             if (!byArticle[item.article_name]) {
                 byArticle[item.article_name] = { value: 0, quantity: 0, article: item };
             }
-            byArticle[item.article_name].value += item.value;
-            byArticle[item.article_name].quantity += item.quantity;
+            byArticle[item.article_name].value += (item.value || 0);
+            byArticle[item.article_name].quantity += (item.quantity || 0);
         });
 
         // Get top 10

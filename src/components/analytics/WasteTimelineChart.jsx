@@ -15,7 +15,7 @@ export default function WasteTimelineChart({ data }) {
             if (!byDate[date]) {
                 byDate[date] = { waste: 0 };
             }
-            byDate[date].waste += item.value;
+            byDate[date].waste += (item.value || 0);
         });
 
         // Convert to array and sort

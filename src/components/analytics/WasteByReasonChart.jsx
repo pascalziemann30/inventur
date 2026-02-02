@@ -13,7 +13,7 @@ export default function WasteByReasonChart({ data }) {
             if (!byReason[reason]) {
                 byReason[reason] = 0;
             }
-            byReason[reason] += item.value;
+            byReason[reason] += (item.value || 0);
         });
 
         // Convert to array

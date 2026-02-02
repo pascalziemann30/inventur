@@ -6,15 +6,15 @@ export default function KPICards({ data }) {
     const { wasteItems, deliveryValue } = data;
 
     // Calculate totals
-    const totalWasteValue = wasteItems.reduce((sum, item) => sum + item.value, 0);
-    const totalWasteQuantity = wasteItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalWasteValue = wasteItems.reduce((sum, item) => sum + (item.value || 0), 0);
+    const totalWasteQuantity = wasteItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
     
     // Estimated consumption (delivery - waste)
-    const estimatedConsumption = Math.max(0, deliveryValue - totalWasteValue);
+    const estimatedConsumption = Math.max(0, (deliveryValue || 0) - totalWasteValue);
     
     // Waste quote
-    const wasteQuote = deliveryValue > 0 
-        ? (totalWasteValue / deliveryValue) * 100 
+    const wasteQuote = (deliveryValue || 0) > 0 
+        ? (totalWasteValue / (deliveryValue || 1)) * 100 
         : 0;
 
     // Top waste article
@@ -23,8 +23,8 @@ export default function KPICards({ data }) {
         if (!articleTotals[item.article_name]) {
             articleTotals[item.article_name] = { value: 0, quantity: 0 };
         }
-        articleTotals[item.article_name].value += item.value;
-        articleTotals[item.article_name].quantity += item.quantity;
+        articleTotals[item.article_name].value += (item.value || 0);
+        articleTotals[item.article_name].quantity += (item.quantity || 0);
     });
     
     const topWasteArticle = Object.entries(articleTotals)
