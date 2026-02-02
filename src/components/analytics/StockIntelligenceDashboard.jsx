@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
     const FEATURE_ENABLED = true; // Set to false to disable completely
     
     if (!FEATURE_ENABLED) return null;
+
+    const queryClient = useQueryClient();
 
     // Date filters
     const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
@@ -345,6 +347,10 @@ export default function StockIntelligenceDashboard({ currentOutletId, currentOut
                         <AlertsList 
                             wasteItems={filteredData.wasteItems}
                             deliveries={filteredData.deliveries}
+                            onUpdate={() => {
+                                queryClient.invalidateQueries({ queryKey: ['outlet-items-analytics'] });
+                                queryClient.invalidateQueries({ queryKey: ['wastes-analytics'] });
+                            }}
                         />
                     </div>
                 </div>
