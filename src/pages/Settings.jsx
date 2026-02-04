@@ -172,7 +172,6 @@ export default function Settings() {
                         </CardContent>
                     </Card>
                 )}
-                </div>
 
                 {/* User Info */}
                 <Card className="mt-6">
