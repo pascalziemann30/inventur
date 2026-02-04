@@ -127,14 +127,27 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         // If new supplier should be created
         if (showNewSupplierInput && newSupplierName.trim()) {
             try {
-                const newSupplier = await base44.entities.Supplier.create({
-                    name: newSupplierName.trim(),
-                    is_active: true
-                });
-                finalSupplierId = newSupplier.id;
-                finalSupplierName = newSupplier.name;
+                // Check if supplier already exists
+                const existingSupplier = suppliers.find(s => 
+                    s.name.trim().toLowerCase() === newSupplierName.trim().toLowerCase()
+                );
+                
+                if (existingSupplier) {
+                    // Use existing supplier
+                    finalSupplierId = existingSupplier.id;
+                    finalSupplierName = existingSupplier.name;
+                } else {
+                    // Create new supplier
+                    const newSupplier = await base44.entities.Supplier.create({
+                        name: newSupplierName.trim(),
+                        is_active: true
+                    });
+                    finalSupplierId = newSupplier.id;
+                    finalSupplierName = newSupplier.name;
+                }
             } catch (error) {
                 console.error('Supplier creation failed:', error);
+                alert('Fehler beim Erstellen des Lieferanten');
                 return;
             }
         } else if (!finalSupplierId) {
