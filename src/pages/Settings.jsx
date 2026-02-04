@@ -4,13 +4,14 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Users, TrendingUp, Lock } from 'lucide-react';
+import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
 
 export default function Settings() {
     const navigate = useNavigate();
+    const [isMerging, setIsMerging] = useState(false);
 
     const { data: currentUser } = useQuery({
         queryKey: ['currentUser'],
@@ -18,6 +19,27 @@ export default function Settings() {
     });
 
     const isAdmin = currentUser?.role === 'admin';
+
+    const handleMergeSuppliers = async () => {
+        if (!confirm('Möchten Sie doppelte Lieferanten wirklich zusammenführen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+            return;
+        }
+
+        setIsMerging(true);
+        try {
+            const response = await base44.functions.invoke('mergeSuppliers', {});
+            if (response.data.success) {
+                toast.success(response.data.message);
+            } else {
+                toast.error(response.data.error || 'Fehler beim Zusammenführen');
+            }
+        } catch (error) {
+            toast.error('Fehler beim Zusammenführen der Lieferanten');
+            console.error(error);
+        } finally {
+            setIsMerging(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -116,6 +138,40 @@ export default function Settings() {
                             </CardContent>
                         </Card>
                     )}
+                </div>
+
+                {/* Admin Tools */}
+                {isAdmin && (
+                    <Card className="mt-6 border-purple-200 bg-purple-50/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Lock className="w-5 h-5 text-purple-600" />
+                                Admin-Tools
+                            </CardTitle>
+                            <CardDescription>Wartungs- und Bereinigungsfunktionen</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                    <div>
+                                        <p className="font-medium text-sm">Lieferanten zusammenführen</p>
+                                        <p className="text-xs text-slate-600">Doppelte Lieferanten automatisch bereinigen</p>
+                                    </div>
+                                    <Button
+                                        onClick={handleMergeSuppliers}
+                                        disabled={isMerging}
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <GitMerge className="w-4 h-4" />
+                                        {isMerging ? 'Führt zusammen...' : 'Zusammenführen'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
                 </div>
 
                 {/* User Info */}
