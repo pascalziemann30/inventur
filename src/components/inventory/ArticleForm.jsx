@@ -182,7 +182,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         };
 
         // Check for duplicates (only if not aggregator)
-        if (!isAggregator && allArticles.length > 0) {
+        if (!isAggregator) {
             const duplicateCheck = checkDuplicates(
                 articleData,
                 allArticles,
