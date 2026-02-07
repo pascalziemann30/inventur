@@ -82,14 +82,15 @@ export function isExactDuplicate(article1, article2, currentArticleId = null) {
         return false;
     }
     
-    const name1 = normalizeString(article1.name);
-    const name2 = normalizeString(article2.name);
+    // Support both 'name' and 'display_name' fields
+    const name1 = normalizeString(article1.name || article1.display_name);
+    const name2 = normalizeString(article2.name || article2.display_name);
     
     return (
         name1 === name2 &&
         article1.supplier_id === article2.supplier_id &&
         article1.category_id === article2.category_id &&
-        article1.unit_id === article2.unit_id
+        (article1.unit_id === article2.unit_id || article1.unit_abbreviation === article2.unit_abbreviation)
     );
 }
 
@@ -98,6 +99,7 @@ export function isExactDuplicate(article1, article2, currentArticleId = null) {
  */
 export function findSimilarArticles(articleData, existingArticles, currentArticleId = null, threshold = 80) {
     const similar = [];
+    const articleName = articleData.name || articleData.display_name;
     
     for (const existing of existingArticles) {
         // Skip if comparing with itself
@@ -105,11 +107,13 @@ export function findSimilarArticles(articleData, existingArticles, currentArticl
             continue;
         }
         
-        const similarity = calculateSimilarity(articleData.name, existing.name);
+        const existingName = existing.name || existing.display_name;
+        const similarity = calculateSimilarity(articleName, existingName);
         
         if (similarity >= threshold) {
             similar.push({
                 ...existing,
+                name: existingName, // Normalize the name field
                 similarity
             });
         }
@@ -123,6 +127,10 @@ export function findSimilarArticles(articleData, existingArticles, currentArticl
  * Check for duplicates in current outlet context
  */
 export function checkDuplicates(articleData, allArticles, outletId, currentArticleId = null) {
+    if (!allArticles || allArticles.length === 0) {
+        return null;
+    }
+    
     // Filter articles to current outlet only
     const outletArticles = allArticles.filter(a => {
         // For OutletItem structure
@@ -133,25 +141,45 @@ export function checkDuplicates(articleData, allArticles, outletId, currentArtic
         return a.is_active !== false;
     });
     
+    // Normalize the input article data to have consistent field names
+    const normalizedArticleData = {
+        name: articleData.name || articleData.display_name,
+        supplier_id: articleData.supplier_id,
+        category_id: articleData.category_id,
+        unit_id: articleData.unit_id,
+        unit_abbreviation: articleData.unit_abbreviation
+    };
+    
     // Check for exact duplicates
     const exactDuplicate = outletArticles.find(existing => 
-        isExactDuplicate(articleData, existing, currentArticleId)
+        isExactDuplicate(normalizedArticleData, existing, currentArticleId)
     );
     
     if (exactDuplicate) {
         return {
             type: 'exact',
-            duplicate: exactDuplicate
+            duplicate: {
+                ...exactDuplicate,
+                name: exactDuplicate.name || exactDuplicate.display_name,
+                category_name: exactDuplicate.category_name || 'Unbekannt',
+                unit_abbreviation: exactDuplicate.unit_abbreviation || 'Unbekannt'
+            }
         };
     }
     
     // Check for similar articles
-    const similarArticles = findSimilarArticles(articleData, outletArticles, currentArticleId);
+    const similarArticles = findSimilarArticles(normalizedArticleData, outletArticles, currentArticleId);
     
     if (similarArticles.length > 0) {
         return {
             type: 'similar',
-            articles: similarArticles
+            articles: similarArticles.map(a => ({
+                ...a,
+                name: a.name || a.display_name,
+                supplier_name: a.supplier_name || 'Unbekannt',
+                category_name: a.category_name || 'Unbekannt',
+                unit_abbreviation: a.unit_abbreviation || 'Unbekannt'
+            }))
         };
     }
     

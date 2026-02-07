@@ -61,7 +61,10 @@ export function SimilarArticlesDialog({ open, onClose, onProceed, similarArticle
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                     <p className="text-slate-700">
-                        Ein ähnlicher Artikel existiert bereits. Möchtest du diesen Artikel trotzdem neu anlegen?
+                        {similarArticles.length === 1 
+                            ? 'Ein ähnlicher Artikel existiert bereits.' 
+                            : `${similarArticles.length} ähnliche Artikel existieren bereits.`
+                        } Möchtest du diesen Artikel trotzdem neu anlegen?
                     </p>
                     
                     <div className="space-y-2">
