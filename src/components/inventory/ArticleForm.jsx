@@ -9,8 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
+import { checkDuplicates } from './duplicateUtils';
+import { ExactDuplicateDialog, SimilarArticlesDialog } from './DuplicateCheckDialogs';
 
-export default function ArticleForm({ open, onClose, onSave, article, categories, units, suppliers, currentUser, outletId, outletName, isAggregator }) {
+export default function ArticleForm({ open, onClose, onSave, article, categories, units, suppliers, currentUser, outletId, outletName, isAggregator, allArticles = [] }) {
     const [name, setName] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [unitId, setUnitId] = useState('');
@@ -25,6 +27,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [notes, setNotes] = useState('');
     const [isDetecting, setIsDetecting] = useState(false);
     const [inventoryIntervals, setInventoryIntervals] = useState([]);
+    
+    // Duplicate detection states
+    const [showExactDuplicateDialog, setShowExactDuplicateDialog] = useState(false);
+    const [showSimilarDialog, setShowSimilarDialog] = useState(false);
+    const [exactDuplicate, setExactDuplicate] = useState(null);
+    const [similarArticles, setSimilarArticles] = useState([]);
+    const [pendingArticleData, setPendingArticleData] = useState(null);
 
     useEffect(() => {
         if (article) {
@@ -172,6 +181,36 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             is_active: true
         };
 
+        // Check for duplicates (only if not aggregator)
+        if (!isAggregator && allArticles.length > 0) {
+            const duplicateCheck = checkDuplicates(
+                articleData,
+                allArticles,
+                outletId,
+                article?.id // Pass current article ID when editing
+            );
+            
+            if (duplicateCheck) {
+                if (duplicateCheck.type === 'exact') {
+                    // Show exact duplicate dialog (blocking)
+                    setExactDuplicate(duplicateCheck.duplicate);
+                    setShowExactDuplicateDialog(true);
+                    return;
+                } else if (duplicateCheck.type === 'similar') {
+                    // Show similar articles dialog (warning)
+                    setSimilarArticles(duplicateCheck.articles);
+                    setPendingArticleData(articleData);
+                    setShowSimilarDialog(true);
+                    return;
+                }
+            }
+        }
+
+        // No duplicates or user confirmed - proceed with save
+        saveArticle(articleData);
+    };
+    
+    const saveArticle = (articleData) => {
         // Track price change if editing and price changed
         if (article && article.purchase_price !== parseFloat(purchasePrice)) {
             onSave(articleData, {
@@ -184,6 +223,14 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         }
         
         resetForm();
+    };
+    
+    const handleProceedWithSimilar = () => {
+        setShowSimilarDialog(false);
+        if (pendingArticleData) {
+            saveArticle(pendingArticleData);
+            setPendingArticleData(null);
+        }
     };
 
     const intervalOptions = [
@@ -227,8 +274,29 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     }
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0">
+        <>
+            <ExactDuplicateDialog 
+                open={showExactDuplicateDialog}
+                onClose={() => {
+                    setShowExactDuplicateDialog(false);
+                    setExactDuplicate(null);
+                }}
+                duplicate={exactDuplicate}
+            />
+            
+            <SimilarArticlesDialog 
+                open={showSimilarDialog}
+                onClose={() => {
+                    setShowSimilarDialog(false);
+                    setSimilarArticles([]);
+                    setPendingArticleData(null);
+                }}
+                onProceed={handleProceedWithSimilar}
+                similarArticles={similarArticles}
+            />
+            
+            <Dialog open={open} onOpenChange={onClose}>
+                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="px-6 pt-6 pb-4">
                     <DialogTitle className="text-lg font-semibold">
                         {article ? 'Artikel bearbeiten' : `Neuer Artikel (${outletName})`}
@@ -527,5 +595,6 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                 </form>
             </DialogContent>
         </Dialog>
+        </>
     );
 }
