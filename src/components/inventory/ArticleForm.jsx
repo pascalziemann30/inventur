@@ -181,14 +181,23 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             is_active: true
         };
 
-        // Check for duplicates (only if not aggregator)
-        if (!isAggregator) {
+        // Check for duplicates ONLY when creating new articles
+        if (!article && !isAggregator && allArticles && allArticles.length > 0) {
+            console.log('🔍 Checking for duplicates...', {
+                articleName: articleData.name,
+                outletId: outletId,
+                totalArticles: allArticles.length,
+                outletArticles: allArticles.filter(a => a.outlet_id === outletId).length
+            });
+            
             const duplicateCheck = checkDuplicates(
                 articleData,
                 allArticles,
                 outletId,
-                article?.id // Pass current article ID when editing
+                article?.id
             );
+            
+            console.log('📊 Duplicate check result:', duplicateCheck);
             
             if (duplicateCheck) {
                 if (duplicateCheck.type === 'exact') {
