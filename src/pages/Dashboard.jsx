@@ -949,6 +949,7 @@ export default function Dashboard() {
                 outletId={currentOutletId}
                 outletName={currentOutletName}
                 isAggregator={isAggregatorOutlet}
+                allArticles={outletItems}
             />
 
             <DeliveryForm
