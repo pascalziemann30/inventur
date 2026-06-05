@@ -55,17 +55,8 @@ export default function OutletLogin() {
     return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
             <div className="w-full max-w-sm">
-                {/* Logo */}
-                <div className="flex justify-center">
-                    <img
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6975d510bbe0422af7fe76ca/19feb6d1b_ChatGPTImage1Feb202616_14_34.png"
-                        alt="Kolek Schröder Logo"
-                        className="h-12 w-auto"
-                    />
-                </div>
-
                 {/* Title */}
-                <div className="mt-6 text-center">
+                <div className="text-center">
                     <h1 className="text-lg font-semibold text-foreground">Inventur</h1>
                     <p className="text-xs text-muted-foreground mt-0.5">Bestandsverwaltung · Kolek Schröder</p>
                 </div>
