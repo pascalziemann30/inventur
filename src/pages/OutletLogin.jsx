@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, ShieldCheck, Lock } from 'lucide-react';
 import { useOutlet } from '../components/outlet/OutletContext';
 import { toast } from 'sonner';
@@ -13,20 +14,37 @@ export default function OutletLogin() {
     const { setOutlet } = useOutlet();
     const [showAdminPassword, setShowAdminPassword] = useState(false);
     const [adminPassword, setAdminPassword] = useState('');
+    const [selectedOutletId, setSelectedOutletId] = useState('');
 
     const { data: outlets = [] } = useQuery({
         queryKey: ['outlets'],
-        queryFn: () => base44.entities.Outlet.list()
+        queryFn: () => base44.entities.Outlet.list(),
+        onSuccess: (data) => {
+            if (data.length > 0 && !selectedOutletId) {
+                const kuno15 = data.find(o =>
+                    o.name.includes('Kuno 15') || o.name.toLowerCase().includes('kuno15')
+                );
+                setSelectedOutletId(kuno15 ? kuno15.id : data[0].id);
+            }
+        }
     });
 
-    const getFirstActiveOutlet = () => {
-        return outlets.find(o => o.is_active !== false && o.type !== 'AGGREGATOR');
-    };
+    // Also set default when outlets load (onSuccess may not fire in all versions)
+    React.useEffect(() => {
+        if (outlets.length > 0 && !selectedOutletId) {
+            const kuno15 = outlets.find(o =>
+                o.name.includes('Kuno 15') || o.name.toLowerCase().includes('kuno15')
+            );
+            setSelectedOutletId(kuno15 ? kuno15.id : outlets[0].id);
+        }
+    }, [outlets]);
+
+    const getSelectedOutlet = () => outlets.find(o => o.id === selectedOutletId);
 
     const handleEmployeeLogin = () => {
-        const outlet = getFirstActiveOutlet();
+        const outlet = getSelectedOutlet();
         if (!outlet) {
-            toast.error('Kein aktives Outlet gefunden');
+            toast.error('Bitte wähle ein Outlet aus');
             return;
         }
         localStorage.setItem('user_role', 'employee');
@@ -36,9 +54,9 @@ export default function OutletLogin() {
 
     const handleAdminLogin = () => {
         if (adminPassword === 'Kuno4488!') {
-            const outlet = getFirstActiveOutlet();
+            const outlet = getSelectedOutlet();
             if (!outlet) {
-                toast.error('Kein aktives Outlet gefunden');
+                toast.error('Bitte wähle ein Outlet aus');
                 return;
             }
             localStorage.setItem('user_role', 'admin');
@@ -59,7 +77,24 @@ export default function OutletLogin() {
             />
 
             <h1 className="text-3xl font-bold text-slate-900 mb-1">Bestandsverwaltung</h1>
-            <p className="text-slate-500 mb-10">Willkommen — bitte auswählen</p>
+            <p className="text-slate-500 mb-6">Willkommen — bitte auswählen</p>
+
+            {/* Outlet Selection */}
+            <div className="w-full max-w-xl mb-8">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Outlet auswählen</label>
+                <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
+                    <SelectTrigger className="w-full h-11">
+                        <SelectValue placeholder="Outlet wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {outlets.map(outlet => (
+                            <SelectItem key={outlet.id} value={outlet.id}>
+                                {outlet.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
             {/* Role Cards */}
             <div className="flex flex-col sm:flex-row gap-6 w-full max-w-xl">
