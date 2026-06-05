@@ -1,0 +1,36 @@
+{
+  "name": "Outlet",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name des Outlets/Standorts"
+    },
+    "code": {
+      "type": "string",
+      "description": "Kurzcode (z.B. HQ, B1, B2)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "AGGREGATOR"
+      ],
+      "default": "NORMAL",
+      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur \u00dcbersicht"
+    },
+    "address": {
+      "type": "string",
+      "description": "Adresse"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Outlet aktiv/inaktiv"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "PriceHistory",
+  "type": "object",
+  "properties": {
+    "article_id": {
+      "type": "string",
+      "description": "Artikel-ID"
+    },
+    "article_name": {
+      "type": "string",
+      "description": "Artikelname (Schnellzugriff)"
+    },
+    "old_price": {
+      "type": "number",
+      "description": "Alter Preis"
+    },
+    "new_price": {
+      "type": "number",
+      "description": "Neuer Preis"
+    },
+    "change_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum der \u00c4nderung"
+    },
+    "changed_by": {
+      "type": "string",
+      "description": "Ge\u00e4ndert von (User Email)"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Grund der \u00c4nderung"
+    }
+  },
+  "required": [
+    "article_id",
+    "new_price",
+    "change_date"
+  ]
+}

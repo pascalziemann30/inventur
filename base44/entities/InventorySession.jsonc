@@ -1,0 +1,82 @@
+{
+  "name": "InventorySession",
+  "type": "object",
+  "properties": {
+    "session_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum der Inventur-Erfassung"
+    },
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet-ID (wo die Inventur durchgef\u00fchrt wurde)"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name (Schnellzugriff)"
+    },
+    "period_type": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "monthly",
+        "yearly",
+        "adhoc"
+      ],
+      "description": "Zeitraum der Inventur"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Name oder K\u00fcrzel des Mitarbeiters"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed"
+      ],
+      "default": "in_progress",
+      "description": "Status der Session"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "string"
+          },
+          "article_name": {
+            "type": "string"
+          },
+          "unit_abbreviation": {
+            "type": "string"
+          },
+          "last_stock": {
+            "type": "number"
+          },
+          "counted_quantity": {
+            "type": "number"
+          },
+          "difference": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Erfasste Z\u00e4hlungen"
+    },
+    "total_items_counted": {
+      "type": "number",
+      "description": "Anzahl gez\u00e4hlter Artikel"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Bemerkungen zur Session"
+    }
+  },
+  "required": [
+    "session_date",
+    "outlet_id",
+    "period_type"
+  ]
+}

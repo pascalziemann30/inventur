@@ -44,7 +44,9 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const { currentOutletId, currentOutletName } = useOutlet();
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState('articles');
+    const userRole = localStorage.getItem('user_role');
+    const isEmployee = userRole === 'employee';
+    const [activeTab, setActiveTab] = useState(isEmployee ? 'consumption' : 'articles');
     const [sortBy, setSortBy] = useState('name');
 
     // Redirect to login if no outlet selected
@@ -801,7 +803,7 @@ export default function Dashboard() {
                 />
 
                 {/* Stock Intelligence Dashboard Button */}
-                {!isAggregatorOutlet && (
+                {!isAggregatorOutlet && !isEmployee && (
                     <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
                         <div className="flex items-center justify-between">
                             <div>
@@ -827,10 +829,12 @@ export default function Dashboard() {
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                         <TabsList className="bg-white border border-slate-200">
-                            <TabsTrigger value="articles" className="gap-2">
-                                <Package className="w-4 h-4" />
-                                <span className="hidden sm:inline">Artikel</span>
-                            </TabsTrigger>
+                            {!isEmployee && (
+                                <TabsTrigger value="articles" className="gap-2">
+                                    <Package className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Artikel</span>
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="consumption" className="gap-2">
                                 <BarChart3 className="w-4 h-4" />
                                 <span className="hidden sm:inline">Verbrauch</span>
@@ -867,13 +871,15 @@ export default function Dashboard() {
                     {/* Action Buttons */}
                     {!isAggregatorOutlet && (
                         <div className="flex flex-wrap gap-2 mb-4">
-                            <Button 
-                                onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
-                                className="bg-slate-900 hover:bg-slate-800"
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Artikel
-                            </Button>
+                            {!isEmployee && (
+                                <Button 
+                                    onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
+                                    className="bg-slate-900 hover:bg-slate-800"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Artikel
+                                </Button>
+                            )}
                             <Button 
                                 variant="outline" 
                                 onClick={() => setShowDeliveryForm(true)}

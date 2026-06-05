@@ -20,11 +20,6 @@ import AlertsList from './AlertsList';
 import ArticleDrilldown from './ArticleDrilldown';
 
 export default function StockIntelligenceDashboard({ currentOutletId, currentOutletName, onClose }) {
-    // Feature toggle - can be easily disabled
-    const FEATURE_ENABLED = true; // Set to false to disable completely
-    
-    if (!FEATURE_ENABLED) return null;
-
     const queryClient = useQueryClient();
 
     // Date filters

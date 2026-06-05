@@ -1,0 +1,66 @@
+{
+  "name": "Waste",
+  "type": "object",
+  "properties": {
+    "waste_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Waste-Datum"
+    },
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet-ID (wo der Waste erfasst wurde)"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name (Schnellzugriff)"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "string"
+          },
+          "article_name": {
+            "type": "string"
+          },
+          "supplier_name": {
+            "type": "string",
+            "description": "Nur f\u00fcr Anzeige"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_abbreviation": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Grund f\u00fcr Abschrift"
+          }
+        }
+      },
+      "description": "Waste-Items"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Bemerkungen"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "applied"
+      ],
+      "default": "draft",
+      "description": "Status"
+    }
+  },
+  "required": [
+    "waste_date",
+    "outlet_id",
+    "items"
+  ]
+}

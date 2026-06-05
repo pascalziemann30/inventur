@@ -1,0 +1,65 @@
+{
+  "name": "StockMovement",
+  "type": "object",
+  "properties": {
+    "movement_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Bewegungsdatum"
+    },
+    "movement_type": {
+      "type": "string",
+      "enum": [
+        "purchase",
+        "inventory_adjustment",
+        "outlet_transfer_in",
+        "outlet_transfer_out",
+        "waste"
+      ],
+      "description": "Art der Bestandsbewegung"
+    },
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet/Standort ID (PFLICHT)"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name"
+    },
+    "article_id": {
+      "type": "string",
+      "description": "Artikel-ID"
+    },
+    "article_name": {
+      "type": "string",
+      "description": "Artikelname (Schnellzugriff)"
+    },
+    "delta_quantity": {
+      "type": "number",
+      "description": "Mengendifferenz (positiv = Zugang, negativ = Abgang)"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheit"
+    },
+    "source_document_id": {
+      "type": "string",
+      "description": "Referenz auf Quelldokument (Transfer, Lieferung, Waste, etc.)"
+    },
+    "source_document_type": {
+      "type": "string",
+      "description": "Art des Quelldokuments (transfer, delivery, inventory, waste)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Bemerkungen"
+    }
+  },
+  "required": [
+    "movement_date",
+    "movement_type",
+    "outlet_id",
+    "article_id",
+    "delta_quantity"
+  ]
+}

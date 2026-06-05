@@ -1,0 +1,28 @@
+{
+  "name": "Unit",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Vollst\u00e4ndiger Name der Einheit"
+    },
+    "abbreviation": {
+      "type": "string",
+      "description": "Abk\u00fcrzung (z.B. kg, l, pcs)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "weight",
+        "volume",
+        "count",
+        "package"
+      ],
+      "description": "Art der Einheit"
+    }
+  },
+  "required": [
+    "name",
+    "abbreviation"
+  ]
+}

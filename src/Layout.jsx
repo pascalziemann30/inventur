@@ -27,6 +27,7 @@ function LayoutContent({ children }) {
     };
 
     const handleLogout = () => {
+        localStorage.removeItem('user_role');
         clearOutlet();
         navigate('/OutletLogin');
     };

@@ -1,0 +1,71 @@
+{
+  "name": "OutletTransfer",
+  "type": "object",
+  "properties": {
+    "transfer_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Transferdatum"
+    },
+    "from_outlet_id": {
+      "type": "string",
+      "description": "Quell-Outlet ID"
+    },
+    "from_outlet_name": {
+      "type": "string",
+      "description": "Quell-Outlet Name (Schnellzugriff)"
+    },
+    "to_outlet_id": {
+      "type": "string",
+      "description": "Ziel-Outlet ID"
+    },
+    "to_outlet_name": {
+      "type": "string",
+      "description": "Ziel-Outlet Name (Schnellzugriff)"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "string"
+          },
+          "article_name": {
+            "type": "string"
+          },
+          "supplier_name": {
+            "type": "string",
+            "description": "Nur f\u00fcr Anzeige"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_abbreviation": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Transfer-Items"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Bemerkungen"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "applied"
+      ],
+      "default": "draft",
+      "description": "Status des Transfers"
+    }
+  },
+  "required": [
+    "transfer_date",
+    "from_outlet_id",
+    "to_outlet_id",
+    "items"
+  ]
+}

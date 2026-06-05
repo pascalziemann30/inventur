@@ -1,0 +1,78 @@
+{
+  "name": "Article",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name des Artikels"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Verkn\u00fcpfte Kategorie-ID"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Name der Kategorie (f\u00fcr schnelle Anzeige)"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Basis-Einheit ID"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheits-Abk\u00fcrzung (f\u00fcr schnelle Anzeige)"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Lieferanten-ID"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Lieferantenname (f\u00fcr schnelle Anzeige)"
+    },
+    "purchase_price": {
+      "type": "number",
+      "description": "Netto-Einkaufspreis pro Basiseinheit"
+    },
+    "current_stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Aktueller Lagerbestand"
+    },
+    "initial_stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Anfangsbestand"
+    },
+    "min_stock": {
+      "type": "number",
+      "description": "Mindestbestand f\u00fcr Warnung"
+    },
+    "inventory_intervals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "weekly",
+          "monthly",
+          "yearly"
+        ]
+      },
+      "default": [],
+      "description": "Zugeordnete Inventur-Intervalle (Mehrfachauswahl m\u00f6glich)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notizen zum Artikel"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Artikel aktiv/inaktiv"
+    }
+  },
+  "required": [
+    "name",
+    "supplier_id"
+  ]
+}

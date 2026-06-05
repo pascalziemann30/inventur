@@ -1,0 +1,40 @@
+{
+  "name": "OutletStock",
+  "type": "object",
+  "properties": {
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet/Standort ID"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name (Schnellzugriff)"
+    },
+    "outlet_item_id": {
+      "type": "string",
+      "description": "OutletItem-ID (outlet-spezifischer Artikel)"
+    },
+    "global_item_id": {
+      "type": "string",
+      "description": "GlobalItem-ID (f\u00fcr Aggregation)"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Artikelname (Schnellzugriff)"
+    },
+    "on_hand_quantity": {
+      "type": "number",
+      "default": 0,
+      "description": "Aktueller Lagerbestand f\u00fcr dieses Outlet"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheit"
+    }
+  },
+  "required": [
+    "outlet_id",
+    "outlet_item_id",
+    "global_item_id"
+  ]
+}

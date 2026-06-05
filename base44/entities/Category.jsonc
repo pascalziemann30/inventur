@@ -1,0 +1,28 @@
+{
+  "name": "Category",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name der Kategorie"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Schl\u00fcsselw\u00f6rter zur automatischen Erkennung"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon-Name f\u00fcr die Anzeige"
+    },
+    "color": {
+      "type": "string",
+      "description": "Farbe f\u00fcr die Kategoriekennzeichnung"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

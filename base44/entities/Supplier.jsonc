@@ -1,0 +1,38 @@
+{
+  "name": "Supplier",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name des Lieferanten"
+    },
+    "contact_person": {
+      "type": "string",
+      "description": "Ansprechpartner"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefonnummer"
+    },
+    "email": {
+      "type": "string",
+      "description": "E-Mail"
+    },
+    "address": {
+      "type": "string",
+      "description": "Adresse"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notizen"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Lieferant aktiv/inaktiv"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

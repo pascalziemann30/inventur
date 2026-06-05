@@ -1,0 +1,66 @@
+{
+  "name": "OutletItem",
+  "type": "object",
+  "properties": {
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet-ID (zu welchem Outlet geh\u00f6rt dieser Artikel)"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name (Schnellzugriff)"
+    },
+    "global_item_id": {
+      "type": "string",
+      "description": "Verkn\u00fcpfung zum GlobalItem"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Anzeigename (outlet-spezifisch, kann abweichen)"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Lieferant (outlet-spezifisch)"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Lieferantenname (Schnellzugriff)"
+    },
+    "net_purchase_price": {
+      "type": "number",
+      "description": "Netto-Einkaufspreis (outlet-spezifisch)"
+    },
+    "min_stock": {
+      "type": "number",
+      "description": "Mindestbestand f\u00fcr Warnung"
+    },
+    "inventory_intervals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "weekly",
+          "monthly",
+          "yearly"
+        ]
+      },
+      "default": [],
+      "description": "Zugeordnete Inventur-Intervalle"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Outlet-spezifische Notizen"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Artikel aktiv/inaktiv"
+    }
+  },
+  "required": [
+    "outlet_id",
+    "global_item_id",
+    "display_name",
+    "supplier_id"
+  ]
+}
