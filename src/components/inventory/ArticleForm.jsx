@@ -150,7 +150,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         const articleData = {
             name,
             category_id: categoryId,
-            category_name: selectedCategory?.name || '',
+            category_name: isFinishedProduct ? (categories.find(c => c.name === 'Fertigprodukte')?.name || 'Fertigprodukte') : (selectedCategory?.name || ''),
             unit_id: unitId,
             unit_abbreviation: selectedUnit?.abbreviation || '',
             supplier_id: finalSupplierId,
@@ -310,16 +310,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                             </p>
                             <p className="text-xs text-muted-foreground">{outletName} · Bestand erweitern</p>
                         </div>
-                        <button onClick={onClose} className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground">
-                            <X className="w-4 h-4" />
-                        </button>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                         <div className="overflow-y-auto px-5 py-4 space-y-5 flex-1">
 
                             {/* ── SEKTION 1: Grundinformation ── */}
-                            <div className="space-y-3">
+                            <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
                                 <SectionLabel>Grundinformation</SectionLabel>
 
                                 {/* Artikelname */}
@@ -349,16 +346,22 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground block mb-1">Kategorie</label>
-                                        <Select value={categoryId} onValueChange={setCategoryId}>
-                                            <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
-                                                <SelectValue placeholder="Wählen..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {categories.map(cat => (
-                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        {isFinishedProduct ? (
+                                            <p className="text-xs text-muted-foreground px-2 py-2 bg-muted rounded-lg border border-border">
+                                                Kategorie: Fertigprodukte (automatisch)
+                                            </p>
+                                        ) : (
+                                            <Select value={categoryId} onValueChange={setCategoryId}>
+                                                <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
+                                                    <SelectValue placeholder="Wählen..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map(cat => (
+                                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground block mb-1">Einheit *</label>
@@ -383,7 +386,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                     </div>
                                     <Switch
                                         checked={isFinishedProduct}
-                                        onCheckedChange={setIsFinishedProduct}
+                                        onCheckedChange={(val) => {
+                                            setIsFinishedProduct(val);
+                                            if (val) {
+                                                const fpCat = categories.find(c => c.name === 'Fertigprodukte');
+                                                setCategoryId(fpCat?.id || '');
+                                            }
+                                        }}
                                         className={isFinishedProduct ? '[&>span]:bg-white' : ''}
                                         style={isFinishedProduct ? { background: '#2d4a2d' } : {}}
                                     />
@@ -472,7 +481,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                             )}
 
                             {/* ── SEKTION 3: Preise ── */}
-                            <div className="space-y-3">
+                            <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
                                 <SectionLabel>Preise</SectionLabel>
 
                                 {isFinishedProduct ? (
@@ -592,7 +601,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
                             {/* ── SEKTION 4: Bestand (nur wenn kein Fertigprodukt) ── */}
                             {!isFinishedProduct && (
-                                <div className="space-y-3">
+                                <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
                                     <SectionLabel>Bestand</SectionLabel>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
@@ -611,7 +620,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
                             {/* ── SEKTION 5: Inventur-Intervalle (nur wenn kein Fertigprodukt) ── */}
                             {!isFinishedProduct && (
-                                <div className="space-y-3">
+                                <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
                                     <SectionLabel>Inventur-Intervalle</SectionLabel>
                                     <div className="flex flex-wrap gap-2">
                                         {intervalOptions.map(option => {
@@ -636,7 +645,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                             )}
 
                             {/* ── SEKTION 6: Notizen ── */}
-                            <div className="space-y-3">
+                            <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
                                 <SectionLabel>Notizen</SectionLabel>
                                 <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional..." style={inputStyle}
                                     onFocus={e => e.target.style.borderColor = '#2d4a2d'} onBlur={e => e.target.style.borderColor = 'var(--border)'} />
