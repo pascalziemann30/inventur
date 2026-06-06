@@ -39,91 +39,73 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
         if (dropped) handleFileSelect(dropped);
     };
 
-    const getMediaType = (f) => {
-        if (f.type === 'application/pdf') return 'application/pdf';
-        if (f.type === 'image/png') return 'image/png';
-        return 'image/jpeg';
-    };
-
-    const toBase64 = (f) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(f);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-    });
-
     const handleAnalyze = async () => {
         if (!file) return;
         setIsScanning(true);
-        setPhase('scanning');
         setError('');
+        setPhase('scanning');
 
         try {
-            const base64Data = await toBase64(file);
-            const isImage = file.type.startsWith('image/');
+            // Schritt 1: Datei hochladen
+            const uploadResult = await base44.integrations.Core.UploadFile({
+                file: file,
+                public: true
+            });
 
-            const prompt = `Analysiere diesen Lieferschein und extrahiere alle relevanten Daten. Antworte NUR mit einem JSON-Objekt, ohne Markdown-Backticks, ohne Erklärungen:
-{
-  "lieferant": "Name des Lieferanten",
-  "lieferschein_nummer": "Nummer oder null",
-  "datum": "YYYY-MM-DD oder null",
-  "artikel": [
-    {
-      "name": "Artikelbezeichnung",
-      "artikelnummer": "Artikelnummer oder null",
-      "menge": 1.0,
-      "einheit": "Stück",
-      "einzelpreis": 0.00
-    }
-  ],
-  "gesamtbetrag": 0.00
-}`;
+            const fileUrl = uploadResult.file_url || uploadResult.url || uploadResult;
+            if (!fileUrl) throw new Error('Datei konnte nicht hochgeladen werden');
 
-            let result;
-
-            if (isImage) {
-                result = await base44.integrations.Core.InvokeLLM({
-                    prompt: prompt,
-                    image: {
-                        data: base64Data,
-                        mediaType: file.type
+            // Schritt 2: Daten extrahieren
+            const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+                file_url: fileUrl,
+                json_schema: {
+                    type: "object",
+                    properties: {
+                        lieferant: { type: "string", description: "Name des Lieferanten / Lieferfirma" },
+                        lieferschein_nummer: { type: "string", description: "Lieferscheinnummer, Bestellnummer oder Rechnungsnummer" },
+                        datum: { type: "string", description: "Lieferdatum im Format YYYY-MM-DD" },
+                        artikel: {
+                            type: "array",
+                            description: "Liste aller gelieferten Artikel",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    name: { type: "string", description: "Vollständige Artikelbezeichnung" },
+                                    artikelnummer: { type: "string", description: "Artikelnummer des Lieferanten" },
+                                    menge: { type: "number", description: "Gelieferte Menge als Zahl" },
+                                    einheit: { type: "string", description: "Einheit z.B. ST, KG, L, KT, GL, BD, SC" },
+                                    einzelpreis: { type: "number", description: "Preis pro Einheit in Euro" }
+                                }
+                            }
+                        },
+                        gesamtbetrag: { type: "number", description: "Gesamtbetrag Netto in Euro" }
                     }
-                });
-            } else {
-                result = await base44.integrations.Core.InvokeLLM({
-                    prompt: prompt,
-                    document: {
-                        data: base64Data,
-                        mediaType: 'application/pdf'
-                    }
-                });
+                }
+            });
+
+            if (!result || !result.artikel || result.artikel.length === 0) {
+                throw new Error('Keine Artikel im Lieferschein erkannt. Bitte prüfe die Dateiqualität.');
             }
 
-            const text = typeof result === 'string' ? result : result?.text || result?.content || JSON.stringify(result);
-            const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-
-            // Match articles
-            const matchedItems = (parsed.artikel || []).map(item => {
+            // Artikel mit bekannten Items abgleichen
+            const matchedItems = result.artikel.map(item => {
                 const match = articles.find(a =>
                     normalize(a.name).includes(normalize(item.name)) ||
                     normalize(item.name).includes(normalize(a.name))
                 );
-                return {
-                    ...item,
-                    match,
-                    status: match ? 'known' : 'new'
-                };
+                return { ...item, match, status: match ? 'known' : 'new' };
             });
 
-            setScanResult(parsed);
+            setScanResult(result);
             setEditedItems(matchedItems);
-            setEditedSupplier(parsed.lieferant || '');
-            setEditedDate(parsed.datum || format(new Date(), 'yyyy-MM-dd'));
-            setEditedNoteNumber(parsed.lieferschein_nummer || '');
+            setEditedSupplier(result.lieferant || '');
+            setEditedDate(result.datum || format(new Date(), 'yyyy-MM-dd'));
+            setEditedNoteNumber(result.lieferschein_nummer || '');
             setIgnoreDuplicate(false);
             setPhase('preview');
         } catch (err) {
-            setError('Fehler bei der Analyse: ' + err.message);
+            console.error('Scan Fehler:', err);
+            setError('Fehler bei der Analyse: ' + (err.message || JSON.stringify(err)));
             setPhase('upload');
         } finally {
             setIsScanning(false);
