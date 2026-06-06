@@ -46,49 +46,52 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
         setPhase('scanning');
 
         try {
-            // Schritt 1: Datei hochladen
-            const uploadResult = await base44.integrations.Core.UploadFile({
-                file: file,
-                public: true
-            });
+            // Schritt 1: Datei hochladen und öffentliche URL bekommen
+            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+            if (!file_url) throw new Error('Datei konnte nicht hochgeladen werden');
 
-            const fileUrl = uploadResult.file_url || uploadResult.url || uploadResult;
-            if (!fileUrl) throw new Error('Datei konnte nicht hochgeladen werden');
-
-            // Schritt 2: Daten extrahieren
-            const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-                file_url: fileUrl,
-                json_schema: {
+            // Schritt 2: InvokeLLM mit file_urls + response_json_schema
+            const result = await base44.integrations.Core.InvokeLLM({
+                prompt: `Du bist ein Experte für Lieferschein-Analyse. 
+Analysiere das beigefügte Dokument (Lieferschein, Bestellung oder Rechnung) und extrahiere alle relevanten Daten.
+Gib alle Artikel zurück die du findest, inklusive Mengen, Einheiten und Preise.
+Wenn das Datum nicht eindeutig ist, verwende das Bestelldatum oder Lieferdatum.
+Antworte NUR mit dem strukturierten JSON-Objekt gemäß Schema.`,
+                file_urls: [file_url],
+                response_json_schema: {
                     type: "object",
                     properties: {
-                        lieferant: { type: "string", description: "Name des Lieferanten / Lieferfirma" },
-                        lieferschein_nummer: { type: "string", description: "Lieferscheinnummer, Bestellnummer oder Rechnungsnummer" },
-                        datum: { type: "string", description: "Lieferdatum im Format YYYY-MM-DD" },
+                        lieferant: { type: "string", description: "Name des Lieferanten" },
+                        lieferschein_nummer: { type: "string", description: "Lieferschein-, Bestell- oder Rechnungsnummer" },
+                        datum: { type: "string", description: "Datum im Format YYYY-MM-DD" },
                         artikel: {
                             type: "array",
-                            description: "Liste aller gelieferten Artikel",
                             items: {
                                 type: "object",
                                 properties: {
-                                    name: { type: "string", description: "Vollständige Artikelbezeichnung" },
-                                    artikelnummer: { type: "string", description: "Artikelnummer des Lieferanten" },
-                                    menge: { type: "number", description: "Gelieferte Menge als Zahl" },
-                                    einheit: { type: "string", description: "Einheit z.B. ST, KG, L, KT, GL, BD, SC" },
+                                    name: { type: "string", description: "Artikelname" },
+                                    artikelnummer: { type: "string", description: "Artikelnummer" },
+                                    menge: { type: "number", description: "Menge als Zahl" },
+                                    einheit: { type: "string", description: "Einheit z.B. ST, KG, L" },
                                     einzelpreis: { type: "number", description: "Preis pro Einheit in Euro" }
-                                }
+                                },
+                                required: ["name", "menge"]
                             }
                         },
-                        gesamtbetrag: { type: "number", description: "Gesamtbetrag Netto in Euro" }
-                    }
+                        gesamtbetrag: { type: "number", description: "Gesamtbetrag in Euro" }
+                    },
+                    required: ["lieferant", "artikel"]
                 }
             });
 
-            if (!result || !result.artikel || result.artikel.length === 0) {
-                throw new Error('Keine Artikel im Lieferschein erkannt. Bitte prüfe die Dateiqualität.');
+            const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+
+            if (!parsed || !parsed.artikel || parsed.artikel.length === 0) {
+                throw new Error('Keine Artikel erkannt. Bitte stelle sicher dass das Dokument lesbar ist.');
             }
 
             // Artikel mit bekannten Items abgleichen
-            const matchedItems = result.artikel.map(item => {
+            const matchedItems = parsed.artikel.map(item => {
                 const match = articles.find(a =>
                     normalize(a.name).includes(normalize(item.name)) ||
                     normalize(item.name).includes(normalize(a.name))
@@ -96,16 +99,16 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
                 return { ...item, match, status: match ? 'known' : 'new' };
             });
 
-            setScanResult(result);
+            setScanResult(parsed);
             setEditedItems(matchedItems);
-            setEditedSupplier(result.lieferant || '');
-            setEditedDate(result.datum || format(new Date(), 'yyyy-MM-dd'));
-            setEditedNoteNumber(result.lieferschein_nummer || '');
+            setEditedSupplier(parsed.lieferant || '');
+            setEditedDate(parsed.datum || format(new Date(), 'yyyy-MM-dd'));
+            setEditedNoteNumber(parsed.lieferschein_nummer || '');
             setIgnoreDuplicate(false);
             setPhase('preview');
         } catch (err) {
             console.error('Scan Fehler:', err);
-            setError('Fehler bei der Analyse: ' + (err.message || JSON.stringify(err)));
+            setError('Fehler: ' + (err.message || 'Unbekannter Fehler — bitte versuche es erneut.'));
             setPhase('upload');
         } finally {
             setIsScanning(false);
