@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Package, History, Settings, LogOut, Store } from 'lucide-react';
+import { Package, History, Settings, LogOut, Store, BookOpen } from 'lucide-react';
 import { Toaster } from "sonner";
 import { OutletProvider, useOutlet } from './components/outlet/OutletContext';
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,13 @@ function LayoutContent({ children }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentOutletName, clearOutlet } = useOutlet();
+    const userRole = localStorage.getItem('user_role');
     
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },
         { name: 'Historie', page: 'History', icon: History },
         { name: 'Einstellungen', page: 'Settings', icon: Settings },
+        ...(userRole === 'admin' ? [{ name: 'Produktpass', page: 'Produktpass', icon: BookOpen }] : []),
     ];
     
     const adminNavigation = [

@@ -56,6 +56,7 @@ import OutletLogin from './pages/OutletLogin';
 import Settings from './pages/Settings';
 import Suppliers from './pages/Suppliers';
 import Users from './pages/Users';
+import Produktpass from './pages/Produktpass';
 import __Layout from './Layout.jsx';
 
 
@@ -69,6 +70,7 @@ export const PAGES = {
     "Settings": Settings,
     "Suppliers": Suppliers,
     "Users": Users,
+    "Produktpass": Produktpass,
 }
 
 export const pagesConfig = {
