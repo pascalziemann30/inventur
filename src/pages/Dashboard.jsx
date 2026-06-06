@@ -19,7 +19,8 @@ import {
     ArrowRightLeft,
     AlertTriangle,
     Trash2,
-    ClipboardList
+    ClipboardList,
+    LogOut
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -40,6 +41,7 @@ import LowStockOverview from '../components/inventory/LowStockOverview';
 import InventoriesOverview from '../components/inventory/InventoriesOverview';
 import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
 import StockIntelligenceDashboard from '../components/analytics/StockIntelligenceDashboard';
+import EmployeeActivityList from '../components/inventory/EmployeeActivityList';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
@@ -753,117 +755,116 @@ export default function Dashboard() {
 
     // --- EMPLOYEE VIEW ---
     if (isEmployee) {
-        return (
-            <div className="min-h-screen bg-background p-4 sm:p-6">
-                <div className="max-w-2xl mx-auto space-y-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-xl font-semibold text-foreground">Mein Bereich</h1>
-                            <p className="text-sm text-muted-foreground">{currentOutletName}</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={handleRefresh}>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Aktualisieren
-                        </Button>
-                    </div>
+        const now = new Date();
+        const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        const lastDayNum = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const shortMonth = now.toLocaleDateString('de-DE', { month: 'short' });
 
-                    {/* Aktionen */}
+        const handleLogout = () => {
+            localStorage.removeItem('user_role');
+            navigate('/OutletLogin');
+        };
+
+        const movementTypeIcon = (type) => {
+            if (type === 'purchase') return <Truck className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+            if (type === 'waste') return <Trash2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+            if (type === 'outlet_transfer_in' || type === 'outlet_transfer_out') return <ArrowRightLeft className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+            return <ClipboardList className="w-4 h-4 text-muted-foreground flex-shrink-0" />;
+        };
+
+        const movementTypeLabel = (type) => {
+            if (type === 'purchase') return 'Lieferung';
+            if (type === 'waste') return 'Waste';
+            if (type === 'outlet_transfer_in') return 'Transfer eingehend';
+            if (type === 'outlet_transfer_out') return 'Transfer ausgehend';
+            if (type === 'inventory_adjustment') return 'Inventur';
+            return type;
+        };
+
+        return (
+            <div className="min-h-screen bg-background">
+                {/* Header */}
+                <div className="px-4 sm:px-6 pt-6 pb-2 flex items-center justify-between max-w-2xl mx-auto">
                     <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Aktionen</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {/* Inventur */}
-                            <Link to={createPageUrl('InventoryCapture')} className="block">
-                                <div className="bg-primary text-primary-foreground rounded-2xl p-4 cursor-pointer h-full">
-                                    <ClipboardList className="w-5 h-5 mb-3" />
-                                    <p className="text-sm font-semibold">Inventur starten</p>
-                                    <p className="text-xs opacity-80 mt-0.5">Zählung beginnen</p>
+                        <p className="text-base font-semibold text-foreground">{currentOutletName}</p>
+                        <p className="text-sm text-muted-foreground">{monthName}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button onClick={handleRefresh} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                        <button onClick={handleLogout} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 space-y-6">
+                    {/* Aktionen & Übersicht — 5 Kacheln */}
+                    <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Aktionen & Übersicht</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                            {/* Inventur starten */}
+                            <Link to={createPageUrl('InventoryCapture')} className="block relative">
+                                <div className="bg-card border-2 border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center">
+                                    <span className="absolute top-2 right-2 text-[9px] font-semibold bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5">!</span>
+                                    <ClipboardList className="w-5 h-5 text-foreground mb-2" />
+                                    <p className="text-xs font-semibold text-foreground leading-tight">Inventur starten</p>
                                 </div>
                             </Link>
                             {/* Lieferung */}
                             <div
                                 onClick={() => setShowDeliveryForm(true)}
-                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                                className="bg-muted border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center"
                             >
-                                <Truck className="w-5 h-5 text-primary mb-3" />
-                                <p className="text-sm font-semibold text-foreground">Lieferung</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Eingang erfassen</p>
+                                <Truck className="w-5 h-5 text-foreground mb-2" />
+                                <p className="text-xs font-medium text-foreground">Lieferung</p>
                             </div>
                             {/* Waste */}
                             <div
                                 onClick={() => setShowWasteForm(true)}
-                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                                className="bg-muted border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center"
                             >
-                                <Trash2 className="w-5 h-5 text-primary mb-3" />
-                                <p className="text-sm font-semibold text-foreground">Waste</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Verlust eintragen</p>
+                                <Trash2 className="w-5 h-5 text-foreground mb-2" />
+                                <p className="text-xs font-medium text-foreground">Waste</p>
                             </div>
                             {/* Transfer */}
                             <div
                                 onClick={() => setShowTransferForm(true)}
-                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                                className="bg-muted border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center"
                             >
-                                <ArrowRightLeft className="w-5 h-5 text-primary mb-3" />
-                                <p className="text-sm font-semibold text-foreground">Transfer</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Zwischen Outlets</p>
+                                <ArrowRightLeft className="w-5 h-5 text-foreground mb-2" />
+                                <p className="text-xs font-medium text-foreground">Transfer</p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Übersicht */}
-                    <div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Übersicht</p>
-                        <div className="grid grid-cols-3 gap-3">
                             {/* Niedrigbestand */}
                             <div
                                 onClick={() => setShowLowStockOverview(true)}
-                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                                className="bg-amber-50 border border-amber-200 rounded-2xl p-4 cursor-pointer hover:bg-amber-100 transition-colors flex flex-col items-center text-center"
                             >
-                                <AlertTriangle className="w-4 h-4 text-amber-500 mb-2" />
-                                <p className="text-2xl font-bold text-foreground">{lowStockCount}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Niedrigbestand</p>
-                            </div>
-                            {/* Inventuren */}
-                            <div
-                                onClick={() => setShowInventoriesOverview(true)}
-                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
-                            >
-                                <ClipboardCheck className="w-4 h-4 text-primary mb-2" />
-                                <p className="text-2xl font-bold text-foreground">{inventorySessions.length}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Inventuren</p>
-                            </div>
-                            {/* Lieferungen */}
-                            <div
-                                onClick={() => setShowDeliveriesOverview(true)}
-                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
-                            >
-                                <Package className="w-4 h-4 text-primary mb-2" />
-                                <p className="text-2xl font-bold text-foreground">{deliveries.length}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">Lieferungen</p>
+                                <AlertTriangle className="w-5 h-5 text-amber-500 mb-2" />
+                                <p className="text-xl font-semibold text-amber-600">{lowStockCount}</p>
+                                <p className="text-xs font-medium text-amber-600 leading-tight">Niedrig­bestand</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Verbrauch / Waste Tabs */}
+                    {/* Letzte Aktivität */}
                     <div>
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="bg-white border border-border mb-4">
-                                <TabsTrigger value="consumption" className="gap-2">
-                                    <BarChart3 className="w-4 h-4" />
-                                    Verbrauch
-                                </TabsTrigger>
-                                <TabsTrigger value="waste" className="gap-2">
-                                    <AlertTriangle className="w-4 h-4" />
-                                    Waste
-                                </TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="consumption" className="mt-0">
-                                <ConsumptionView articles={articlesWithStock} />
-                            </TabsContent>
-                            <TabsContent value="waste" className="mt-0">
-                                <WasteOverview wastes={wastes} suppliers={suppliers} />
-                            </TabsContent>
-                        </Tabs>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                                Letzte Aktivität — {monthName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">1.–{lastDayNum}. {shortMonth}</p>
+                        </div>
+                        <EmployeeActivityList
+                            outletId={currentOutletId}
+                            firstDay={firstDay}
+                            lastDay={lastDay}
+                            movementTypeIcon={movementTypeIcon}
+                            movementTypeLabel={movementTypeLabel}
+                        />
                     </div>
                 </div>
 
