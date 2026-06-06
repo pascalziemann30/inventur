@@ -87,9 +87,9 @@ export default function CategoryArticleView({ articles, inventories, onEdit, onD
                                     <div className="flex items-center gap-3">
                                         <Package className="w-5 h-5 text-slate-700" />
                                         <span className="font-semibold text-slate-900">{category}</span>
-                                        <Badge className={`text-xs ${colors.badge}`}>
+                                        <span className="text-xs font-medium rounded-md px-2 py-0.5" style={{ background: '#e8f0e4', color: '#2d4a2d', borderRadius: '6px', padding: '2px 8px' }}>
                                             {categoryArticles.length} Artikel
-                                        </Badge>
+                                        </span>
                                         {lowStockCount > 0 && (
                                             <Badge variant="destructive" className="text-xs bg-orange-100 text-orange-800 border-orange-200">
                                                 {lowStockCount} Niedrig

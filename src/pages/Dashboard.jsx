@@ -1025,8 +1025,8 @@ export default function Dashboard() {
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Artikelverwaltung</p>
 
                     {isAggregatorOutlet && (
-                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm text-blue-800">
+                        <div className="mb-4 p-4 rounded-lg" style={{ background: '#e8f0e4', border: '0.5px solid #c8d5c0' }}>
+                            <p className="text-sm" style={{ color: '#2d4a2d' }}>
                                 <strong>Zentrale Übersicht:</strong> Dieser Bereich zeigt die aggregierten Bestände aller Outlets. 
                                 Keine Buchungen möglich - nur zur Übersicht.
                             </p>
@@ -1034,25 +1034,42 @@ export default function Dashboard() {
                     )}
 
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        {/* Tab-Leiste + Aktionen + Suche */}
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-                            <TabsList className="border border-border rounded-md overflow-hidden w-fit bg-muted p-0 h-auto">
-                                <TabsTrigger value="articles" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
-                                    Artikel
+                        {/* Zeile 1: Tabs + Aktions-Buttons */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            {/* Tab-Leiste */}
+                            <TabsList className="p-0 h-auto rounded-lg overflow-hidden w-fit" style={{ border: '0.5px solid #c8d5c0', background: 'transparent' }}>
+                                <TabsTrigger
+                                    value="articles"
+                                    className="rounded-none text-xs px-3.5 py-1.5 border-0 data-[state=active]:shadow-none data-[state=active]:font-medium"
+                                    style={{
+                                        borderRight: '0.5px solid #c8d5c0',
+                                    }}
+                                    data-active-style={{ background: '#e8f0e4', color: '#2d4a2d' }}
+                                >
+                                    <span className="data-[state=active]:text-[#2d4a2d]">Artikel</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="consumption" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
+                                <TabsTrigger
+                                    value="consumption"
+                                    className="rounded-none text-xs px-3.5 py-1.5 border-0 data-[state=active]:shadow-none data-[state=active]:font-medium"
+                                    style={{ borderRight: '0.5px solid #c8d5c0' }}
+                                >
                                     Verbrauch
                                 </TabsTrigger>
-                                <TabsTrigger value="waste" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
+                                <TabsTrigger
+                                    value="waste"
+                                    className="rounded-none text-xs px-3.5 py-1.5 border-0 data-[state=active]:shadow-none data-[state=active]:font-medium"
+                                >
                                     Waste
                                 </TabsTrigger>
                             </TabsList>
 
+                            {/* Aktions-Buttons */}
                             {!isAggregatorOutlet && (
-                                <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1.5 flex-nowrap">
                                     <button
                                         onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
-                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors"
+                                        className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80"
+                                        style={{ border: '0.5px solid var(--border)', color: 'var(--foreground)', background: 'var(--card)', padding: '5px 10px' }}
                                     >
                                         <Plus className="w-3.5 h-3.5" />
                                         Artikel anlegen
@@ -1060,7 +1077,8 @@ export default function Dashboard() {
                                     <button
                                         onClick={() => setShowDeliveryForm(true)}
                                         disabled={articlesWithStock.length === 0}
-                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80 disabled:opacity-40"
+                                        style={{ border: '0.5px solid var(--border)', color: 'var(--foreground)', background: 'var(--card)', padding: '5px 10px' }}
                                     >
                                         <Truck className="w-3.5 h-3.5" />
                                         Lieferung
@@ -1068,7 +1086,8 @@ export default function Dashboard() {
                                     <button
                                         onClick={() => setShowTransferForm(true)}
                                         disabled={articlesWithStock.length === 0}
-                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80 disabled:opacity-40"
+                                        style={{ border: '0.5px solid var(--border)', color: 'var(--foreground)', background: 'var(--card)', padding: '5px 10px' }}
                                     >
                                         <ArrowRightLeft className="w-3.5 h-3.5" />
                                         Outlet Transfer
@@ -1076,35 +1095,53 @@ export default function Dashboard() {
                                     <button
                                         onClick={() => setShowWasteForm(true)}
                                         disabled={articlesWithStock.length === 0}
-                                        className="flex items-center gap-1.5 border border-amber-200 rounded-md px-3 py-1.5 text-xs bg-card text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80 disabled:opacity-40"
+                                        style={{ border: '0.5px solid #e8c8a0', color: '#a06020', background: 'var(--card)', padding: '5px 10px' }}
                                     >
-                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                         Waste
                                     </button>
                                 </div>
                             )}
+                        </div>
 
-                            <div className="flex gap-2 sm:ml-auto">
-                                <Select value={sortBy} onValueChange={setSortBy}>
-                                    <SelectTrigger className="w-[150px] h-8 text-xs bg-card">
-                                        <ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="name">Nach Alphabet</SelectItem>
-                                        <SelectItem value="quantity">Nach Menge</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <div className="relative">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Suchen..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-8 h-8 text-xs w-44 bg-card"
-                                    />
-                                </div>
+                        {/* Zeile 2: Suche + Sortierung */}
+                        <div className="flex items-center gap-1.5 mb-4" style={{ marginTop: '8px' }}>
+                            <div className="relative flex-1">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--muted-foreground)' }} />
+                                <input
+                                    placeholder="Suchen..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full text-xs outline-none transition-colors"
+                                    style={{
+                                        border: '0.5px solid var(--border)',
+                                        borderRadius: '8px',
+                                        padding: '5px 10px 5px 28px',
+                                        background: 'var(--muted)',
+                                        color: 'var(--muted-foreground)',
+                                    }}
+                                />
                             </div>
+                            <Select value={sortBy} onValueChange={setSortBy}>
+                                <SelectTrigger
+                                    className="h-auto text-xs whitespace-nowrap w-auto"
+                                    style={{
+                                        border: '0.5px solid var(--border)',
+                                        borderRadius: '8px',
+                                        padding: '5px 10px',
+                                        background: 'var(--card)',
+                                        color: 'var(--muted-foreground)',
+                                    }}
+                                >
+                                    <ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="name">Nach Alphabet</SelectItem>
+                                    <SelectItem value="quantity">Nach Menge</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <TabsContent value="articles" className="mt-0">
