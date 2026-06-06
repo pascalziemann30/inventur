@@ -56,108 +56,127 @@ const findArticleMatch = (scannedName, scannedArtikelNr, existingArticles) => {
 
 export default function DeliveryScanner({ open, onClose, onSave, articles = [], suppliers = [], deliveries = [], outletId, outletName }) {
     const [phase, setPhase] = useState('upload');
-    const [file, setFile] = useState(null);
-    const [preview, setPreview] = useState(null);
+    const [files, setFiles] = useState([]);
     const [scanResult, setScanResult] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [scanProgress, setScanProgress] = useState('');
     const [error, setError] = useState('');
     const [matchedItems, setMatchedItems] = useState([]);
     const fileInputRef = useRef(null);
 
-    const handleFileSelect = (selectedFile) => {
-        if (!selectedFile) return;
-        setFile(selectedFile);
+    const handleFileSelect = (e) => {
+        const newFiles = Array.from(e.target.files || []);
+        setFiles(prev => {
+            const filtered = newFiles.filter(nf =>
+                !prev.some(pf => pf.name === nf.name && pf.size === nf.size)
+            );
+            return [...prev, ...filtered];
+        });
         setError('');
-        if (selectedFile.type.startsWith('image/')) {
-            setPreview(URL.createObjectURL(selectedFile));
-        } else {
-            setPreview(null);
-        }
     };
 
     const handleDrop = (e) => {
         e.preventDefault();
-        const dropped = e.dataTransfer.files[0];
-        if (dropped) handleFileSelect(dropped);
+        const droppedFiles = Array.from(e.dataTransfer.files || []);
+        setFiles(prev => {
+            const filtered = droppedFiles.filter(nf =>
+                !prev.some(pf => pf.name === nf.name && pf.size === nf.size)
+            );
+            return [...prev, ...filtered];
+        });
     };
 
     const handleAnalyze = async () => {
-        if (!file) return;
+        if (files.length === 0) return;
         setIsScanning(true);
         setError('');
         setPhase('scanning');
 
         try {
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
-            if (!file_url) throw new Error('Datei konnte nicht hochgeladen werden');
+            const allArtikel = [];
+            let lieferant = null;
+            let datum = null;
+            let lieferscheinNr = null;
+            let gesamtbetrag = 0;
 
-            const result = await base44.integrations.Core.InvokeLLM({
-                prompt: `Du bist ein präziser OCR-Spezialist für Lieferscheine und Rechnungen aus der Gastronomie und Lebensmittelbranche.
+            for (let i = 0; i < files.length; i++) {
+                const currentFile = files[i];
+                setScanProgress(`Seite ${i + 1} von ${files.length} wird analysiert...`);
 
-Analysiere das beigefügte Dokument SEHR SORGFÄLTIG.
+                const { file_url } = await base44.integrations.Core.UploadFile({ file: currentFile });
+                if (!file_url) continue;
 
-WICHTIGE REGELN:
-- Lies den Text EXAKT so wie er auf dem Dokument steht - erfinde KEINE Artikel
-- Typische Artikel in Gastronomie-Lieferscheinen: Lebensmittel, Getränke, Verpackungsmaterial, Reinigungsmittel, Eiswaren, Molkereiprodukte, Backwaren, Frischware
-- Wenn ein Wort schwer lesbar ist, schreibe es so genau wie möglich ab
-- Lies die Artikelnummern (ArtNr.) wenn vorhanden
-- Einheiten sind typischerweise: ST (Stück), KG (Kilogramm), L (Liter), KT (Karton), GL (Glas), BD (Bund), SC (Schachtel), Beutel, Packung
-- Mengen sind ZAHLEN - lies sie exakt ab (z.B. 10, 2, 7)
-- Preise sind in Euro - lies sie exakt ab
+                const result = await base44.integrations.Core.InvokeLLM({
+                    prompt: `Du bist ein präziser OCR-Spezialist für Lieferscheine und Rechnungen aus der Gastronomie und Lebensmittelbranche.
+Analysiere NUR Seite ${i + 1} dieses Dokuments.
+Lies den Text EXAKT so wie er steht - erfinde KEINE Artikel.
+${i > 0 ? 'WICHTIG: Lieferant, Datum und Lieferscheinnummer wurden bereits von Seite 1 erfasst. Fokussiere dich auf die Artikel auf dieser Seite.' : ''}
+Einheiten: ST, KG, L, KT, GL, BD, SC, Beutel, Packung. Mengen und Preise exakt ablesen.`,
+                    file_urls: [file_url],
+                    response_json_schema: {
+                        type: "object",
+                        properties: {
+                            lieferant: { type: "string" },
+                            lieferschein_nummer: { type: "string" },
+                            datum: { type: "string" },
+                            artikel: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        name: { type: "string" },
+                                        artikelnummer: { type: "string" },
+                                        menge: { type: "number" },
+                                        einheit: { type: "string" },
+                                        einzelpreis: { type: "number" }
+                                    },
+                                    required: ["name", "menge"]
+                                }
+                            },
+                            gesamtbetrag: { type: "number" }
+                        }
+                    }
+                });
 
-LIES NUR WAS WIRKLICH AUF DEM DOKUMENT STEHT.
-Erfinde keine Artikel die nicht sichtbar sind.`,
-                file_urls: [file_url],
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        lieferant: { type: "string", description: "Name des Lieferanten" },
-                        lieferschein_nummer: { type: "string", description: "Lieferschein-, Bestell- oder Rechnungsnummer" },
-                        datum: { type: "string", description: "Datum im Format YYYY-MM-DD" },
-                        artikel: {
-                            type: "array",
-                            items: {
-                                type: "object",
-                                properties: {
-                                    name: { type: "string", description: "Artikelname" },
-                                    artikelnummer: { type: "string", description: "Artikelnummer" },
-                                    menge: { type: "number", description: "Menge als Zahl" },
-                                    einheit: { type: "string", description: "Einheit z.B. ST, KG, L" },
-                                    einzelpreis: { type: "number", description: "Preis pro Einheit in Euro" }
-                                },
-                                required: ["name", "menge"]
-                            }
-                        },
-                        gesamtbetrag: { type: "number", description: "Gesamtbetrag in Euro" }
-                    },
-                    required: ["lieferant", "artikel"]
+                const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+
+                if (i === 0) {
+                    lieferant = parsed.lieferant;
+                    datum = parsed.datum;
+                    lieferscheinNr = parsed.lieferschein_nummer;
+                    gesamtbetrag = parsed.gesamtbetrag || 0;
                 }
-            });
 
-            const parsed = typeof result === 'string' ? JSON.parse(result) : result;
-
-            if (!parsed || !parsed.artikel || parsed.artikel.length === 0) {
-                throw new Error('Keine Artikel erkannt. Bitte stelle sicher dass das Dokument lesbar ist.');
+                if (parsed.artikel && parsed.artikel.length > 0) {
+                    for (const artikel of parsed.artikel) {
+                        const alreadyExists = allArtikel.some(a =>
+                            normalize(a.name) === normalize(artikel.name)
+                        );
+                        if (!alreadyExists) allArtikel.push(artikel);
+                    }
+                }
             }
 
-            // Duplikat-Prüfung Lieferscheinnummer
-            if (parsed.lieferschein_nummer && deliveries) {
+            if (allArtikel.length === 0) {
+                throw new Error('Keine Artikel erkannt. Bitte prüfe die Dateiqualität.');
+            }
+
+            const mergedResult = { lieferant, lieferschein_nummer: lieferscheinNr, datum, artikel: allArtikel, gesamtbetrag };
+
+            // Duplikat-Prüfung
+            if (lieferscheinNr && deliveries) {
                 const isDup = deliveries.some(d =>
                     d.delivery_note_number &&
-                    normalize(d.delivery_note_number) === normalize(parsed.lieferschein_nummer)
+                    normalize(d.delivery_note_number) === normalize(lieferscheinNr)
                 );
                 if (isDup) {
-                    setError(`⚠ Lieferschein Nr. ${parsed.lieferschein_nummer} wurde bereits gebucht! Bitte prüfe ob das ein Duplikat ist.`);
+                    setError(`⚠ Lieferschein Nr. ${lieferscheinNr} wurde bereits gebucht! Bitte prüfe ob das ein Duplikat ist.`);
                 }
             }
 
             // Artikel matchen
-            const matched = (parsed.artikel || []).map(item => {
-                const { article, matchType, score } = findArticleMatch(
-                    item.name,
-                    item.artikelnummer,
-                    articles
-                );
+            const matched = allArtikel.map(item => {
+                const { article, matchType, score } = findArticleMatch(item.name, item.artikelnummer, articles);
                 const priceChanged = article && item.einzelpreis > 0 &&
                     Math.abs((article.purchase_price || article.net_purchase_price || 0) - item.einzelpreis) > 0.01;
                 return {
@@ -176,7 +195,7 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                 };
             });
 
-            setScanResult(parsed);
+            setScanResult(mergedResult);
             setMatchedItems(matched);
             setPhase('preview');
         } catch (err) {
@@ -185,6 +204,7 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
             setPhase('upload');
         } finally {
             setIsScanning(false);
+            setScanProgress('');
         }
     };
 
@@ -231,8 +251,7 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
 
     const handleClose = () => {
         setPhase('upload');
-        setFile(null);
-        setPreview(null);
+        setFiles([]);
         setScanResult(null);
         setMatchedItems([]);
         setError('');
@@ -262,30 +281,19 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                     {/* PHASE: UPLOAD */}
                     {phase === 'upload' && (
                         <div className="space-y-4">
-                            <div
-                                className="border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-colors"
-                                style={{ borderColor: '#c8d5c0', background: 'rgba(232,240,228,0.3)' }}
-                                onDrop={handleDrop}
-                                onDragOver={(e) => e.preventDefault()}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                {file ? (
-                                    <div className="space-y-3">
-                                        {preview ? (
-                                            <img src={preview} alt="Vorschau" className="max-h-48 mx-auto rounded-xl object-contain" />
-                                        ) : (
-                                            <div className="flex flex-col items-center gap-2">
-                                                <FileText className="w-12 h-12" style={{ color: '#2d4a2d' }} />
-                                                <p className="text-sm font-medium" style={{ color: '#2d4a2d' }}>{file.name}</p>
-                                            </div>
-                                        )}
-                                        <p className="text-xs text-muted-foreground">Klicken zum Ändern</p>
-                                    </div>
-                                ) : (
+                            {/* Drop-Zone (nur wenn noch keine Dateien) */}
+                            {files.length === 0 && (
+                                <div
+                                    className="border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-colors"
+                                    style={{ borderColor: '#c8d5c0', background: 'rgba(232,240,228,0.3)' }}
+                                    onDrop={handleDrop}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
                                     <div className="space-y-2">
                                         <Upload className="w-10 h-10 mx-auto" style={{ color: '#2d4a2d' }} />
                                         <p className="font-medium text-sm" style={{ color: '#2d4a2d' }}>Lieferschein hier ablegen</p>
-                                        <p className="text-xs text-muted-foreground">Foto (JPG, PNG) oder digitaler Lieferschein (PDF)</p>
+                                        <p className="text-xs text-muted-foreground">Foto (JPG, PNG) oder digitaler Lieferschein (PDF) — auch mehrere Seiten möglich</p>
                                         <button
                                             className="mt-2 text-xs px-4 py-1.5 rounded-lg border transition-colors"
                                             style={{ borderColor: '#c8d5c0', color: '#2d4a2d' }}
@@ -294,17 +302,63 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                                             Datei auswählen
                                         </button>
                                     </div>
-                                )}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    className="hidden"
-                                    onChange={(e) => handleFileSelect(e.target.files[0])}
-                                />
-                            </div>
+                                </div>
+                            )}
 
-                            {file && file.type.startsWith('image/') && (
+                            {/* Datei-Kacheln */}
+                            {files.length > 0 && (
+                                <div
+                                    className="rounded-2xl p-3 space-y-2"
+                                    style={{ border: '1px solid #c8d5c0', background: 'rgba(232,240,228,0.2)' }}
+                                    onDrop={handleDrop}
+                                    onDragOver={(e) => e.preventDefault()}
+                                >
+                                    <div className="flex flex-wrap gap-2">
+                                        {files.map((f, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-[#c8d5c0] text-xs max-w-[200px]">
+                                                {f.type.startsWith('image/') ? (
+                                                    <img src={URL.createObjectURL(f)} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0e4' }}>
+                                                        <FileText className="w-4 h-4" style={{ color: '#2d4a2d' }} />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium truncate" style={{ color: '#2d4a2d' }}>{f.name}</p>
+                                                    <p className="text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs transition-colors"
+                                            style={{ border: '1px dashed #c8d5c0', color: '#2d4a2d' }}
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Weitere Seite
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <input
+                                ref={fileInputRef}
+                                id="file-input"
+                                type="file"
+                                accept="image/*,.pdf"
+                                multiple
+                                className="hidden"
+                                onChange={handleFileSelect}
+                            />
+
+                            {/* Foto-Tipps */}
+                            {files.some(f => f.type.startsWith('image/')) && (
                                 <div className="rounded-xl p-3 text-xs space-y-1.5" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                                     <div className="flex items-center gap-1.5 font-medium" style={{ color: '#92400e' }}>
                                         <Lightbulb className="w-3.5 h-3.5" />
@@ -332,11 +386,11 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                                 </button>
                                 <button
                                     onClick={handleAnalyze}
-                                    disabled={!file}
+                                    disabled={files.length === 0}
                                     className="px-5 py-2 text-sm rounded-xl font-medium text-white transition-opacity disabled:opacity-40"
                                     style={{ background: '#2d4a2d' }}
                                 >
-                                    Lieferschein analysieren
+                                    {files.length > 1 ? `${files.length} Seiten analysieren` : 'Lieferschein analysieren'}
                                 </button>
                             </div>
                         </div>
@@ -346,7 +400,7 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                     {phase === 'scanning' && (
                         <div className="flex flex-col items-center justify-center py-16 space-y-4">
                             <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#2d4a2d' }} />
-                            <p className="font-medium text-sm text-foreground">Lieferschein wird analysiert...</p>
+                            <p className="font-medium text-sm text-foreground">{scanProgress || 'Wird analysiert...'}</p>
                             <p className="text-xs text-muted-foreground">Die KI liest Artikel, Mengen und Preise aus</p>
                         </div>
                     )}
@@ -355,7 +409,7 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                     {phase === 'preview' && scanResult && (
                         <div className="space-y-4">
                             {/* Foto-Warnung */}
-                            {file && file.type.startsWith('image/') && (
+                            {files.some(f => f.type.startsWith('image/')) && (
                                 <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
                                     <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                                     <p className="text-xs text-amber-700">
