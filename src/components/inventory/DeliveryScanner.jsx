@@ -1,10 +1,58 @@
 import React, { useState, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScanLine, Upload, Loader2, X, Plus, FileText, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ScanLine, Upload, Loader2, X, Plus, FileText, AlertTriangle, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 
-const normalize = (s) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+// ─── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+const normalize = (str) => {
+    if (!str) return '';
+    return str
+        .toLowerCase()
+        .replace(/[äÄ]/g, 'ae').replace(/[öÖ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss')
+        .replace(/gmbh|co\.|kg|&|ltd|llc|inc/g, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+const similarity = (a, b) => {
+    const na = normalize(a);
+    const nb = normalize(b);
+    if (!na || !nb) return 0;
+    if (na === nb) return 100;
+    if (na.includes(nb) || nb.includes(na)) return 90;
+    const wordsA = na.split(' ').filter(w => w.length > 2);
+    const wordsB = nb.split(' ').filter(w => w.length > 2);
+    if (wordsA.length === 0 || wordsB.length === 0) return 0;
+    const common = wordsA.filter(w => wordsB.some(wb => wb.includes(w) || w.includes(wb)));
+    return Math.round((common.length / Math.max(wordsA.length, wordsB.length)) * 100);
+};
+
+const findArticleMatch = (scannedName, scannedArtikelNr, existingArticles) => {
+    if (scannedArtikelNr) {
+        const byNr = existingArticles.find(a =>
+            a.notes?.includes(scannedArtikelNr) ||
+            normalize(a.artikelnummer) === normalize(scannedArtikelNr)
+        );
+        if (byNr) return { article: byNr, matchType: 'exact', score: 100 };
+    }
+    let bestMatch = null;
+    let bestScore = 0;
+    for (const article of existingArticles) {
+        const score = similarity(scannedName, article.name || article.display_name);
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = article;
+        }
+    }
+    if (bestScore >= 85) return { article: bestMatch, matchType: 'exact', score: bestScore };
+    if (bestScore >= 60) return { article: bestMatch, matchType: 'similar', score: bestScore };
+    return { article: null, matchType: 'new', score: 0 };
+};
+
+// ─── Komponente ────────────────────────────────────────────────────────────────
 
 export default function DeliveryScanner({ open, onClose, onSave, articles = [], suppliers = [], deliveries = [], outletId, outletName }) {
     const [phase, setPhase] = useState('upload');
@@ -13,14 +61,8 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
     const [scanResult, setScanResult] = useState(null);
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState('');
-    const [editedItems, setEditedItems] = useState([]);
-    const [editedSupplier, setEditedSupplier] = useState('');
-    const [editedDate, setEditedDate] = useState('');
-    const [editedNoteNumber, setEditedNoteNumber] = useState('');
-    const [ignoreDuplicate, setIgnoreDuplicate] = useState(false);
+    const [matchedItems, setMatchedItems] = useState([]);
     const fileInputRef = useRef(null);
-
-    const isPdf = file?.type === 'application/pdf';
 
     const handleFileSelect = (selectedFile) => {
         if (!selectedFile) return;
@@ -46,11 +88,9 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
         setPhase('scanning');
 
         try {
-            // Schritt 1: Datei hochladen und öffentliche URL bekommen
             const { file_url } = await base44.integrations.Core.UploadFile({ file });
             if (!file_url) throw new Error('Datei konnte nicht hochgeladen werden');
 
-            // Schritt 2: InvokeLLM mit file_urls + response_json_schema
             const result = await base44.integrations.Core.InvokeLLM({
                 prompt: `Du bist ein präziser OCR-Spezialist für Lieferscheine und Rechnungen aus der Gastronomie und Lebensmittelbranche.
 
@@ -100,21 +140,44 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                 throw new Error('Keine Artikel erkannt. Bitte stelle sicher dass das Dokument lesbar ist.');
             }
 
-            // Artikel mit bekannten Items abgleichen
-            const matchedItems = parsed.artikel.map(item => {
-                const match = articles.find(a =>
-                    normalize(a.name).includes(normalize(item.name)) ||
-                    normalize(item.name).includes(normalize(a.name))
+            // Duplikat-Prüfung Lieferscheinnummer
+            if (parsed.lieferschein_nummer && deliveries) {
+                const isDup = deliveries.some(d =>
+                    d.delivery_note_number &&
+                    normalize(d.delivery_note_number) === normalize(parsed.lieferschein_nummer)
                 );
-                return { ...item, match, status: match ? 'known' : 'new' };
+                if (isDup) {
+                    setError(`⚠ Lieferschein Nr. ${parsed.lieferschein_nummer} wurde bereits gebucht! Bitte prüfe ob das ein Duplikat ist.`);
+                }
+            }
+
+            // Artikel matchen
+            const matched = (parsed.artikel || []).map(item => {
+                const { article, matchType, score } = findArticleMatch(
+                    item.name,
+                    item.artikelnummer,
+                    articles
+                );
+                const priceChanged = article && item.einzelpreis > 0 &&
+                    Math.abs((article.purchase_price || article.net_purchase_price || 0) - item.einzelpreis) > 0.01;
+                return {
+                    scannedName: item.name,
+                    scannedArtikelNr: item.artikelnummer || null,
+                    menge: item.menge || 0,
+                    einheit: item.einheit || 'Stk',
+                    preis: item.einzelpreis || 0,
+                    matchType,
+                    matchScore: score,
+                    matchedArticle: article || null,
+                    userDecision: matchType === 'exact' ? 'accept' : null,
+                    priceChanged,
+                    oldPrice: article ? (article.purchase_price || article.net_purchase_price || 0) : 0,
+                    updatePrice: false
+                };
             });
 
             setScanResult(parsed);
-            setEditedItems(matchedItems);
-            setEditedSupplier(parsed.lieferant || '');
-            setEditedDate(parsed.datum || format(new Date(), 'yyyy-MM-dd'));
-            setEditedNoteNumber(parsed.lieferschein_nummer || '');
-            setIgnoreDuplicate(false);
+            setMatchedItems(matched);
             setPhase('preview');
         } catch (err) {
             console.error('Scan Fehler:', err);
@@ -125,49 +188,40 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
         }
     };
 
-    const isDuplicate = deliveries?.some(d =>
-        d.delivery_note_number &&
-        editedNoteNumber &&
-        d.delivery_note_number === editedNoteNumber
-    );
+    const pendingSimilar = matchedItems.filter(i => i.matchType === 'similar' && i.userDecision === null).length;
 
-    const newItemsCount = editedItems.filter(i => i.status === 'new').length;
+    const handleDecision = (idx, decision) => {
+        setMatchedItems(prev => prev.map((item, i) =>
+            i === idx ? { ...item, userDecision: decision } : item
+        ));
+    };
 
     const handleItemChange = (idx, field, value) => {
-        setEditedItems(prev => prev.map((item, i) =>
+        setMatchedItems(prev => prev.map((item, i) =>
             i === idx ? { ...item, [field]: value } : item
         ));
     };
 
-    const handleRemoveItem = (idx) => {
-        setEditedItems(prev => prev.filter((_, i) => i !== idx));
-    };
-
-    const handleAddItem = () => {
-        setEditedItems(prev => [...prev, { name: '', menge: 1, einheit: 'Stk', einzelpreis: 0, status: 'new', match: null }]);
-    };
-
     const handleConfirm = () => {
-        const matchedSupplier = suppliers.find(s =>
-            normalize(s.name).includes(normalize(editedSupplier)) ||
-            normalize(editedSupplier).includes(normalize(s.name))
-        );
+        const finalItems = matchedItems.map(item => ({
+            article_id: (item.matchType === 'exact' || item.userDecision === 'accept')
+                ? item.matchedArticle?.id
+                : null,
+            article_name: item.scannedName,
+            quantity: parseFloat(item.menge) || 0,
+            unit_abbreviation: item.einheit,
+            price: parseFloat(item.preis) || 0,
+            update_master_price: item.updatePrice || false,
+            is_new_article: item.matchType === 'new' || item.userDecision === 'reject',
+            artikelnummer: item.scannedArtikelNr
+        }));
 
         onSave({
-            delivery_date: editedDate,
-            supplier_id: matchedSupplier?.id || '',
-            supplier_name: editedSupplier,
-            delivery_note_number: editedNoteNumber,
-            items: editedItems.map(item => ({
-                article_id: item.match?.id || null,
-                article_name: item.name,
-                quantity: parseFloat(item.menge) || 0,
-                unit_abbreviation: item.einheit,
-                price: parseFloat(item.einzelpreis) || 0,
-                update_master_price: false,
-                is_new_article: item.status === 'new',
-                suggested_category: null
-            })),
+            delivery_date: scanResult?.datum || format(new Date(), 'yyyy-MM-dd'),
+            supplier_id: '',
+            supplier_name: scanResult?.lieferant || '',
+            delivery_note_number: scanResult?.lieferschein_nummer || '',
+            items: finalItems,
             notes: 'Gescannt via Lieferschein-Scanner',
             is_processed: true,
             scanned: true
@@ -180,10 +234,15 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
         setFile(null);
         setPreview(null);
         setScanResult(null);
-        setEditedItems([]);
+        setMatchedItems([]);
         setError('');
         onClose();
     };
+
+    // Gruppen für Vorschau
+    const exactItems = matchedItems.filter(i => i.matchType === 'exact');
+    const similarItems = matchedItems.filter(i => i.matchType === 'similar');
+    const newItems = matchedItems.filter(i => i.matchType === 'new' || i.userDecision === 'reject');
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -293,9 +352,9 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                     )}
 
                     {/* PHASE: PREVIEW */}
-                    {phase === 'preview' && (
+                    {phase === 'preview' && scanResult && (
                         <div className="space-y-4">
-                            {/* Photo accuracy warning */}
+                            {/* Foto-Warnung */}
                             {file && file.type.startsWith('image/') && (
                                 <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
                                     <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -306,138 +365,193 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                                 </div>
                             )}
 
-                            {/* Duplicate warning */}
-                            {isDuplicate && !ignoreDuplicate && (
-                                <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                                    <div className="flex-1">
-                                        <p className="text-xs font-medium text-amber-700">
-                                            Dieser Lieferschein (Nr. {editedNoteNumber}) wurde bereits eingetragen.
-                                        </p>
-                                        <button
-                                            onClick={() => setIgnoreDuplicate(true)}
-                                            className="text-xs text-amber-600 underline mt-1"
-                                        >
-                                            Trotzdem fortfahren
-                                        </button>
+                            {/* Duplikat-Fehler */}
+                            {error && (
+                                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                                    <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-500" />
+                                    {error}
+                                </div>
+                            )}
+
+                            {/* Lieferant / Datum / Nr. */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Lieferant</label>
+                                    <p className="text-xs font-medium text-foreground border border-border rounded-lg px-2.5 py-1.5 bg-muted">{scanResult.lieferant || '—'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Datum</label>
+                                    <p className="text-xs font-medium text-foreground border border-border rounded-lg px-2.5 py-1.5 bg-muted">{scanResult.datum || '—'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">Lieferschein-Nr.</label>
+                                    <p className="text-xs font-medium text-foreground border border-border rounded-lg px-2.5 py-1.5 bg-muted">{scanResult.lieferschein_nummer || '—'}</p>
+                                </div>
+                            </div>
+
+                            {/* SEKTION A — Bekannte Artikel */}
+                            {exactItems.length > 0 && (
+                                <div className="rounded-xl overflow-hidden" style={{ background: '#e8f0e4', border: '1px solid #c8d5c0' }}>
+                                    <div className="flex items-center gap-2 px-3 py-2 border-b border-[#c8d5c0]">
+                                        <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#2d4a2d' }} />
+                                        <p className="text-xs font-semibold" style={{ color: '#2d4a2d' }}>Bekannte Artikel — werden direkt gebucht</p>
+                                    </div>
+                                    <table className="w-full text-xs">
+                                        <tbody>
+                                            {exactItems.map((item, idx) => {
+                                                const globalIdx = matchedItems.indexOf(item);
+                                                return (
+                                                    <React.Fragment key={idx}>
+                                                        <tr className="border-b border-[#c8d5c0] last:border-0">
+                                                            <td className="px-3 py-2 font-medium" style={{ color: '#2d4a2d' }}>
+                                                                {item.matchedArticle?.name || item.scannedName}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right w-20">
+                                                                <input
+                                                                    type="number"
+                                                                    value={item.menge}
+                                                                    onChange={(e) => handleItemChange(globalIdx, 'menge', e.target.value)}
+                                                                    className="w-full text-right bg-transparent outline-none text-xs"
+                                                                    style={{ color: '#2d4a2d' }}
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right w-16 text-[#2d4a2d]">{item.einheit}</td>
+                                                            <td className="px-3 py-2 text-right w-20">
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={item.preis}
+                                                                    onChange={(e) => handleItemChange(globalIdx, 'preis', e.target.value)}
+                                                                    className="w-full text-right bg-transparent outline-none text-xs"
+                                                                    style={{ color: '#2d4a2d' }}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                        {item.priceChanged && (
+                                                            <tr className="border-b border-[#c8d5c0] last:border-0">
+                                                                <td colSpan={4} className="px-3 pb-2">
+                                                                    <div className="flex items-center gap-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                                                                        <p className="text-xs text-amber-700 flex-1">
+                                                                            Preis geändert: alt {item.oldPrice.toFixed(2)} € → neu {parseFloat(item.preis).toFixed(2)} €
+                                                                        </p>
+                                                                        <label className="flex items-center gap-1.5 text-xs text-amber-700 cursor-pointer whitespace-nowrap">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={item.updatePrice}
+                                                                                onChange={(e) => handleItemChange(globalIdx, 'updatePrice', e.target.checked)}
+                                                                                className="w-3 h-3"
+                                                                            />
+                                                                            Preis aktualisieren?
+                                                                        </label>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* SEKTION B — Ähnliche Artikel */}
+                            {similarItems.length > 0 && (
+                                <div className="rounded-xl overflow-hidden bg-amber-50 border border-amber-200">
+                                    <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-200">
+                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                        <p className="text-xs font-semibold text-amber-700">Bitte prüfen — mögliche Übereinstimmungen</p>
+                                    </div>
+                                    <div className="divide-y divide-amber-100">
+                                        {similarItems.map((item, idx) => {
+                                            const globalIdx = matchedItems.indexOf(item);
+                                            return (
+                                                <div key={idx} className="px-3 py-3 space-y-2">
+                                                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                                                        <span className="font-medium text-foreground">Gescannt: „{item.scannedName}"</span>
+                                                        <span className="text-muted-foreground">könnte sein:</span>
+                                                        <span className="font-medium text-amber-800">„{item.matchedArticle?.name}"</span>
+                                                        <span className="text-amber-500 text-[10px]">({item.matchScore}% Übereinstimmung)</span>
+                                                    </div>
+                                                    {item.userDecision === null && (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleDecision(globalIdx, 'accept')}
+                                                                className="text-xs px-3 py-1 rounded-lg font-medium transition-colors"
+                                                                style={{ background: '#e8f0e4', border: '1px solid #c8d5c0', color: '#2d4a2d' }}
+                                                            >
+                                                                ✓ Ja, das ist derselbe Artikel
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDecision(globalIdx, 'reject')}
+                                                                className="text-xs px-3 py-1 rounded-lg font-medium transition-colors bg-white border border-amber-200 text-amber-700 hover:bg-amber-100"
+                                                            >
+                                                                + Nein, neu anlegen
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {item.userDecision === 'accept' && (
+                                                        <p className="text-xs text-green-700">✓ Wird als bekannter Artikel gebucht</p>
+                                                    )}
+                                                    {item.userDecision === 'reject' && (
+                                                        <p className="text-xs text-muted-foreground">+ Wird als neuer Artikel angelegt</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Info fields */}
-                            <div className="grid grid-cols-3 gap-3">
-                                <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">Lieferant</label>
-                                    <input
-                                        value={editedSupplier}
-                                        onChange={(e) => setEditedSupplier(e.target.value)}
-                                        className="w-full text-xs border border-border rounded-lg px-2.5 py-1.5 bg-background outline-none focus:ring-1"
-                                        style={{ '--tw-ring-color': '#2d4a2d' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">Datum</label>
-                                    <input
-                                        type="date"
-                                        value={editedDate}
-                                        onChange={(e) => setEditedDate(e.target.value)}
-                                        className="w-full text-xs border border-border rounded-lg px-2.5 py-1.5 bg-background outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">Lieferschein-Nr.</label>
-                                    <input
-                                        value={editedNoteNumber}
-                                        onChange={(e) => setEditedNoteNumber(e.target.value)}
-                                        className="w-full text-xs border border-border rounded-lg px-2.5 py-1.5 bg-background outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Article table */}
-                            <div className="border border-border rounded-xl overflow-hidden">
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="border-b border-border bg-muted">
-                                            <th className="text-left px-3 py-2 font-medium text-muted-foreground w-5"></th>
-                                            <th className="text-left px-3 py-2 font-medium text-muted-foreground">Artikel</th>
-                                            <th className="text-right px-3 py-2 font-medium text-muted-foreground w-20">Menge</th>
-                                            <th className="text-right px-3 py-2 font-medium text-muted-foreground w-16">Einheit</th>
-                                            <th className="text-right px-3 py-2 font-medium text-muted-foreground w-20">Preis</th>
-                                            <th className="w-8"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {editedItems.map((item, idx) => (
-                                            <tr key={idx} className="border-b border-border last:border-0">
-                                                <td className="px-3 py-2">
-                                                    <div
-                                                        className="w-2 h-2 rounded-full"
-                                                        style={{ background: item.status === 'known' ? '#22c55e' : '#f59e0b' }}
-                                                        title={item.status === 'known' ? 'Bekannter Artikel' : 'Neuer Artikel'}
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-1.5">
-                                                    <input
-                                                        value={item.name}
-                                                        onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                                                        className="w-full text-xs bg-transparent outline-none border-b border-transparent focus:border-border"
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-1.5">
-                                                    <input
-                                                        type="number"
-                                                        value={item.menge}
-                                                        onChange={(e) => handleItemChange(idx, 'menge', e.target.value)}
-                                                        className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-1.5">
-                                                    <input
-                                                        value={item.einheit}
-                                                        onChange={(e) => handleItemChange(idx, 'einheit', e.target.value)}
-                                                        className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-1.5">
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={item.einzelpreis}
-                                                        onChange={(e) => handleItemChange(idx, 'einzelpreis', e.target.value)}
-                                                        className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
-                                                    />
-                                                </td>
-                                                <td className="px-2 py-1.5">
-                                                    <button
-                                                        onClick={() => handleRemoveItem(idx)}
-                                                        className="text-muted-foreground hover:text-destructive transition-colors"
-                                                    >
-                                                        <X className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                <div className="px-3 py-2 border-t border-border">
-                                    <button
-                                        onClick={handleAddItem}
-                                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                        <Plus className="w-3.5 h-3.5" />
-                                        Artikel hinzufügen
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* New items hint */}
-                            {newItemsCount > 0 && (
-                                <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: '#fef3e2', border: '1px solid #e8c8a0' }}>
-                                    <AlertTriangle className="w-4 h-4 flex-shrink-0" style={{ color: '#a06020' }} />
-                                    <p className="text-xs" style={{ color: '#a06020' }}>
-                                        {newItemsCount} neue Artikel werden automatisch angelegt
-                                    </p>
+                            {/* SEKTION C — Neue Artikel */}
+                            {newItems.length > 0 && (
+                                <div className="rounded-xl overflow-hidden bg-muted border border-border">
+                                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+                                        <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <p className="text-xs font-semibold text-muted-foreground">Neue Artikel — werden automatisch angelegt</p>
+                                    </div>
+                                    <table className="w-full text-xs">
+                                        <tbody>
+                                            {newItems.map((item, idx) => {
+                                                const globalIdx = matchedItems.indexOf(item);
+                                                return (
+                                                    <tr key={idx} className="border-b border-border last:border-0">
+                                                        <td className="px-3 py-2">
+                                                            <input
+                                                                value={item.scannedName}
+                                                                onChange={(e) => handleItemChange(globalIdx, 'scannedName', e.target.value)}
+                                                                className="w-full text-xs bg-transparent outline-none border-b border-transparent focus:border-border"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 w-20">
+                                                            <input
+                                                                type="number"
+                                                                value={item.menge}
+                                                                onChange={(e) => handleItemChange(globalIdx, 'menge', e.target.value)}
+                                                                className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 w-16">
+                                                            <input
+                                                                value={item.einheit}
+                                                                onChange={(e) => handleItemChange(globalIdx, 'einheit', e.target.value)}
+                                                                className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 w-20">
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={item.preis}
+                                                                onChange={(e) => handleItemChange(globalIdx, 'preis', e.target.value)}
+                                                                className="w-full text-xs text-right bg-transparent outline-none border-b border-transparent focus:border-border"
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
 
@@ -449,14 +563,19 @@ Erfinde keine Artikel die nicht sichtbar sind.`,
                                 >
                                     ← Zurück
                                 </button>
-                                <button
-                                    onClick={handleConfirm}
-                                    disabled={isDuplicate && !ignoreDuplicate}
-                                    className="px-5 py-2 text-sm rounded-xl font-medium text-white transition-opacity disabled:opacity-40"
-                                    style={{ background: '#2d4a2d' }}
-                                >
-                                    Lieferung buchen
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    {pendingSimilar > 0 && (
+                                        <p className="text-xs text-amber-600">{pendingSimilar} Artikel noch nicht entschieden</p>
+                                    )}
+                                    <button
+                                        onClick={handleConfirm}
+                                        disabled={pendingSimilar > 0}
+                                        className="px-5 py-2 text-sm rounded-xl font-medium text-white transition-opacity disabled:opacity-40"
+                                        style={{ background: '#2d4a2d' }}
+                                    >
+                                        Lieferung buchen
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
