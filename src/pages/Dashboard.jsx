@@ -892,7 +892,7 @@ export default function Dashboard() {
                     onClose={() => setShowWasteForm(false)}
                     onSave={handleSaveWaste}
                     articles={articlesWithStock}
-                    suppliers={suppliers}
+                    categories={categories}
                 />
                 <LowStockOverview
                     open={showLowStockOverview}
@@ -1199,7 +1199,7 @@ export default function Dashboard() {
                 onClose={() => setShowWasteForm(false)}
                 onSave={handleSaveWaste}
                 articles={articlesWithStock}
-                suppliers={suppliers}
+                categories={categories}
             />
             <ArticlesOverview
                 open={showArticlesOverview}
