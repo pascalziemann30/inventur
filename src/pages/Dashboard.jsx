@@ -17,7 +17,9 @@ import {
     RefreshCw,
     ArrowUpDown,
     ArrowRightLeft,
-    AlertTriangle
+    AlertTriangle,
+    Trash2,
+    ClipboardList
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -735,6 +737,179 @@ export default function Dashboard() {
 
     const activeArticles = sortedArticles.filter(a => a.is_active !== false);
 
+    // Computed values for employee view
+    const lowStockCount = articlesWithStock.filter(a => a.is_active !== false && a.min_stock && a.current_stock < a.min_stock).length;
+
+    const handleRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['outlet-stocks'] });
+        queryClient.invalidateQueries({ queryKey: ['outlet-items'] });
+        queryClient.invalidateQueries({ queryKey: ['all-outlet-stocks'] });
+        queryClient.invalidateQueries({ queryKey: ['all-outlet-items'] });
+        queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+        queryClient.invalidateQueries({ queryKey: ['inventorySessions'] });
+        queryClient.invalidateQueries({ queryKey: ['wastes'] });
+        toast.success('Daten aktualisiert');
+    };
+
+    // --- EMPLOYEE VIEW ---
+    if (isEmployee) {
+        return (
+            <div className="min-h-screen bg-background p-4 sm:p-6">
+                <div className="max-w-2xl mx-auto space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-xl font-semibold text-foreground">Mein Bereich</h1>
+                            <p className="text-sm text-muted-foreground">{currentOutletName}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleRefresh}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Aktualisieren
+                        </Button>
+                    </div>
+
+                    {/* Aktionen */}
+                    <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Aktionen</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {/* Inventur */}
+                            <Link to={createPageUrl('InventoryCapture')} className="block">
+                                <div className="bg-primary text-primary-foreground rounded-2xl p-4 cursor-pointer h-full">
+                                    <ClipboardList className="w-5 h-5 mb-3" />
+                                    <p className="text-sm font-semibold">Inventur starten</p>
+                                    <p className="text-xs opacity-80 mt-0.5">Zählung beginnen</p>
+                                </div>
+                            </Link>
+                            {/* Lieferung */}
+                            <div
+                                onClick={() => setShowDeliveryForm(true)}
+                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                            >
+                                <Truck className="w-5 h-5 text-primary mb-3" />
+                                <p className="text-sm font-semibold text-foreground">Lieferung</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Eingang erfassen</p>
+                            </div>
+                            {/* Waste */}
+                            <div
+                                onClick={() => setShowWasteForm(true)}
+                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                            >
+                                <Trash2 className="w-5 h-5 text-primary mb-3" />
+                                <p className="text-sm font-semibold text-foreground">Waste</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Verlust eintragen</p>
+                            </div>
+                            {/* Transfer */}
+                            <div
+                                onClick={() => setShowTransferForm(true)}
+                                className="bg-card border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer"
+                            >
+                                <ArrowRightLeft className="w-5 h-5 text-primary mb-3" />
+                                <p className="text-sm font-semibold text-foreground">Transfer</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Zwischen Outlets</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Übersicht */}
+                    <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Übersicht</p>
+                        <div className="grid grid-cols-3 gap-3">
+                            {/* Niedrigbestand */}
+                            <div
+                                onClick={() => setShowLowStockOverview(true)}
+                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                            >
+                                <AlertTriangle className="w-4 h-4 text-amber-500 mb-2" />
+                                <p className="text-2xl font-bold text-foreground">{lowStockCount}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Niedrigbestand</p>
+                            </div>
+                            {/* Inventuren */}
+                            <div
+                                onClick={() => setShowInventoriesOverview(true)}
+                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                            >
+                                <ClipboardCheck className="w-4 h-4 text-primary mb-2" />
+                                <p className="text-2xl font-bold text-foreground">{inventorySessions.length}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Inventuren</p>
+                            </div>
+                            {/* Lieferungen */}
+                            <div
+                                onClick={() => setShowDeliveriesOverview(true)}
+                                className="bg-card border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                            >
+                                <Package className="w-4 h-4 text-primary mb-2" />
+                                <p className="text-2xl font-bold text-foreground">{deliveries.length}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Lieferungen</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Verbrauch / Waste Tabs */}
+                    <div>
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                            <TabsList className="bg-white border border-border mb-4">
+                                <TabsTrigger value="consumption" className="gap-2">
+                                    <BarChart3 className="w-4 h-4" />
+                                    Verbrauch
+                                </TabsTrigger>
+                                <TabsTrigger value="waste" className="gap-2">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    Waste
+                                </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="consumption" className="mt-0">
+                                <ConsumptionView articles={articlesWithStock} />
+                            </TabsContent>
+                            <TabsContent value="waste" className="mt-0">
+                                <WasteOverview wastes={wastes} suppliers={suppliers} />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                </div>
+
+                {/* Modals */}
+                <DeliveryForm
+                    open={showDeliveryForm}
+                    onClose={() => setShowDeliveryForm(false)}
+                    onSave={handleSaveDelivery}
+                    articles={articlesWithStock}
+                    suppliers={suppliers}
+                />
+                <OutletTransferForm
+                    open={showTransferForm}
+                    onClose={() => setShowTransferForm(false)}
+                    onSave={handleSaveTransfer}
+                    articles={articlesWithStock}
+                    outlets={outlets}
+                    suppliers={suppliers}
+                />
+                <WasteForm
+                    open={showWasteForm}
+                    onClose={() => setShowWasteForm(false)}
+                    onSave={handleSaveWaste}
+                    articles={articlesWithStock}
+                    suppliers={suppliers}
+                />
+                <LowStockOverview
+                    open={showLowStockOverview}
+                    onClose={() => setShowLowStockOverview(false)}
+                    articles={articlesWithStock}
+                />
+                <InventoriesOverview
+                    open={showInventoriesOverview}
+                    onClose={() => setShowInventoriesOverview(false)}
+                    sessions={inventorySessions}
+                />
+                <DeliveriesOverview
+                    open={showDeliveriesOverview}
+                    onClose={() => setShowDeliveriesOverview(false)}
+                    deliveries={deliveries}
+                />
+            </div>
+        );
+    }
+
+    // --- ADMIN VIEW (unverändert) ---
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
@@ -769,16 +944,7 @@ export default function Dashboard() {
                             <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => {
-                                    queryClient.invalidateQueries({ queryKey: ['outlet-stocks'] });
-                                    queryClient.invalidateQueries({ queryKey: ['outlet-items'] });
-                                    queryClient.invalidateQueries({ queryKey: ['all-outlet-stocks'] });
-                                    queryClient.invalidateQueries({ queryKey: ['all-outlet-items'] });
-                                    queryClient.invalidateQueries({ queryKey: ['deliveries'] });
-                                    queryClient.invalidateQueries({ queryKey: ['inventorySessions'] });
-                                    queryClient.invalidateQueries({ queryKey: ['wastes'] });
-                                    toast.success('Daten aktualisiert');
-                                }}
+                                onClick={handleRefresh}
                                 className="hidden sm:flex"
                             >
                                 <RefreshCw className="w-4 h-4 mr-2" />
