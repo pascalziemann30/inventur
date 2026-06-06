@@ -951,9 +951,8 @@ export default function Dashboard() {
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Überblick</p>
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                         {/* Inventur starten */}
-                        <Link to={createPageUrl('InventoryCapture')} className="block relative">
-                            <div className="bg-card border-2 border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center h-full">
-                                <span className="absolute top-2 right-2 text-[9px] font-semibold bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5">!</span>
+                        <Link to={createPageUrl('InventoryCapture')} className="block">
+                            <div className="bg-muted border border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center h-full">
                                 <ClipboardList className="w-5 h-5 text-foreground mb-2" />
                                 <p className="text-xs font-semibold text-foreground leading-tight">Inventur starten</p>
                             </div>
