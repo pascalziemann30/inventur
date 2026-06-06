@@ -25,7 +25,8 @@ import {
     ClipboardList,
     LogOut,
     BookOpen,
-    Loader2
+    Loader2,
+    ScanLine
 } from 'lucide-react';
 import {
     AlertDialog,
@@ -57,6 +58,7 @@ import InventoriesOverview from '../components/inventory/InventoriesOverview';
 import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
 import StockIntelligenceDashboard from '../components/analytics/StockIntelligenceDashboard';
 import EmployeeActivityList from '../components/inventory/EmployeeActivityList';
+import DeliveryScanner from '../components/inventory/DeliveryScanner';
 
 export default function Dashboard() {
     const queryClient = useQueryClient();
@@ -88,6 +90,7 @@ export default function Dashboard() {
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
     const [showStockIntelligence, setShowStockIntelligence] = useState(false);
+    const [showDeliveryScanner, setShowDeliveryScanner] = useState(false);
     const [showResetDialog, setShowResetDialog] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
     const [resetStep, setResetStep] = useState('');
@@ -884,6 +887,15 @@ export default function Dashboard() {
                                 <Truck className="w-5 h-5 text-foreground mb-2" />
                                 <p className="text-xs font-medium text-foreground">Lieferung</p>
                             </div>
+                            {/* Scannen */}
+                            <div
+                                onClick={() => setShowDeliveryScanner(true)}
+                                className="rounded-2xl p-4 hover:opacity-80 transition-opacity cursor-pointer flex flex-col items-center text-center"
+                                style={{ background: '#e8f0e4', border: '1px solid #c8d5c0' }}
+                            >
+                                <ScanLine className="w-5 h-5 mb-2" style={{ color: '#2d4a2d' }} />
+                                <p className="text-xs font-medium" style={{ color: '#2d4a2d' }}>Scannen</p>
+                            </div>
                             {/* Waste */}
                             <div
                                 onClick={() => setShowWasteForm(true)}
@@ -967,6 +979,16 @@ export default function Dashboard() {
                     open={showDeliveriesOverview}
                     onClose={() => setShowDeliveriesOverview(false)}
                     deliveries={deliveries}
+                />
+                <DeliveryScanner
+                    open={showDeliveryScanner}
+                    onClose={() => setShowDeliveryScanner(false)}
+                    onSave={handleSaveDelivery}
+                    articles={articlesWithStock}
+                    suppliers={suppliers}
+                    deliveries={deliveries}
+                    outletId={currentOutletId}
+                    outletName={currentOutletName}
                 />
             </div>
         );
@@ -1166,6 +1188,14 @@ export default function Dashboard() {
                                         Lieferung
                                     </button>
                                     <button
+                                        onClick={() => setShowDeliveryScanner(true)}
+                                        className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80"
+                                        style={{ border: '0.5px solid #c8d5c0', color: '#2d4a2d', background: '#e8f0e4', padding: '5px 10px' }}
+                                    >
+                                        <ScanLine className="w-3.5 h-3.5" />
+                                        Scannen
+                                    </button>
+                                    <button
                                         onClick={() => setShowTransferForm(true)}
                                         disabled={articlesWithStock.length === 0}
                                         className="flex items-center gap-1 whitespace-nowrap rounded-lg text-xs transition-colors hover:opacity-80 disabled:opacity-40"
@@ -1351,6 +1381,16 @@ export default function Dashboard() {
                     onClose={() => setShowStockIntelligence(false)}
                 />
             )}
+            <DeliveryScanner
+                open={showDeliveryScanner}
+                onClose={() => setShowDeliveryScanner(false)}
+                onSave={handleSaveDelivery}
+                articles={articlesWithStock}
+                suppliers={suppliers}
+                deliveries={deliveries}
+                outletId={currentOutletId}
+                outletName={currentOutletName}
+            />
         </div>
     );
 }
