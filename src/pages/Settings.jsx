@@ -4,14 +4,26 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge } from 'lucide-react';
+import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Settings() {
     const navigate = useNavigate();
     const [isMerging, setIsMerging] = useState(false);
+    const [showResetDialog, setShowResetDialog] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     const { data: currentUser } = useQuery({
         queryKey: ['currentUser'],
@@ -19,6 +31,32 @@ export default function Settings() {
     });
 
     const isAdmin = currentUser?.role === 'admin';
+
+    const handleResetAllData = async () => {
+        setIsResetting(true);
+        const steps = [
+            { name: 'OutletStock', entity: base44.entities.OutletStock },
+            { name: 'OutletItem', entity: base44.entities.OutletItem },
+            { name: 'GlobalItem', entity: base44.entities.GlobalItem },
+            { name: 'StockMovement', entity: base44.entities.StockMovement },
+            { name: 'Delivery', entity: base44.entities.Delivery },
+            { name: 'InventorySession', entity: base44.entities.InventorySession },
+            { name: 'Waste', entity: base44.entities.Waste },
+        ];
+        try {
+            for (const step of steps) {
+                const items = await step.entity.list();
+                await Promise.all(items.map(item => step.entity.delete(item.id)));
+            }
+            toast.success('App erfolgreich zurückgesetzt');
+            navigate(createPageUrl('Dashboard'));
+        } catch (error) {
+            toast.error('Fehler beim Zurücksetzen: ' + (error.message || 'Unbekannter Fehler'));
+        } finally {
+            setIsResetting(false);
+            setShowResetDialog(false);
+        }
+    };
 
     const handleMergeSuppliers = async () => {
         if (!confirm('Möchten Sie doppelte Lieferanten wirklich zusammenführen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
@@ -173,6 +211,28 @@ export default function Settings() {
                     </Card>
                 )}
 
+                {/* Datenverwaltung - Admin Only */}
+                {isAdmin && (
+                    <div className="mt-6">
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Datenverwaltung</p>
+                        <div className="bg-muted border border-border rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Alle Daten zurücksetzen</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Artikel, Bestände, Lieferungen, Inventuren und Waste löschen</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowResetDialog(true)}
+                                    className="flex items-center gap-2 border border-destructive text-destructive rounded-xl px-4 py-2 text-sm hover:bg-destructive/10 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Alle Daten zurücksetzen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* User Info */}
                 <Card className="mt-6">
                     <CardHeader>
@@ -198,6 +258,28 @@ export default function Settings() {
                     </CardContent>
                 </Card>
             </main>
+
+            {/* Reset Confirmation Dialog */}
+            <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Alle Daten unwiderruflich löschen?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Dieser Vorgang löscht alle Artikel, Bestände, Lieferungen, Inventuren und Waste-Einträge. Diese Aktion kann nicht rückgängig gemacht werden.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isResetting}>Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleResetAllData}
+                            disabled={isResetting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isResetting ? 'Daten werden gelöscht...' : 'Ja, alles löschen'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
