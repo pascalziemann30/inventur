@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScanLine, Upload, Loader2, X, Plus, FileText, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { base44 } from '@/api/base44Client';
 
 const normalize = (s) => s?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
 
@@ -59,46 +60,46 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
 
         try {
             const base64Data = await toBase64(file);
-            const mediaType = getMediaType(file);
-            const fileIsPdf = file.type === 'application/pdf';
+            const isImage = file.type.startsWith('image/');
 
-            const response = await fetch("https://api.anthropic.com/v1/messages", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-api-key": "", // API key handled via backend if needed
-                    "anthropic-version": "2023-06-01",
-                    "anthropic-dangerous-direct-browser-access": "true"
-                },
-                body: JSON.stringify({
-                    model: "claude-opus-4-5",
-                    max_tokens: 1000,
-                    messages: [{
-                        role: "user",
-                        content: [
-                            {
-                                type: fileIsPdf ? "document" : "image",
-                                source: {
-                                    type: "base64",
-                                    media_type: mediaType,
-                                    data: base64Data
-                                }
-                            },
-                            {
-                                type: "text",
-                                text: `Analysiere diesen Lieferschein und extrahiere alle relevanten Daten. Antworte NUR mit einem JSON-Objekt, ohne Markdown-Backticks, ohne Präambel:\n{\n  "lieferant": "Name des Lieferanten",\n  "lieferschein_nummer": "Nummer oder null",\n  "datum": "YYYY-MM-DD oder null",\n  "artikel": [\n    {\n      "name": "Artikelbezeichnung",\n      "artikelnummer": "Artikelnummer oder null",\n      "menge": 1.0,\n      "einheit": "Stück/kg/l/etc",\n      "einzelpreis": 0.00\n    }\n  ],\n  "gesamtbetrag": 0.00\n}`
-                            }
-                        ]
-                    }]
-                })
-            });
+            const prompt = `Analysiere diesen Lieferschein und extrahiere alle relevanten Daten. Antworte NUR mit einem JSON-Objekt, ohne Markdown-Backticks, ohne Erklärungen:
+{
+  "lieferant": "Name des Lieferanten",
+  "lieferschein_nummer": "Nummer oder null",
+  "datum": "YYYY-MM-DD oder null",
+  "artikel": [
+    {
+      "name": "Artikelbezeichnung",
+      "artikelnummer": "Artikelnummer oder null",
+      "menge": 1.0,
+      "einheit": "Stück",
+      "einzelpreis": 0.00
+    }
+  ],
+  "gesamtbetrag": 0.00
+}`;
 
-            if (!response.ok) {
-                throw new Error(`API Fehler: ${response.status}`);
+            let result;
+
+            if (isImage) {
+                result = await base44.integrations.Core.InvokeLLM({
+                    prompt: prompt,
+                    image: {
+                        data: base64Data,
+                        mediaType: file.type
+                    }
+                });
+            } else {
+                result = await base44.integrations.Core.InvokeLLM({
+                    prompt: prompt,
+                    document: {
+                        data: base64Data,
+                        mediaType: 'application/pdf'
+                    }
+                });
             }
 
-            const data = await response.json();
-            const text = data.content[0].text;
+            const text = typeof result === 'string' ? result : result?.text || result?.content || JSON.stringify(result);
             const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
 
             // Match articles
