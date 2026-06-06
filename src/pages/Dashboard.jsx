@@ -959,7 +959,7 @@ export default function Dashboard() {
                         </Link>
                         {/* Artikel */}
                         <div
-                            onClick={() => setActiveTab('articles')}
+                            onClick={() => setShowArticlesOverview(true)}
                             className="bg-muted border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
                         >
                             <Box className="w-4 h-4 text-muted-foreground mb-1" />
