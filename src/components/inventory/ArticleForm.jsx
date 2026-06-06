@@ -33,6 +33,10 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [showRecipeDropdown, setShowRecipeDropdown] = useState(false);
     const [sellingPrice, setSellingPrice] = useState('');
 
+    // New category inline
+    const [showNewCategory, setShowNewCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
     // Duplicate detection
     const [showExactDuplicateDialog, setShowExactDuplicateDialog] = useState(false);
     const [showSimilarDialog, setShowSimilarDialog] = useState(false);
@@ -351,16 +355,63 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                                 Kategorie: Fertigprodukte (automatisch)
                                             </p>
                                         ) : (
-                                            <Select value={categoryId} onValueChange={setCategoryId}>
-                                                <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
-                                                    <SelectValue placeholder="Wählen..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {categories.map(cat => (
-                                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <>
+                                                <Select value={categoryId} onValueChange={setCategoryId}>
+                                                    <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
+                                                        <SelectValue placeholder="Wählen..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {categories.map(cat => (
+                                                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                {!showNewCategory ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowNewCategory(true)}
+                                                        className="text-xs mt-1 transition-colors hover:opacity-70"
+                                                        style={{ color: '#2d4a2d', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                                    >
+                                                        + Neue Kategorie anlegen
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                                        <input
+                                                            value={newCategoryName}
+                                                            onChange={(e) => setNewCategoryName(e.target.value)}
+                                                            placeholder="Kategoriename..."
+                                                            style={{ ...inputStyle, flex: 1 }}
+                                                            onFocus={e => e.target.style.borderColor = '#2d4a2d'}
+                                                            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                if (!newCategoryName.trim()) return;
+                                                                const created = await base44.entities.Category.create({ name: newCategoryName.trim() });
+                                                                categories.push(created);
+                                                                setCategoryId(created.id);
+                                                                setNewCategoryName('');
+                                                                setShowNewCategory(false);
+                                                                toast.success('Kategorie angelegt');
+                                                            }}
+                                                            className="text-xs px-2.5 py-1 rounded-lg text-white whitespace-nowrap"
+                                                            style={{ background: '#2d4a2d', border: 'none', cursor: 'pointer' }}
+                                                        >
+                                                            Anlegen
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}
+                                                            className="text-xs text-muted-foreground hover:text-foreground"
+                                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                     <div>
@@ -515,31 +566,35 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                                                 setSupplierId('');
                                                                 setShowSupplierDropdown(e.target.value.length > 0);
                                                             }}
-                                                            onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
-                                                            placeholder="Lieferant suchen..."
-                                                            required={!isFinishedProduct && !showNewSupplierInput}
-                                                            style={inputStyle}
-                                                            onBlur={e => { e.target.style.borderColor = 'var(--border)'; setTimeout(() => setShowSupplierDropdown(false), 150); }}
-                                                        />
-                                                        {showSupplierDropdown && suppliers?.filter(s =>
-                                                            s.is_active !== false &&
-                                                            s.name.toLowerCase().includes(supplierName.toLowerCase())
-                                                        ).length > 0 && (
-                                                            <div className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg max-h-48 overflow-auto" style={{ border: '0.5px solid var(--border)' }}>
-                                                                {suppliers
-                                                                    .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
-                                                                    .map(supplier => (
-                                                                        <button
-                                                                            key={supplier.id}
-                                                                            type="button"
-                                                                            onMouseDown={() => { setSupplierId(supplier.id); setSupplierName(supplier.name); setShowSupplierDropdown(false); }}
-                                                                            className="w-full px-3 py-2 text-left hover:bg-accent text-xs transition-colors"
-                                                                        >
-                                                                            {supplier.name}
-                                                                        </button>
-                                                                    ))}
-                                                            </div>
-                                                        )}
+                                                            onFocus={() => setShowSupplierDropdown(true)}
+                                                                            placeholder="Lieferant suchen..."
+                                                                            required={!isFinishedProduct && !showNewSupplierInput}
+                                                                            style={inputStyle}
+                                                                            onBlur={e => { e.target.style.borderColor = 'var(--border)'; setTimeout(() => setShowSupplierDropdown(false), 150); }}
+                                                                        />
+                                                                        {showSupplierDropdown && (() => {
+                                                                            const filtered = suppliers?.filter(s =>
+                                                                                s.is_active !== false &&
+                                                                                (supplierName === '' || s.name.toLowerCase().includes(supplierName.toLowerCase()))
+                                                                            ) || [];
+                                                                            return filtered.length > 0 ? (
+                                                                                <div className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg max-h-48 overflow-y-auto" style={{ border: '0.5px solid var(--border)' }}>
+                                                                                    <p className="text-xs text-muted-foreground px-3 py-1 border-b border-border">
+                                                                                        {supplierName === '' ? `Alle Lieferanten (${filtered.length})` : `Suchergebnisse (${filtered.length})`}
+                                                                                    </p>
+                                                                                    {filtered.map(supplier => (
+                                                                                        <button
+                                                                                            key={supplier.id}
+                                                                                            type="button"
+                                                                                            onMouseDown={() => { setSupplierId(supplier.id); setSupplierName(supplier.name); setShowSupplierDropdown(false); }}
+                                                                                            className="w-full px-3 py-2 text-left hover:bg-accent text-xs transition-colors"
+                                                                                        >
+                                                                                            {supplier.name}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            ) : null;
+                                                                        })()}
                                                     </div>
                                                     <button
                                                         type="button"
