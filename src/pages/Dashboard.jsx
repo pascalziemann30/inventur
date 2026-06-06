@@ -23,7 +23,8 @@ import {
     AlertTriangle,
     Trash2,
     ClipboardList,
-    LogOut
+    LogOut,
+    BookOpen
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -1000,20 +1001,38 @@ export default function Dashboard() {
                 {!isAggregatorOutlet && (
                     <div>
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Analyse</p>
-                        <div
-                            onClick={() => setShowStockIntelligence(true)}
-                            className="bg-muted border border-border rounded-2xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
-                        >
-                            <div className="w-8 h-8 bg-card border border-border rounded-xl flex items-center justify-center flex-shrink-0">
-                                <BarChart2 className="w-4 h-4 text-foreground" />
+                        <div className="space-y-2">
+                            <div
+                                onClick={() => setShowStockIntelligence(true)}
+                                className="bg-muted border border-border rounded-2xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
+                            >
+                                <div className="w-8 h-8 bg-card border border-border rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <BarChart2 className="w-4 h-4 text-foreground" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-foreground">Stock Intelligence</p>
+                                    <p className="text-xs text-muted-foreground">Verbrauch & Waste im Überblick</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                                    <span>Öffnen</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-foreground">Stock Intelligence</p>
-                                <p className="text-xs text-muted-foreground">Verbrauch & Waste im Überblick</p>
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-                                <span>Öffnen</span>
-                                <ArrowRight className="w-3 h-3" />
+                            <div
+                                onClick={() => navigate(createPageUrl('Produktpass'))}
+                                className="bg-muted border border-border rounded-2xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
+                            >
+                                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#e8f0e4', border: '1px solid #c8d5c0' }}>
+                                    <BookOpen className="w-4 h-4" style={{ color: '#2d4a2d' }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-foreground">Produktpass</p>
+                                    <p className="text-xs text-muted-foreground">Rezepturen & Kalkulation</p>
+                                </div>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                                    <span>Öffnen</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                </div>
                             </div>
                         </div>
                     </div>
