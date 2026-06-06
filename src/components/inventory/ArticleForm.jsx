@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Check, ChevronsUpDown, X, Plus } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
+import { Check, ChevronsUpDown, X, Plus, Search } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 import { checkDuplicates } from './duplicateUtils';
@@ -25,6 +25,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [isDetecting, setIsDetecting] = useState(false);
     const [inventoryIntervals, setInventoryIntervals] = useState([]);
 
+    // Fertigprodukt
+    const [isFinishedProduct, setIsFinishedProduct] = useState(false);
+    const [recipeItems, setRecipeItems] = useState([]);
+    const [recipeSearch, setRecipeSearch] = useState('');
+    const [showRecipeDropdown, setShowRecipeDropdown] = useState(false);
+
+    // Duplicate detection states
     const [showExactDuplicateDialog, setShowExactDuplicateDialog] = useState(false);
     const [showSimilarDialog, setShowSimilarDialog] = useState(false);
     const [exactDuplicate, setExactDuplicate] = useState(null);
@@ -43,6 +50,8 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setMinStock(article.min_stock?.toString() || '');
             setNotes(article.notes || '');
             setInventoryIntervals(article.inventory_intervals || []);
+            setIsFinishedProduct(article.is_finished_product || false);
+            setRecipeItems(article.recipe_items || []);
         } else {
             resetForm();
         }
@@ -52,6 +61,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         setName(''); setCategoryId(''); setUnitId(''); setSupplierId(''); setSupplierName('');
         setShowNewSupplierInput(false); setNewSupplierName(''); setPurchasePrice('');
         setInitialStock(''); setMinStock(''); setNotes(''); setInventoryIntervals([]);
+        setIsFinishedProduct(false); setRecipeItems([]); setRecipeSearch(''); setShowRecipeDropdown(false);
     };
 
     const detectCategoryAndUnit = async (articleName) => {
@@ -92,6 +102,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validierung Fertigprodukt
+        if (isFinishedProduct && recipeItems.length === 0) {
+            alert('Bitte mindestens einen Rohstoff hinzufügen');
+            return;
+        }
+
         const selectedCategory = categories.find(c => c.id === categoryId);
         const selectedUnit = units.find(u => u.id === unitId);
         let finalSupplierId = supplierId;
@@ -116,6 +133,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             alert('Bitte wählen Sie einen Lieferanten aus');
             return;
         }
+
         const articleData = {
             name, category_id: categoryId, category_name: selectedCategory?.name || '',
             unit_id: unitId, unit_abbreviation: selectedUnit?.abbreviation || '',
@@ -124,8 +142,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             initial_stock: parseFloat(initialStock) || 0,
             current_stock: article ? article.current_stock : (parseFloat(initialStock) || 0),
             min_stock: parseFloat(minStock) || null,
-            inventory_intervals: inventoryIntervals, notes, is_active: true
+            inventory_intervals: inventoryIntervals,
+            notes,
+            is_active: true,
+            is_finished_product: isFinishedProduct,
+            recipe_items: isFinishedProduct ? recipeItems : []
         };
+
         if (!article && !isAggregator && allArticles && allArticles.length > 0) {
             const duplicateCheck = checkDuplicates(articleData, allArticles, outletId, article?.id);
             if (duplicateCheck) {
@@ -170,6 +193,30 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         } else {
             setInventoryIntervals([...inventoryIntervals, value]);
         }
+    };
+
+    // Recipe helpers
+    const filteredRecipeArticles = recipeSearch.trim().length > 0
+        ? allArticles.filter(a =>
+            a.name.toLowerCase().includes(recipeSearch.toLowerCase()) &&
+            a.id !== article?.id &&
+            !a.is_finished_product &&
+            !recipeItems.find(r => r.article_id === a.id)
+        )
+        : [];
+
+    const addRecipeItem = (a) => {
+        setRecipeItems([...recipeItems, { article_id: a.id, article_name: a.name, unit_abbreviation: a.unit_abbreviation || '', quantity: 1 }]);
+        setRecipeSearch('');
+        setShowRecipeDropdown(false);
+    };
+
+    const updateRecipeQuantity = (articleId, qty) => {
+        setRecipeItems(recipeItems.map(r => r.article_id === articleId ? { ...r, quantity: parseFloat(qty) || 0 } : r));
+    };
+
+    const removeRecipeItem = (articleId) => {
+        setRecipeItems(recipeItems.filter(r => r.article_id !== articleId));
     };
 
     const inputStyle = {
@@ -254,7 +301,6 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                         required
                                         style={{ ...inputStyle, paddingRight: '32px' }}
                                         onFocus={e => e.target.style.borderColor = '#2d4a2d'}
-                                        onBlur2={e => e.target.style.borderColor = 'var(--border)'}
                                     />
                                     {isDetecting && (
                                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -265,6 +311,95 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                     Kategorie & Einheit werden automatisch erkannt
                                 </p>
                             </div>
+
+                            {/* Fertigprodukt Toggle */}
+                            <div className="flex items-center justify-between py-1">
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Fertigprodukt</p>
+                                    <p className="text-xs text-muted-foreground">Enthält Rohstoffe aus dem Bestand</p>
+                                </div>
+                                <Switch
+                                    checked={isFinishedProduct}
+                                    onCheckedChange={setIsFinishedProduct}
+                                    style={isFinishedProduct ? { background: '#2d4a2d' } : {}}
+                                />
+                            </div>
+
+                            {/* Rezeptur-Bereich */}
+                            {isFinishedProduct && (
+                                <div className="rounded-xl p-3 space-y-2 bg-muted border border-border">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                                        Rezeptur — verwendete Rohstoffe
+                                    </p>
+
+                                    {/* Liste der Rohstoffe */}
+                                    {recipeItems.length > 0 && (
+                                        <div className="space-y-1">
+                                            {recipeItems.map((item) => (
+                                                <div key={item.article_id} className="grid items-center gap-2 bg-white rounded-lg px-3 py-2" style={{ gridTemplateColumns: '1fr 80px 50px 32px', border: '0.5px solid var(--border)' }}>
+                                                    <span className="text-sm text-foreground truncate">{item.article_name}</span>
+                                                    <input
+                                                        type="number"
+                                                        step="0.001"
+                                                        min="0.001"
+                                                        value={item.quantity}
+                                                        onChange={(e) => updateRecipeQuantity(item.article_id, e.target.value)}
+                                                        style={{ ...inputStyle, padding: '4px 6px', textAlign: 'right', width: '80px' }}
+                                                        onFocus={e => e.target.style.borderColor = '#2d4a2d'}
+                                                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                    />
+                                                    <span className="text-xs text-muted-foreground text-center">{item.unit_abbreviation}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeRecipeItem(item.article_id)}
+                                                        className="w-7 h-7 flex items-center justify-center rounded-md hover:text-destructive text-muted-foreground transition-colors"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Rohstoff Suche */}
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                        <input
+                                            value={recipeSearch}
+                                            onChange={(e) => { setRecipeSearch(e.target.value); setShowRecipeDropdown(e.target.value.length > 0); }}
+                                            onFocus={() => recipeSearch.length > 0 && setShowRecipeDropdown(true)}
+                                            placeholder="Rohstoff suchen..."
+                                            style={{ ...inputStyle, paddingLeft: '28px', background: 'white' }}
+                                            onFocusCapture={e => e.target.style.borderColor = '#2d4a2d'}
+                                            onBlur={e => { e.target.style.borderColor = 'var(--border)'; setTimeout(() => setShowRecipeDropdown(false), 150); }}
+                                        />
+                                        {showRecipeDropdown && filteredRecipeArticles.length > 0 && (
+                                            <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-sm max-h-40 overflow-y-auto">
+                                                {filteredRecipeArticles.map(a => (
+                                                    <button
+                                                        key={a.id}
+                                                        type="button"
+                                                        onMouseDown={() => addRecipeItem(a)}
+                                                        className="w-full px-3 py-2 text-left hover:bg-accent text-xs transition-colors flex items-center justify-between"
+                                                    >
+                                                        <span>{a.name}</span>
+                                                        <span className="text-muted-foreground ml-2">{a.unit_abbreviation}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {showRecipeDropdown && recipeSearch.trim().length > 0 && filteredRecipeArticles.length === 0 && (
+                                            <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-sm">
+                                                <p className="px-3 py-2 text-xs text-muted-foreground">Keine Rohstoffe gefunden</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {isFinishedProduct && recipeItems.length === 0 && (
+                                        <p className="text-xs text-amber-600">Bitte mindestens einen Rohstoff hinzufügen</p>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Kategorie + Einheit */}
                             <div className="grid grid-cols-2 gap-4">
@@ -314,8 +449,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                                     placeholder="Lieferant suchen..."
                                                     required={!showNewSupplierInput}
                                                     style={inputStyle}
-                                                    onFocus2={e => e.target.style.borderColor = '#2d4a2d'}
-                                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                    onBlur={e => { e.target.style.borderColor = 'var(--border)'; setTimeout(() => setShowSupplierDropdown(false), 150); }}
                                                 />
                                                 {showSupplierDropdown && suppliers?.filter(s =>
                                                     s.is_active !== false &&
@@ -328,7 +462,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                                                 <button
                                                                     key={supplier.id}
                                                                     type="button"
-                                                                    onClick={() => { setSupplierId(supplier.id); setSupplierName(supplier.name); setShowSupplierDropdown(false); }}
+                                                                    onMouseDown={() => { setSupplierId(supplier.id); setSupplierName(supplier.name); setShowSupplierDropdown(false); }}
                                                                     className="w-full px-3 py-2 text-left hover:bg-accent text-xs transition-colors"
                                                                 >
                                                                     {supplier.name}
@@ -413,7 +547,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                                     <PopoverTrigger asChild>
                                         <button
                                             type="button"
-                                            className="w-full flex items-center justify-between text-left transition-colors hover:border-foreground"
+                                            className="w-full flex items-center justify-between text-left transition-colors"
                                             style={{ ...inputStyle, padding: '6px 10px', minHeight: '36px' }}
                                         >
                                             <div className="flex flex-wrap gap-1 flex-1">
