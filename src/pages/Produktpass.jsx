@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { RefreshCw, BookOpen, Tag, Upload, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { RefreshCw, BookOpen, Tag, Upload, X, ChevronDown, ChevronRight, ArrowLeft } from 'lucide-react';
+import { createPageUrl } from '@/utils';
 import { useOutlet } from '@/components/outlet/OutletContext';
 
 // ─── CSV PARSE HELPERS ───────────────────────────────────────────────────────
@@ -299,6 +301,7 @@ function VerkaufsdatenTab({ finishedProducts }) {
 export default function Produktpass() {
     const { currentOutletId } = useOutlet();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('produktpass');
     const [selectedId, setSelectedId] = useState(null);
 
@@ -345,6 +348,14 @@ export default function Produktpass() {
             <div className="bg-white border-b border-border sticky top-0 z-10">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
+                        <button
+                            onClick={() => navigate(createPageUrl('Dashboard'))}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
+                            style={{ border: '0.5px solid var(--border)', background: 'var(--card)' }}
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Übersicht
+                        </button>
                         <div className="flex items-center justify-center rounded-lg" style={{ width: 32, height: 32, background: '#e8f0e4' }}>
                             <BookOpen style={{ width: 16, height: 16, color: '#2d4a2d' }} />
                         </div>
