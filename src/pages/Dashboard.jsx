@@ -13,10 +13,13 @@ import {
     ClipboardCheck, 
     Truck, 
     BarChart3,
+    BarChart2,
     Package,
+    Box,
     RefreshCw,
     ArrowUpDown,
     ArrowRightLeft,
+    ArrowRight,
     AlertTriangle,
     Trash2,
     ClipboardList,
@@ -910,170 +913,116 @@ export default function Dashboard() {
         );
     }
 
-    // --- ADMIN VIEW (unverändert) ---
+    const handleAdminLogout = () => {
+        localStorage.removeItem('user_role');
+        navigate('/OutletLogin');
+    };
+
+    // --- ADMIN VIEW ---
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-background">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+            <header className="bg-muted border-b border-border sticky top-0 z-10">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <img 
-                                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6975d510bbe0422af7fe76ca/19feb6d1b_ChatGPTImage1Feb202616_14_34.png" 
-                                alt="Kolek Schröder Logo" 
-                                className="h-12 w-auto"
-                            />
-                            <div>
-                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                                    Bestandsverwaltung
-                                </h1>
-                                <p className="text-sm text-slate-500 hidden sm:block">
-                                    Inventar & Verbrauch
-                                </p>
-                            </div>
-                        </div>
                         <div className="flex items-center gap-2">
-                            <Link to={createPageUrl('InventoryCapture')}>
-                                <Button 
-                                    size="sm"
-                                    className="bg-emerald-600 hover:bg-emerald-700"
-                                >
-                                    <ClipboardCheck className="w-4 h-4 mr-2" />
-                                    Inventur starten
-                                </Button>
-                            </Link>
-                            <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={handleRefresh}
-                                className="hidden sm:flex"
-                            >
-                                <RefreshCw className="w-4 h-4 mr-2" />
-                                Aktualisieren
-                            </Button>
+                            <span className="text-base font-semibold text-foreground">{currentOutletName}</span>
+                            <span className="text-xs border border-border rounded-md px-2 py-0.5 text-muted-foreground">Admin</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button onClick={handleRefresh} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                                <RefreshCw className="w-4 h-4" />
+                                <span className="hidden sm:inline">Aktualisieren</span>
+                            </button>
+                            <button onClick={handleAdminLogout} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                                <LogOut className="w-4 h-4" />
+                                <span className="hidden sm:inline">Logout</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-                {/* Stats */}
-                <StatsCards 
-                    articles={articlesWithStock} 
-                    inventories={inventorySessions} 
-                    deliveries={deliveries}
-                    onArticlesClick={() => setShowArticlesOverview(true)}
-                    onLowStockClick={() => setShowLowStockOverview(true)}
-                    onInventoriesClick={() => setShowInventoriesOverview(true)}
-                    onDeliveriesClick={() => setShowDeliveriesOverview(true)}
-                />
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-                {/* Stock Intelligence Dashboard Button */}
-                {!isAggregatorOutlet && !isEmployee && (
-                    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="text-xl font-bold flex items-center gap-2">
-                                    <BarChart3 className="w-6 h-6" />
-                                    Stock Intelligence
-                                </h3>
-                                <p className="text-sm text-indigo-100 mt-1">
-                                    Verbrauch & Waste im Überblick – Analysieren Sie Ihre Daten
-                                </p>
+                {/* Abschnitt 1 — Überblick */}
+                <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Überblick</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        {/* Inventur starten */}
+                        <Link to={createPageUrl('InventoryCapture')} className="block relative">
+                            <div className="bg-card border-2 border-border rounded-2xl p-4 hover:bg-accent transition-colors cursor-pointer flex flex-col items-center text-center h-full">
+                                <span className="absolute top-2 right-2 text-[9px] font-semibold bg-destructive/10 text-destructive rounded-full px-1.5 py-0.5">!</span>
+                                <ClipboardList className="w-5 h-5 text-foreground mb-2" />
+                                <p className="text-xs font-semibold text-foreground leading-tight">Inventur starten</p>
                             </div>
-                            <Button 
-                                onClick={() => setShowStockIntelligence(true)}
-                                className="bg-white text-indigo-600 hover:bg-indigo-50"
-                            >
-                                Dashboard öffnen
-                            </Button>
+                        </Link>
+                        {/* Artikel */}
+                        <div
+                            onClick={() => setActiveTab('articles')}
+                            className="bg-muted border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                        >
+                            <Box className="w-4 h-4 text-muted-foreground mb-1" />
+                            <p className="text-2xl font-semibold text-foreground">{articlesWithStock.filter(a => a.is_active !== false).length}</p>
+                            <p className="text-xs text-muted-foreground">Artikel</p>
+                        </div>
+                        {/* Niedrigbestand */}
+                        <div
+                            onClick={() => setShowLowStockOverview(true)}
+                            className="bg-amber-50 border border-amber-200 rounded-2xl p-4 cursor-pointer hover:bg-amber-100 transition-colors"
+                        >
+                            <AlertTriangle className="w-4 h-4 text-amber-500 mb-1" />
+                            <p className="text-2xl font-semibold text-amber-600">{lowStockCount}</p>
+                            <p className="text-xs text-amber-500">Niedrigbestand</p>
+                        </div>
+                        {/* Inventuren */}
+                        <div
+                            onClick={() => setShowInventoriesOverview(true)}
+                            className="bg-muted border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                        >
+                            <ClipboardCheck className="w-4 h-4 text-muted-foreground mb-1" />
+                            <p className="text-2xl font-semibold text-foreground">{inventorySessions.length}</p>
+                            <p className="text-xs text-muted-foreground">Inventuren</p>
+                        </div>
+                        {/* Lieferungen */}
+                        <div
+                            onClick={() => setShowDeliveriesOverview(true)}
+                            className="bg-muted border border-border rounded-2xl p-4 cursor-pointer hover:bg-accent transition-colors"
+                        >
+                            <Truck className="w-4 h-4 text-muted-foreground mb-1" />
+                            <p className="text-2xl font-semibold text-foreground">{deliveries.length}</p>
+                            <p className="text-xs text-muted-foreground">Lieferungen</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Abschnitt 2 — Analyse */}
+                {!isAggregatorOutlet && (
+                    <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Analyse</p>
+                        <div
+                            onClick={() => setShowStockIntelligence(true)}
+                            className="bg-muted border border-border rounded-2xl p-4 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
+                        >
+                            <div className="w-8 h-8 bg-card border border-border rounded-xl flex items-center justify-center flex-shrink-0">
+                                <BarChart2 className="w-4 h-4 text-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-foreground">Stock Intelligence</p>
+                                <p className="text-xs text-muted-foreground">Verbrauch & Waste im Überblick</p>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                                <span>Öffnen</span>
+                                <ArrowRight className="w-3 h-3" />
+                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <TabsList className="bg-white border border-slate-200">
-                            {!isEmployee && (
-                                <TabsTrigger value="articles" className="gap-2">
-                                    <Package className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Artikel</span>
-                                </TabsTrigger>
-                            )}
-                            <TabsTrigger value="consumption" className="gap-2">
-                                <BarChart3 className="w-4 h-4" />
-                                <span className="hidden sm:inline">Verbrauch</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="waste" className="gap-2">
-                                <AlertTriangle className="w-4 h-4" />
-                                <span className="hidden sm:inline">Waste</span>
-                            </TabsTrigger>
-                        </TabsList>
-
-                        <div className="flex gap-2">
-                            <Select value={sortBy} onValueChange={setSortBy}>
-                                <SelectTrigger className="w-[180px] bg-white">
-                                    <ArrowUpDown className="w-4 h-4 mr-2" />
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="name">Nach Alphabet</SelectItem>
-                                    <SelectItem value="quantity">Nach Menge</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <div className="relative flex-1 sm:w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <Input
-                                    placeholder="Suchen..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9 bg-white"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    {!isAggregatorOutlet && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {!isEmployee && (
-                                <Button 
-                                    onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
-                                    className="bg-slate-900 hover:bg-slate-800"
-                                >
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Artikel
-                                </Button>
-                            )}
-                            <Button 
-                                variant="outline" 
-                                onClick={() => setShowDeliveryForm(true)}
-                                disabled={articlesWithStock.length === 0}
-                            >
-                                <Truck className="w-4 h-4 mr-2" />
-                                Lieferung
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                onClick={() => setShowTransferForm(true)}
-                                disabled={articlesWithStock.length === 0}
-                            >
-                                <ArrowRightLeft className="w-4 h-4 mr-2" />
-                                Outlet Transfer
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                onClick={() => setShowWasteForm(true)}
-                                disabled={articlesWithStock.length === 0}
-                                className="border-orange-200 text-orange-700 hover:bg-orange-50"
-                            >
-                                <AlertTriangle className="w-4 h-4 mr-2" />
-                                Waste
-                            </Button>
-                        </div>
-                    )}
+                {/* Abschnitt 3 — Artikelverwaltung */}
+                <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-6">Artikelverwaltung</p>
 
                     {isAggregatorOutlet && (
                         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1084,29 +1033,99 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    <TabsContent value="articles" className="mt-0">
-                        <CategoryArticleView
-                            articles={activeArticles}
-                            inventories={inventories}
-                            onEdit={isAggregatorOutlet ? null : handleEditArticle}
-                            onDelete={isAggregatorOutlet ? null : handleDeleteArticle}
-                            isAggregator={isAggregatorOutlet}
-                        />
-                    </TabsContent>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        {/* Tab-Leiste + Aktionen + Suche */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                            <TabsList className="border border-border rounded-md overflow-hidden w-fit bg-muted p-0 h-auto">
+                                <TabsTrigger value="articles" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
+                                    Artikel
+                                </TabsTrigger>
+                                <TabsTrigger value="consumption" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
+                                    Verbrauch
+                                </TabsTrigger>
+                                <TabsTrigger value="waste" className="rounded-none px-3 py-1.5 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:font-medium text-muted-foreground">
+                                    Waste
+                                </TabsTrigger>
+                            </TabsList>
 
-                    <TabsContent value="consumption" className="mt-0">
-                        <ConsumptionView
-                            articles={articlesWithStock}
-                        />
-                    </TabsContent>
+                            {!isAggregatorOutlet && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        onClick={() => { setEditingArticle(null); setShowArticleForm(true); }}
+                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Artikel anlegen
+                                    </button>
+                                    <button
+                                        onClick={() => setShowDeliveryForm(true)}
+                                        disabled={articlesWithStock.length === 0}
+                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                                    >
+                                        <Truck className="w-3.5 h-3.5" />
+                                        Lieferung
+                                    </button>
+                                    <button
+                                        onClick={() => setShowTransferForm(true)}
+                                        disabled={articlesWithStock.length === 0}
+                                        className="flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 text-xs bg-card text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                                    >
+                                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                                        Outlet Transfer
+                                    </button>
+                                    <button
+                                        onClick={() => setShowWasteForm(true)}
+                                        disabled={articlesWithStock.length === 0}
+                                        className="flex items-center gap-1.5 border border-amber-200 rounded-md px-3 py-1.5 text-xs bg-card text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+                                    >
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                        Waste
+                                    </button>
+                                </div>
+                            )}
 
-                    <TabsContent value="waste" className="mt-0">
-                        <WasteOverview
-                            wastes={wastes}
-                            suppliers={suppliers}
-                        />
-                    </TabsContent>
-                </Tabs>
+                            <div className="flex gap-2 sm:ml-auto">
+                                <Select value={sortBy} onValueChange={setSortBy}>
+                                    <SelectTrigger className="w-[150px] h-8 text-xs bg-card">
+                                        <ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="name">Nach Alphabet</SelectItem>
+                                        <SelectItem value="quantity">Nach Menge</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Suchen..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-8 h-8 text-xs w-44 bg-card"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <TabsContent value="articles" className="mt-0">
+                            <CategoryArticleView
+                                articles={activeArticles}
+                                inventories={inventories}
+                                onEdit={isAggregatorOutlet ? null : handleEditArticle}
+                                onDelete={isAggregatorOutlet ? null : handleDeleteArticle}
+                                isAggregator={isAggregatorOutlet}
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="consumption" className="mt-0">
+                            <ConsumptionView articles={articlesWithStock} />
+                        </TabsContent>
+
+                        <TabsContent value="waste" className="mt-0">
+                            <WasteOverview wastes={wastes} suppliers={suppliers} />
+                        </TabsContent>
+                    </Tabs>
+                </div>
             </main>
 
             {/* Modals */}
@@ -1124,7 +1143,6 @@ export default function Dashboard() {
                 isAggregator={isAggregatorOutlet}
                 allArticles={outletItems}
             />
-
             <DeliveryForm
                 open={showDeliveryForm}
                 onClose={() => setShowDeliveryForm(false)}
@@ -1132,7 +1150,6 @@ export default function Dashboard() {
                 articles={articlesWithStock}
                 suppliers={suppliers}
             />
-
             <OutletTransferForm
                 open={showTransferForm}
                 onClose={() => setShowTransferForm(false)}
@@ -1141,7 +1158,6 @@ export default function Dashboard() {
                 outlets={outlets}
                 suppliers={suppliers}
             />
-
             <WasteForm
                 open={showWasteForm}
                 onClose={() => setShowWasteForm(false)}
@@ -1149,34 +1165,27 @@ export default function Dashboard() {
                 articles={articlesWithStock}
                 suppliers={suppliers}
             />
-
-            {/* Overview Modals */}
             <ArticlesOverview
                 open={showArticlesOverview}
                 onClose={() => setShowArticlesOverview(false)}
                 articles={articlesWithStock}
                 outletName={currentOutletName}
             />
-
             <LowStockOverview
                 open={showLowStockOverview}
                 onClose={() => setShowLowStockOverview(false)}
                 articles={articlesWithStock}
             />
-
             <InventoriesOverview
                 open={showInventoriesOverview}
                 onClose={() => setShowInventoriesOverview(false)}
                 sessions={inventorySessions}
             />
-
             <DeliveriesOverview
                 open={showDeliveriesOverview}
                 onClose={() => setShowDeliveriesOverview(false)}
                 deliveries={deliveries}
             />
-
-            {/* Stock Intelligence Dashboard */}
             {showStockIntelligence && (
                 <StockIntelligenceDashboard
                     currentOutletId={currentOutletId}
@@ -1184,6 +1193,6 @@ export default function Dashboard() {
                     onClose={() => setShowStockIntelligence(false)}
                 />
             )}
-            </div>
-            );
-            }
+        </div>
+    );
+}
