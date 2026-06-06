@@ -24,8 +24,19 @@ import {
     Trash2,
     ClipboardList,
     LogOut,
-    BookOpen
+    BookOpen,
+    Loader2
 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
@@ -77,6 +88,41 @@ export default function Dashboard() {
     const [showInventoriesOverview, setShowInventoriesOverview] = useState(false);
     const [showDeliveriesOverview, setShowDeliveriesOverview] = useState(false);
     const [showStockIntelligence, setShowStockIntelligence] = useState(false);
+    const [showResetDialog, setShowResetDialog] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [resetStep, setResetStep] = useState('');
+
+    const handleResetAllData = async () => {
+        setIsResetting(true);
+        setShowResetDialog(false);
+        const steps = [
+            { name: 'StockMovement', label: 'Lagerbewegungen' },
+            { name: 'OutletStock', label: 'Bestände' },
+            { name: 'OutletItem', label: 'Outlet-Artikel' },
+            { name: 'GlobalItem', label: 'Globale Artikel' },
+            { name: 'Delivery', label: 'Lieferungen' },
+            { name: 'InventorySession', label: 'Inventur-Sessions' },
+            { name: 'Inventory', label: 'Inventuren' },
+            { name: 'Waste', label: 'Waste-Einträge' },
+            { name: 'OutletTransfer', label: 'Transfers' },
+            { name: 'PriceHistory', label: 'Preishistorie' },
+            { name: 'Supplier', label: 'Lieferanten' },
+        ];
+        for (const step of steps) {
+            try {
+                setResetStep(step.label + ' werden gelöscht...');
+                const items = await base44.entities[step.name].list();
+                for (const item of items) {
+                    await base44.entities[step.name].delete(item.id);
+                }
+            } catch (e) {
+                // überspringen falls Entität nicht existiert
+            }
+        }
+        toast.success('App erfolgreich zurückgesetzt!');
+        setIsResetting(false);
+        window.location.reload();
+    };
 
     // Check if current outlet is aggregator
     const { data: currentOutlet } = useQuery({
@@ -922,6 +968,12 @@ export default function Dashboard() {
     // --- ADMIN VIEW ---
     return (
         <div className="min-h-screen bg-background">
+            {isResetting && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-destructive/10 border-b border-destructive/20 py-3 px-6 flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-destructive" />
+                    <span className="text-sm text-destructive">Daten werden gelöscht: {resetStep}</span>
+                </div>
+            )}
             {/* Header */}
             <header className="bg-muted border-b border-border sticky top-0 z-10">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
@@ -1181,7 +1233,46 @@ export default function Dashboard() {
                         </TabsContent>
                     </Tabs>
                 </div>
+                {/* Abschnitt — Datenverwaltung */}
+                <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3 mt-8">Datenverwaltung</p>
+                    <div className="bg-muted border border-border rounded-2xl p-4 flex justify-between items-center">
+                        <div className="flex items-start gap-3">
+                            <Trash2 className="w-4 h-4 text-destructive mt-0.5" />
+                            <div>
+                                <p className="text-sm font-medium text-destructive">Alle Daten zurücksetzen</p>
+                                <p className="text-xs text-muted-foreground">Artikel, Bestände, Lieferungen, Inventuren, Waste & Transfers</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowResetDialog(true)}
+                            className="border border-destructive text-destructive text-xs rounded-lg px-3 py-1.5 hover:bg-destructive/10 transition-colors whitespace-nowrap"
+                        >
+                            Zurücksetzen
+                        </button>
+                    </div>
+                </div>
             </main>
+
+            <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>App komplett zurücksetzen?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Löscht unwiderruflich alle Artikel, Bestände, Lieferungen, Inventuren, Waste-Einträge, Transfers und Preishistorie. Outlets, Kategorien und Einheiten bleiben erhalten.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleResetAllData}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                        >
+                            Ja, alles löschen
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Modals */}
             <ArticleForm
