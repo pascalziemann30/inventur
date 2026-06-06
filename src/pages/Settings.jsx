@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge, Trash2, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
@@ -24,38 +24,59 @@ export default function Settings() {
     const [isMerging, setIsMerging] = useState(false);
     const [showResetDialog, setShowResetDialog] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
+    const [resetStep, setResetStep] = useState('');
 
     const { data: currentUser } = useQuery({
         queryKey: ['currentUser'],
         queryFn: () => base44.auth.me()
     });
 
-    const isAdmin = currentUser?.role === 'admin';
+    const userRole = localStorage.getItem('user_role');
+    const isAdmin = currentUser?.role === 'admin' || userRole === 'admin';
 
     const handleResetAllData = async () => {
         setIsResetting(true);
+        let hasErrors = false;
+
         const steps = [
-            { name: 'OutletStock', entity: base44.entities.OutletStock },
-            { name: 'OutletItem', entity: base44.entities.OutletItem },
-            { name: 'GlobalItem', entity: base44.entities.GlobalItem },
-            { name: 'StockMovement', entity: base44.entities.StockMovement },
-            { name: 'Delivery', entity: base44.entities.Delivery },
-            { name: 'InventorySession', entity: base44.entities.InventorySession },
-            { name: 'Waste', entity: base44.entities.Waste },
+            { name: 'StockMovement', label: 'Lagerbewegungen', entity: base44.entities.StockMovement },
+            { name: 'OutletStock', label: 'Bestandsmengen', entity: base44.entities.OutletStock },
+            { name: 'OutletItem', label: 'Outlet-Artikel', entity: base44.entities.OutletItem },
+            { name: 'GlobalItem', label: 'Globale Artikel', entity: base44.entities.GlobalItem },
+            { name: 'Article', label: 'Artikel', entity: base44.entities.Article },
+            { name: 'Delivery', label: 'Lieferungen', entity: base44.entities.Delivery },
+            { name: 'InventorySession', label: 'Inventur-Sessions', entity: base44.entities.InventorySession },
+            { name: 'Inventory', label: 'Inventur-Einträge', entity: base44.entities.Inventory },
+            { name: 'Waste', label: 'Waste-Einträge', entity: base44.entities.Waste },
+            { name: 'OutletTransfer', label: 'Outlet-Transfers', entity: base44.entities.OutletTransfer },
+            { name: 'PriceHistory', label: 'Preishistorie', entity: base44.entities.PriceHistory },
+            { name: 'Supplier', label: 'Lieferanten', entity: base44.entities.Supplier },
         ];
-        try {
-            for (const step of steps) {
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            setResetStep(`Schritt ${i + 1}/${steps.length}: ${step.label} wird gelöscht...`);
+            try {
                 const items = await step.entity.list();
-                await Promise.all(items.map(item => step.entity.delete(item.id)));
+                for (const item of items) {
+                    await step.entity.delete(item.id);
+                }
+            } catch (error) {
+                hasErrors = true;
+                toast.error(`Fehler in Schritt ${i + 1}: ${error.message}`);
             }
-            toast.success('App erfolgreich zurückgesetzt');
-            navigate(createPageUrl('Dashboard'));
-        } catch (error) {
-            toast.error('Fehler beim Zurücksetzen: ' + (error.message || 'Unbekannter Fehler'));
-        } finally {
-            setIsResetting(false);
-            setShowResetDialog(false);
         }
+
+        setIsResetting(false);
+        setShowResetDialog(false);
+        setResetStep('');
+
+        if (hasErrors) {
+            toast.warning('Reset abgeschlossen — einige Einträge konnten nicht gelöscht werden.');
+        } else {
+            toast.success('App erfolgreich zurückgesetzt — alle Daten wurden gelöscht.');
+        }
+        navigate(createPageUrl('Dashboard'));
     };
 
     const handleMergeSuppliers = async () => {
@@ -219,7 +240,7 @@ export default function Settings() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-foreground">Alle Daten zurücksetzen</p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">Artikel, Bestände, Lieferungen, Inventuren und Waste löschen</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Setzt alle Bestands-, Bewegungs- und Transaktionsdaten zurück. Outlets, Kategorien, Einheiten und Benutzer bleiben erhalten.</p>
                                 </div>
                                 <button
                                     onClick={() => setShowResetDialog(true)}
@@ -263,9 +284,9 @@ export default function Settings() {
             <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Alle Daten unwiderruflich löschen?</AlertDialogTitle>
+                        <AlertDialogTitle>App komplett zurücksetzen?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Dieser Vorgang löscht alle Artikel, Bestände, Lieferungen, Inventuren und Waste-Einträge. Diese Aktion kann nicht rückgängig gemacht werden.
+                            Dieser Vorgang löscht unwiderruflich: alle Artikel, Bestände, Lieferungen, Inventuren, Waste-Einträge, Transfers, Preishistorie und Lagerbewegungen. Outlets, Kategorien, Einheiten und Benutzer bleiben erhalten. Diese Aktion kann nicht rückgängig gemacht werden.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -275,7 +296,12 @@ export default function Settings() {
                             disabled={isResetting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            {isResetting ? 'Daten werden gelöscht...' : 'Ja, alles löschen'}
+                            {isResetting ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    {resetStep || 'Daten werden gelöscht...'}
+                                </span>
+                            ) : 'Ja, alles löschen'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
