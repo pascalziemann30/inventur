@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Trash2, X, RotateCcw } from 'lucide-react';
+import { Search, Trash2, RotateCcw, Info } from 'lucide-react';
 
 export default function WasteForm({ open, onClose, onSave, articles, categories }) {
     const [wasteDate, setWasteDate] = useState(new Date().toISOString().split('T')[0]);
+    const [activeTab, setActiveTab] = useState('rohstoffe');
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [globalReason, setGlobalReason] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -13,15 +14,25 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
 
     const categoryArticles = useMemo(() => {
         if (!selectedCategoryId) return [];
-        return articles.filter(a => a.category_id === selectedCategoryId && a.is_active !== false);
+        return articles.filter(a =>
+            a.category_id === selectedCategoryId &&
+            a.is_active !== false &&
+            !a.is_finished_product
+        );
     }, [selectedCategoryId, articles]);
 
-    const filteredArticles = useMemo(() => {
-        if (!searchTerm) return categoryArticles;
-        return categoryArticles.filter(article =>
-            article.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const finishedProducts = useMemo(() => {
+        return articles.filter(a =>
+            a.is_finished_product === true &&
+            a.is_active !== false
         );
-    }, [categoryArticles, searchTerm]);
+    }, [articles]);
+
+    const filteredArticles = useMemo(() => {
+        const base = activeTab === 'fertigprodukte' ? finishedProducts : categoryArticles;
+        if (!searchTerm) return base;
+        return base.filter(a => a.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [activeTab, categoryArticles, finishedProducts, searchTerm]);
 
     const selectedItems = useMemo(() => {
         return filteredArticles
@@ -47,6 +58,7 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
 
     const resetForm = () => {
         setWasteDate(new Date().toISOString().split('T')[0]);
+        setActiveTab('rohstoffe');
         setSelectedCategoryId('');
         setGlobalReason('');
         setSearchTerm('');
@@ -55,10 +67,41 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!selectedCategoryId) { alert('Bitte Kategorie auswählen'); return; }
-        if (selectedItems.length === 0) { alert('Bitte mindestens einen Artikel mit Menge > 0 eingeben'); return; }
-        if (!globalReason.trim()) { alert('Bitte Grund angeben'); return; }
-        onSave({ waste_date: wasteDate, items: selectedItems, notes: '', status: 'draft' });
+        if (activeTab === 'rohstoffe' && !selectedCategoryId) {
+            alert('Bitte Kategorie auswählen');
+            return;
+        }
+        if (selectedItems.length === 0) {
+            alert('Bitte mindestens einen Artikel mit Menge > 0 eingeben');
+            return;
+        }
+        if (!globalReason.trim()) {
+            alert('Bitte Grund angeben');
+            return;
+        }
+
+        const wasteItems = [];
+        selectedItems.forEach(item => {
+            const article = articles.find(a => a.id === item.article_id);
+            wasteItems.push(item);
+
+            if (article?.is_finished_product && article?.recipe_items?.length > 0) {
+                article.recipe_items.forEach(recipeItem => {
+                    const totalQty = recipeItem.quantity * item.quantity;
+                    wasteItems.push({
+                        article_id: recipeItem.article_id,
+                        article_name: recipeItem.article_name,
+                        quantity: totalQty,
+                        unit_abbreviation: recipeItem.unit_abbreviation,
+                        reason: globalReason,
+                        is_derived_from_finished_product: true,
+                        parent_product_name: article.name
+                    });
+                });
+            }
+        });
+
+        onSave({ waste_date: wasteDate, items: wasteItems, notes: '', status: 'draft' });
         resetForm();
     };
 
@@ -73,11 +116,41 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
         color: 'var(--foreground)',
     };
 
+    const showTable = activeTab === 'fertigprodukte' || !!selectedCategoryId;
+
+    // Precompute derived items for preview
+    const previewRows = useMemo(() => {
+        const rows = [];
+        selectedItems.forEach(item => {
+            const article = articles.find(a => a.id === item.article_id);
+            rows.push({ ...item, article });
+            if (article?.is_finished_product && article?.recipe_items?.length > 0) {
+                article.recipe_items.forEach(ri => {
+                    rows.push({
+                        _derived: true,
+                        article_name: ri.article_name,
+                        quantity: ri.quantity * item.quantity,
+                        unit_abbreviation: ri.unit_abbreviation,
+                    });
+                });
+            }
+        });
+        return rows;
+    }, [selectedItems, articles]);
+
+    const totalProductionCost = useMemo(() => {
+        return selectedItems.reduce((sum, item) => {
+            const article = articles.find(a => a.id === item.article_id);
+            if (article?.production_cost) return sum + article.production_cost * item.quantity;
+            return sum;
+        }, 0);
+    }, [selectedItems, articles]);
+
     return (
         <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
                 {/* Header */}
-                <div className="flex items-center gap-3 px-5 py-4 border-b bg-white">
+                <div className="flex items-center gap-3 px-5 py-4 border-b bg-white flex-shrink-0">
                     <div className="flex-shrink-0 flex items-center justify-center rounded-lg" style={{ width: 32, height: 32, background: '#fef3e2', borderRadius: 8 }}>
                         <Trash2 style={{ width: 16, height: 16, color: '#a06020' }} />
                     </div>
@@ -85,16 +158,13 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                         <p className="text-sm font-semibold text-foreground">Waste erfassen</p>
                         <p className="text-xs text-muted-foreground">Verlust dokumentieren</p>
                     </div>
-                    <button onClick={() => { onClose(); resetForm(); }} className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground">
-                        <X className="w-4 h-4" />
-                    </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-                    <div className="overflow-y-auto px-5 py-4 space-y-5 flex-1">
-                        {/* Felder */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Datum */}
+                    <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1">
+
+                        {/* ZEILE 1: Datum + Grund */}
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-medium text-muted-foreground">Datum *</label>
                                 <input
@@ -105,8 +175,51 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                                     style={inputStyle}
                                 />
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">Grund *</label>
+                                <input
+                                    value={globalReason}
+                                    onChange={(e) => setGlobalReason(e.target.value)}
+                                    placeholder="z.B. abgelaufen, Bruch..."
+                                    required
+                                    style={inputStyle}
+                                    onFocus={e => e.target.style.borderColor = '#a06020'}
+                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                />
+                            </div>
+                        </div>
 
-                            {/* Kategorie */}
+                        {/* ZEILE 2: Tab-Pills */}
+                        <div className="flex gap-2">
+                            {[
+                                { key: 'rohstoffe', label: 'Rohstoffe' },
+                                { key: 'fertigprodukte', label: 'Fertigprodukte' }
+                            ].map(tab => {
+                                const active = activeTab === tab.key;
+                                return (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        onClick={() => {
+                                            setActiveTab(tab.key);
+                                            setQuantities({});
+                                            setSearchTerm('');
+                                            setSelectedCategoryId('');
+                                        }}
+                                        className="rounded-full px-4 py-1.5 text-xs font-medium transition-colors"
+                                        style={active
+                                            ? { background: '#e8f0e4', border: '1px solid #c8d5c0', color: '#2d4a2d' }
+                                            : { background: 'var(--muted)', border: '1px solid var(--border)', color: 'var(--muted-foreground)' }
+                                        }
+                                    >
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* ZEILE 3: Filter */}
+                        {activeTab === 'rohstoffe' ? (
                             <div className="space-y-1.5">
                                 <label className="text-xs font-medium text-muted-foreground">Kategorie *</label>
                                 <Select
@@ -127,22 +240,17 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            {/* Grund */}
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Grund *</label>
-                                <input
-                                    value={globalReason}
-                                    onChange={(e) => setGlobalReason(e.target.value)}
-                                    placeholder="z.B. abgelaufen, Bruch..."
-                                    required
-                                    style={inputStyle}
-                                />
+                        ) : (
+                            <div className="flex items-start gap-2 rounded-lg p-3" style={{ background: '#e8f0e4', border: '1px solid #c8d5c0' }}>
+                                <Info style={{ width: 16, height: 16, color: '#2d4a2d', flexShrink: 0, marginTop: 1 }} />
+                                <p className="text-xs" style={{ color: '#2d4a2d' }}>
+                                    Rohstoffe werden beim Buchen automatisch anteilig abgezogen.
+                                </p>
                             </div>
-                        </div>
+                        )}
 
                         {/* Artikel-Tabelle */}
-                        {selectedCategoryId && (
+                        {showTable && (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Artikel erfassen</p>
@@ -188,7 +296,23 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                                                             style={hasQuantity ? { background: '#fef3e2' } : {}}
                                                         >
                                                             <TableCell className="text-xs text-muted-foreground">{index + 1}</TableCell>
-                                                            <TableCell className="text-sm font-medium">{article.name}</TableCell>
+                                                            <TableCell>
+                                                                <p className="text-sm font-medium">{article.name}</p>
+                                                                {article.is_finished_product && (
+                                                                    <div className="flex gap-1.5 mt-0.5">
+                                                                        {article.production_cost > 0 && (
+                                                                            <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#fef3e2', color: '#a06020' }}>
+                                                                                Wareneinsatz: {article.production_cost.toFixed(2)} €
+                                                                            </span>
+                                                                        )}
+                                                                        {article.selling_price > 0 && (
+                                                                            <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#e8f0e4', color: '#2d4a2d' }}>
+                                                                                VK: {article.selling_price.toFixed(2)} €
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
                                                             <TableCell>
                                                                 <input
                                                                     type="number"
@@ -210,7 +334,11 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                                         </Table>
                                     ) : (
                                         <div className="p-8 text-center text-sm text-muted-foreground">
-                                            {searchTerm ? 'Keine Artikel gefunden' : 'Diese Kategorie hat keine Artikel'}
+                                            {searchTerm
+                                                ? 'Keine Artikel gefunden'
+                                                : activeTab === 'fertigprodukte'
+                                                    ? 'Keine Fertigprodukte vorhanden'
+                                                    : 'Diese Kategorie hat keine Artikel'}
                                         </div>
                                     )}
                                 </div>
@@ -240,22 +368,40 @@ export default function WasteForm({ open, onClose, onSave, articles, categories 
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {selectedItems.map(item => (
-                                                <TableRow key={item.article_id}>
-                                                    <TableCell className="text-sm font-medium">{item.article_name}</TableCell>
-                                                    <TableCell className="text-sm text-right font-medium">{item.quantity}</TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">{item.unit_abbreviation}</TableCell>
-                                                </TableRow>
+                                            {previewRows.map((row, idx) => (
+                                                row._derived ? (
+                                                    <TableRow key={`derived-${idx}`} className="hover:bg-transparent">
+                                                        <TableCell className="text-xs text-muted-foreground pl-6 py-1">
+                                                            ↳ {row.article_name}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-muted-foreground text-right py-1">
+                                                            -{row.quantity % 1 === 0 ? row.quantity : row.quantity.toFixed(3)}
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-muted-foreground py-1">{row.unit_abbreviation}</TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    <TableRow key={row.article_id}>
+                                                        <TableCell className="text-sm font-medium">{row.article_name}</TableCell>
+                                                        <TableCell className="text-sm text-right font-medium">{row.quantity}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">{row.unit_abbreviation}</TableCell>
+                                                    </TableRow>
+                                                )
                                             ))}
                                         </TableBody>
                                     </Table>
                                 </div>
+                                {totalProductionCost > 0 && (
+                                    <div className="flex justify-between items-center pt-1">
+                                        <span className="text-xs font-medium" style={{ color: '#a06020' }}>Wareneinsatz</span>
+                                        <span className="text-sm font-semibold" style={{ color: '#a06020' }}>{totalProductionCost.toFixed(2)} €</span>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
                     {/* Footer */}
-                    <div className="flex gap-2 px-5 py-4 border-t bg-white">
+                    <div className="flex gap-2 px-5 py-4 border-t bg-white flex-shrink-0">
                         <button
                             type="button"
                             onClick={() => { onClose(); resetForm(); }}
