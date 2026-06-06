@@ -198,7 +198,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     // Recipe helpers
     const filteredRecipeArticles = recipeSearch.trim().length > 0
         ? allArticles.filter(a =>
-            a.name.toLowerCase().includes(recipeSearch.toLowerCase()) &&
+            a.name?.toLowerCase().includes(recipeSearch.toLowerCase()) &&
             a.id !== article?.id &&
             !a.is_finished_product &&
             !recipeItems.find(r => r.article_id === a.id)
