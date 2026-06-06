@@ -95,33 +95,45 @@ export default function Dashboard() {
     const handleResetAllData = async () => {
         setIsResetting(true);
         setShowResetDialog(false);
-        const steps = [
-            { name: 'StockMovement', label: 'Lagerbewegungen' },
-            { name: 'OutletStock', label: 'Bestände' },
-            { name: 'OutletItem', label: 'Outlet-Artikel' },
-            { name: 'GlobalItem', label: 'Globale Artikel' },
-            { name: 'Delivery', label: 'Lieferungen' },
-            { name: 'InventorySession', label: 'Inventur-Sessions' },
-            { name: 'Inventory', label: 'Inventuren' },
-            { name: 'Waste', label: 'Waste-Einträge' },
-            { name: 'OutletTransfer', label: 'Transfers' },
-            { name: 'PriceHistory', label: 'Preishistorie' },
-            { name: 'Supplier', label: 'Lieferanten' },
-        ];
-        for (const step of steps) {
+        let errors = 0;
+
+        const deleteAll = async (entityName, label) => {
             try {
-                setResetStep(step.label + ' werden gelöscht...');
-                const items = await base44.entities[step.name].list();
-                for (const item of items) {
-                    await base44.entities[step.name].delete(item.id);
+                setResetStep(label + '...');
+                let items = [];
+                try { items = await base44.entities[entityName].list(); } catch(e) { return; }
+                if (!items || items.length === 0) return;
+                for (let i = 0; i < items.length; i += 5) {
+                    const batch = items.slice(i, i + 5);
+                    await Promise.all(batch.map(item =>
+                        base44.entities[entityName].delete(item.id).catch(() => { errors++; })
+                    ));
                 }
-            } catch (e) {
-                // überspringen falls Entität nicht existiert
-            }
-        }
-        toast.success('App erfolgreich zurückgesetzt!');
+            } catch(e) { errors++; }
+        };
+
+        await deleteAll('StockMovement', 'Lagerbewegungen werden gelöscht');
+        await deleteAll('PriceHistory', 'Preishistorie wird gelöscht');
+        await deleteAll('OutletStock', 'Bestände werden gelöscht');
+        await deleteAll('OutletTransfer', 'Transfers werden gelöscht');
+        await deleteAll('Waste', 'Waste-Einträge werden gelöscht');
+        await deleteAll('Inventory', 'Inventur-Einträge werden gelöscht');
+        await deleteAll('InventorySession', 'Inventur-Sessions werden gelöscht');
+        await deleteAll('Delivery', 'Lieferungen werden gelöscht');
+        await deleteAll('OutletItem', 'Outlet-Artikel werden gelöscht');
+        await deleteAll('GlobalItem', 'Globale Artikel werden gelöscht');
+        await deleteAll('Supplier', 'Lieferanten werden gelöscht');
+
         setIsResetting(false);
-        window.location.reload();
+        setResetStep('');
+
+        if (errors === 0) {
+            toast.success('App erfolgreich zurückgesetzt — alle Daten wurden gelöscht.');
+        } else {
+            toast.warning('Reset abgeschlossen. ' + errors + ' Einträge konnten nicht gelöscht werden — bitte nochmals ausführen.');
+        }
+
+        setTimeout(() => { window.location.reload(); }, 1500);
     };
 
     // Check if current outlet is aggregator
