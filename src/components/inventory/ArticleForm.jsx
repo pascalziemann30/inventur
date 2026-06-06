@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Plus } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { Loader2, Sparkles } from 'lucide-react';
 import { checkDuplicates } from './duplicateUtils';
@@ -27,8 +24,7 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const [notes, setNotes] = useState('');
     const [isDetecting, setIsDetecting] = useState(false);
     const [inventoryIntervals, setInventoryIntervals] = useState([]);
-    
-    // Duplicate detection states
+
     const [showExactDuplicateDialog, setShowExactDuplicateDialog] = useState(false);
     const [showSimilarDialog, setShowSimilarDialog] = useState(false);
     const [exactDuplicate, setExactDuplicate] = useState(null);
@@ -53,48 +49,25 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     }, [article, open]);
 
     const resetForm = () => {
-        setName('');
-        setCategoryId('');
-        setUnitId('');
-        setSupplierId('');
-        setSupplierName('');
-        setShowNewSupplierInput(false);
-        setNewSupplierName('');
-        setPurchasePrice('');
-        setInitialStock('');
-        setMinStock('');
-        setNotes('');
-        setInventoryIntervals([]);
+        setName(''); setCategoryId(''); setUnitId(''); setSupplierId(''); setSupplierName('');
+        setShowNewSupplierInput(false); setNewSupplierName(''); setPurchasePrice('');
+        setInitialStock(''); setMinStock(''); setNotes(''); setInventoryIntervals([]);
     };
 
     const detectCategoryAndUnit = async (articleName) => {
         if (!articleName.trim()) return;
-        
         setIsDetecting(true);
-        
         const nameLower = articleName.toLowerCase();
-        
-        // Kategorie erkennen
         let detectedCategory = null;
         for (const cat of categories) {
             if (cat.keywords?.some(keyword => nameLower.includes(keyword.toLowerCase()))) {
-                detectedCategory = cat;
-                break;
+                detectedCategory = cat; break;
             }
         }
-        
-        if (!detectedCategory) {
-            detectedCategory = categories.find(c => c.name === 'Sonstiges');
-        }
-        
-        if (detectedCategory && !categoryId) {
-            setCategoryId(detectedCategory.id);
-        }
-
-        // Einheit erkennen basierend auf Artikelname
+        if (!detectedCategory) detectedCategory = categories.find(c => c.name === 'Sonstiges');
+        if (detectedCategory && !categoryId) setCategoryId(detectedCategory.id);
         if (!unitId) {
             let suggestedUnit = null;
-            
             if (nameLower.includes('milch') || nameLower.includes('saft') || nameLower.includes('sirup') || nameLower.includes('öl')) {
                 suggestedUnit = units.find(u => u.abbreviation === 'l');
             } else if (nameLower.includes('kaffee') || nameLower.includes('tee') || nameLower.includes('zucker') || nameLower.includes('mehl')) {
@@ -110,47 +83,27 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             } else {
                 suggestedUnit = units.find(u => u.abbreviation === 'Stk');
             }
-            
-            if (suggestedUnit) {
-                setUnitId(suggestedUnit.id);
-            }
+            if (suggestedUnit) setUnitId(suggestedUnit.id);
         }
-        
         setIsDetecting(false);
     };
 
-    const handleNameBlur = () => {
-        detectCategoryAndUnit(name);
-    };
+    const handleNameBlur = () => { detectCategoryAndUnit(name); };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
         const selectedCategory = categories.find(c => c.id === categoryId);
         const selectedUnit = units.find(u => u.id === unitId);
-        
-        // Create or get supplier
         let finalSupplierId = supplierId;
         let finalSupplierName = supplierName;
-        
-        // If new supplier should be created
         if (showNewSupplierInput && newSupplierName.trim()) {
             try {
-                // Check if supplier already exists
-                const existingSupplier = suppliers.find(s => 
-                    s.name.trim().toLowerCase() === newSupplierName.trim().toLowerCase()
-                );
-                
+                const existingSupplier = suppliers.find(s => s.name.trim().toLowerCase() === newSupplierName.trim().toLowerCase());
                 if (existingSupplier) {
-                    // Use existing supplier
                     finalSupplierId = existingSupplier.id;
                     finalSupplierName = existingSupplier.name;
                 } else {
-                    // Create new supplier
-                    const newSupplier = await base44.entities.Supplier.create({
-                        name: newSupplierName.trim(),
-                        is_active: true
-                    });
+                    const newSupplier = await base44.entities.Supplier.create({ name: newSupplierName.trim(), is_active: true });
                     finalSupplierId = newSupplier.id;
                     finalSupplierName = newSupplier.name;
                 }
@@ -163,50 +116,24 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             alert('Bitte wählen Sie einen Lieferanten aus');
             return;
         }
-        
         const articleData = {
-            name,
-            category_id: categoryId,
-            category_name: selectedCategory?.name || '',
-            unit_id: unitId,
-            unit_abbreviation: selectedUnit?.abbreviation || '',
-            supplier_id: finalSupplierId,
-            supplier_name: finalSupplierName,
+            name, category_id: categoryId, category_name: selectedCategory?.name || '',
+            unit_id: unitId, unit_abbreviation: selectedUnit?.abbreviation || '',
+            supplier_id: finalSupplierId, supplier_name: finalSupplierName,
             purchase_price: parseFloat(purchasePrice) || 0,
             initial_stock: parseFloat(initialStock) || 0,
             current_stock: article ? article.current_stock : (parseFloat(initialStock) || 0),
             min_stock: parseFloat(minStock) || null,
-            inventory_intervals: inventoryIntervals,
-            notes,
-            is_active: true
+            inventory_intervals: inventoryIntervals, notes, is_active: true
         };
-
-        // Check for duplicates ONLY when creating new articles
         if (!article && !isAggregator && allArticles && allArticles.length > 0) {
-            console.log('🔍 Checking for duplicates...', {
-                articleName: articleData.name,
-                outletId: outletId,
-                totalArticles: allArticles.length,
-                outletArticles: allArticles.filter(a => a.outlet_id === outletId).length
-            });
-            
-            const duplicateCheck = checkDuplicates(
-                articleData,
-                allArticles,
-                outletId,
-                article?.id
-            );
-            
-            console.log('📊 Duplicate check result:', duplicateCheck);
-            
+            const duplicateCheck = checkDuplicates(articleData, allArticles, outletId, article?.id);
             if (duplicateCheck) {
                 if (duplicateCheck.type === 'exact') {
-                    // Show exact duplicate dialog (blocking)
                     setExactDuplicate(duplicateCheck.duplicate);
                     setShowExactDuplicateDialog(true);
                     return;
                 } else if (duplicateCheck.type === 'similar') {
-                    // Show similar articles dialog (warning)
                     setSimilarArticles(duplicateCheck.articles);
                     setPendingArticleData(articleData);
                     setShowSimilarDialog(true);
@@ -214,32 +141,21 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
                 }
             }
         }
-
-        // No duplicates or user confirmed - proceed with save
         saveArticle(articleData);
     };
-    
+
     const saveArticle = (articleData) => {
-        // Track price change if editing and price changed
         if (article && article.purchase_price !== parseFloat(purchasePrice)) {
-            onSave(articleData, {
-                priceChanged: true,
-                oldPrice: article.purchase_price,
-                newPrice: parseFloat(purchasePrice)
-            });
+            onSave(articleData, { priceChanged: true, oldPrice: article.purchase_price, newPrice: parseFloat(purchasePrice) });
         } else {
             onSave(articleData);
         }
-        
         resetForm();
     };
-    
+
     const handleProceedWithSimilar = () => {
         setShowSimilarDialog(false);
-        if (pendingArticleData) {
-            saveArticle(pendingArticleData);
-            setPendingArticleData(null);
-        }
+        if (pendingArticleData) { saveArticle(pendingArticleData); setPendingArticleData(null); }
     };
 
     const intervalOptions = [
@@ -256,26 +172,35 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         }
     };
 
-    // Show warning if aggregator
+    const inputStyle = {
+        border: '0.5px solid var(--border)',
+        borderRadius: '8px',
+        background: 'var(--muted)',
+        padding: '6px 10px',
+        fontSize: '12px',
+        outline: 'none',
+        width: '100%',
+        color: 'var(--foreground)',
+    };
+
     if (isAggregator && !article) {
         return (
             <Dialog open={open} onOpenChange={onClose}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-semibold text-amber-600">
-                            Artikel-Anlage nicht möglich
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <p className="text-slate-600">
-                            Im Aggregator-Outlet „{outletName}" können keine Artikel angelegt werden.
-                        </p>
-                        <p className="text-slate-600 mt-2">
-                            Bitte wechseln Sie zu einem normalen Outlet, um Artikel zu erstellen.
-                        </p>
+                <DialogContent className="sm:max-w-md p-0 gap-0">
+                    <div className="flex items-center gap-3 px-5 py-4 border-b bg-white">
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-foreground">Artikel-Anlage nicht möglich</p>
+                        </div>
+                        <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-muted-foreground">
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
-                    <div className="flex justify-end">
-                        <Button onClick={onClose}>Schließen</Button>
+                    <div className="px-5 py-4 space-y-2 text-sm text-muted-foreground">
+                        <p>Im Aggregator-Outlet „{outletName}" können keine Artikel angelegt werden.</p>
+                        <p>Bitte wechseln Sie zu einem normalen Outlet, um Artikel zu erstellen.</p>
+                    </div>
+                    <div className="flex px-5 py-4 border-t">
+                        <button onClick={onClose} className="flex-1 text-sm font-medium rounded-lg py-2 text-white" style={{ background: '#2d4a2d' }}>Schließen</button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -284,326 +209,298 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
 
     return (
         <>
-            <ExactDuplicateDialog 
+            <ExactDuplicateDialog
                 open={showExactDuplicateDialog}
-                onClose={() => {
-                    setShowExactDuplicateDialog(false);
-                    setExactDuplicate(null);
-                }}
+                onClose={() => { setShowExactDuplicateDialog(false); setExactDuplicate(null); }}
                 duplicate={exactDuplicate}
             />
-            
-            <SimilarArticlesDialog 
+            <SimilarArticlesDialog
                 open={showSimilarDialog}
-                onClose={() => {
-                    setShowSimilarDialog(false);
-                    setSimilarArticles([]);
-                    setPendingArticleData(null);
-                }}
+                onClose={() => { setShowSimilarDialog(false); setSimilarArticles([]); setPendingArticleData(null); }}
                 onProceed={handleProceedWithSimilar}
                 similarArticles={similarArticles}
             />
-            
+
             <Dialog open={open} onOpenChange={onClose}>
-                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0">
-                <DialogHeader className="px-6 pt-6 pb-4">
-                    <DialogTitle className="text-lg font-semibold">
-                        {article ? 'Artikel bearbeiten' : `Neuer Artikel (${outletName})`}
-                    </DialogTitle>
-                </DialogHeader>
-                
-                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-                    <div className="overflow-y-auto px-6 space-y-4 flex-1">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Artikelname *</Label>
-                        <div className="relative">
-                            <Input
-                                id="name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                onBlur={handleNameBlur}
-                                placeholder="z.B. Kaffeebohnen, Hafermilch..."
-                                required
-                                className="pr-10"
-                            />
-                            {isDetecting && (
-                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-slate-400" />
-                            )}
+                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col p-0 gap-0">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 px-5 py-4 border-b bg-white">
+                        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 32, height: 32, background: '#e8f0e4', borderRadius: 8 }}>
+                            <Plus style={{ width: 16, height: 16, color: '#2d4a2d' }} />
                         </div>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            Kategorie & Einheit werden automatisch erkannt
-                        </p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground">
+                                {article ? 'Artikel bearbeiten' : 'Neuer Artikel'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{outletName} · Bestand erweitern</p>
+                        </div>
+                        <button onClick={onClose} className="p-1 rounded-md hover:bg-accent transition-colors text-muted-foreground">
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Kategorie</Label>
-                            <Select value={categoryId} onValueChange={setCategoryId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Wählen..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {categories.map(cat => (
-                                        <SelectItem key={cat.id} value={cat.id}>
-                                            {cat.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                        <div className="overflow-y-auto px-5 py-4 space-y-4 flex-1">
 
-                        <div className="space-y-2">
-                            <Label>Einheit *</Label>
-                            <Select value={unitId} onValueChange={setUnitId} required>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Wählen..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {units.map(unit => (
-                                        <SelectItem key={unit.id} value={unit.id}>
-                                            {unit.name} ({unit.abbreviation})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Lieferant *</Label>
-                            {!showNewSupplierInput ? (
-                                <>
-                                    <div className="relative">
-                                        <Input
-                                            value={supplierName}
-                                            onChange={(e) => {
-                                                setSupplierName(e.target.value);
-                                                setSupplierId('');
-                                                setShowSupplierDropdown(e.target.value.length > 0);
-                                            }}
-                                            onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
-                                            placeholder="Lieferant suchen..."
-                                            required={!showNewSupplierInput}
-                                        />
-                                        {showSupplierDropdown && suppliers?.filter(s => 
-                                            s.is_active !== false && 
-                                            s.name.toLowerCase().includes(supplierName.toLowerCase())
-                                        ).length > 0 && (
-                                            <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-auto">
-                                                {suppliers
-                                                    .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
-                                                    .map(supplier => (
-                                                        <button
-                                                            key={supplier.id}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setSupplierId(supplier.id);
-                                                                setSupplierName(supplier.name);
-                                                                setShowSupplierDropdown(false);
-                                                            }}
-                                                            className="w-full px-3 py-2 text-left hover:bg-slate-100 text-sm"
-                                                        >
-                                                            {supplier.name}
-                                                        </button>
-                                                    ))
-                                                }
-                                            </div>
-                                        )}
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant="link"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowNewSupplierInput(true);
-                                            setSupplierId('');
-                                            setSupplierName('');
-                                        }}
-                                        className="h-auto p-0 text-xs text-blue-600"
-                                    >
-                                        + Neuen Lieferanten anlegen
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Input
-                                        value={newSupplierName}
-                                        onChange={(e) => setNewSupplierName(e.target.value)}
-                                        placeholder="Name des neuen Lieferanten..."
+                            {/* Artikelname */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground block mb-1">Artikelname *</label>
+                                <div className="relative">
+                                    <input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        onBlur={handleNameBlur}
+                                        placeholder="z.B. Kaffeebohnen, Hafermilch..."
                                         required
+                                        style={{ ...inputStyle, paddingRight: '32px' }}
+                                        onFocus={e => e.target.style.borderColor = '#2d4a2d'}
+                                        onBlur2={e => e.target.style.borderColor = 'var(--border)'}
                                     />
-                                    <Button
-                                        type="button"
-                                        variant="link"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowNewSupplierInput(false);
-                                            setNewSupplierName('');
-                                        }}
-                                        className="h-auto p-0 text-xs text-slate-600"
-                                    >
-                                        ← Zurück zur Auswahl
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="purchasePrice">Einkaufspreis (Netto) *</Label>
-                            <div className="relative">
-                                <Input
-                                    id="purchasePrice"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={purchasePrice}
-                                    onChange={(e) => setPurchasePrice(e.target.value)}
-                                    placeholder="0.00"
-                                    required
-                                    className="pr-8"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">€</span>
-                            </div>
-                            {article && article.purchase_price && parseFloat(purchasePrice) !== article.purchase_price && (
-                                <p className="text-xs text-amber-600">
-                                    Alt: {article.purchase_price.toFixed(2)}€ → Neu: {parseFloat(purchasePrice || 0).toFixed(2)}€
+                                    {isDetecting && (
+                                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                                    )}
+                                </div>
+                                <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#2d4a2d' }}>
+                                    <Sparkles className="w-3 h-3" />
+                                    Kategorie & Einheit werden automatisch erkannt
                                 </p>
-                            )}
-                        </div>
-                    </div>
+                            </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="initialStock">Anfangsbestand</Label>
-                            <Input
-                                id="initialStock"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={initialStock}
-                                onChange={(e) => setInitialStock(e.target.value)}
-                                placeholder="0"
-                            />
-                        </div>
+                            {/* Kategorie + Einheit */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Kategorie</label>
+                                    <Select value={categoryId} onValueChange={setCategoryId}>
+                                        <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
+                                            <SelectValue placeholder="Wählen..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories.map(cat => (
+                                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Einheit *</label>
+                                    <Select value={unitId} onValueChange={setUnitId} required>
+                                        <SelectTrigger style={{ ...inputStyle, padding: '6px 10px', height: 'auto' }}>
+                                            <SelectValue placeholder="Wählen..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {units.map(unit => (
+                                                <SelectItem key={unit.id} value={unit.id}>{unit.name} ({unit.abbreviation})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="minStock">Mindestbestand</Label>
-                            <Input
-                                id="minStock"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={minStock}
-                                onChange={(e) => setMinStock(e.target.value)}
-                                placeholder="Optional"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Inventur-Intervalle</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    type="button"
-                                    className="w-full justify-between font-normal h-auto min-h-[40px] py-2"
-                                >
-                                    <div className="flex flex-wrap gap-1">
-                                        {inventoryIntervals.length > 0 ? (
-                                            inventoryIntervals.map(interval => {
-                                                const option = intervalOptions.find(o => o.value === interval);
-                                                return (
-                                                    <Badge 
-                                                        key={interval} 
-                                                        variant="secondary" 
-                                                        className="text-xs"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            toggleInterval(interval);
-                                                        }}
-                                                    >
-                                                        {option?.label}
-                                                        <X className="ml-1 h-3 w-3" />
-                                                    </Badge>
-                                                );
-                                            })
-                                        ) : (
-                                            <span className="text-slate-500">Intervalle wählen...</span>
-                                        )}
-                                    </div>
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-full p-2" align="start">
-                                <div className="max-h-[200px] overflow-y-auto space-y-1">
-                                    {intervalOptions.map(option => (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => toggleInterval(option.value)}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-slate-100 transition-colors"
-                                        >
-                                            <div className={`h-4 w-4 border rounded flex items-center justify-center ${
-                                                inventoryIntervals.includes(option.value) 
-                                                    ? 'bg-slate-900 border-slate-900' 
-                                                    : 'border-slate-300'
-                                            }`}>
-                                                {inventoryIntervals.includes(option.value) && (
-                                                    <Check className="h-3 w-3 text-white" />
+                            {/* Lieferant + Preis */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Lieferant *</label>
+                                    {!showNewSupplierInput ? (
+                                        <>
+                                            <div className="relative">
+                                                <input
+                                                    value={supplierName}
+                                                    onChange={(e) => {
+                                                        setSupplierName(e.target.value);
+                                                        setSupplierId('');
+                                                        setShowSupplierDropdown(e.target.value.length > 0);
+                                                    }}
+                                                    onFocus={() => setShowSupplierDropdown(supplierName.length > 0)}
+                                                    placeholder="Lieferant suchen..."
+                                                    required={!showNewSupplierInput}
+                                                    style={inputStyle}
+                                                    onFocus2={e => e.target.style.borderColor = '#2d4a2d'}
+                                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                />
+                                                {showSupplierDropdown && suppliers?.filter(s =>
+                                                    s.is_active !== false &&
+                                                    s.name.toLowerCase().includes(supplierName.toLowerCase())
+                                                ).length > 0 && (
+                                                    <div className="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg max-h-48 overflow-auto" style={{ border: '0.5px solid var(--border)' }}>
+                                                        {suppliers
+                                                            .filter(s => s.is_active !== false && s.name.toLowerCase().includes(supplierName.toLowerCase()))
+                                                            .map(supplier => (
+                                                                <button
+                                                                    key={supplier.id}
+                                                                    type="button"
+                                                                    onClick={() => { setSupplierId(supplier.id); setSupplierName(supplier.name); setShowSupplierDropdown(false); }}
+                                                                    className="w-full px-3 py-2 text-left hover:bg-accent text-xs transition-colors"
+                                                                >
+                                                                    {supplier.name}
+                                                                </button>
+                                                            ))}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <span>{option.label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowNewSupplierInput(true); setSupplierId(''); setSupplierName(''); }}
+                                                className="text-xs mt-1 font-medium transition-colors hover:opacity-70"
+                                                style={{ color: '#2d4a2d', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                            >
+                                                + Neuen Lieferanten anlegen
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <input
+                                                value={newSupplierName}
+                                                onChange={(e) => setNewSupplierName(e.target.value)}
+                                                placeholder="Name des neuen Lieferanten..."
+                                                required
+                                                style={inputStyle}
+                                                onFocus={e => e.target.style.borderColor = '#2d4a2d'}
+                                                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowNewSupplierInput(false); setNewSupplierName(''); }}
+                                                className="text-xs mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                            >
+                                                ← Zurück zur Auswahl
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Einkaufspreis (Netto) *</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            value={purchasePrice}
+                                            onChange={(e) => setPurchasePrice(e.target.value)}
+                                            placeholder="0.00"
+                                            required
+                                            style={{ ...inputStyle, paddingRight: '24px' }}
+                                            onFocus={e => e.target.style.borderColor = '#2d4a2d'}
+                                            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                        />
+                                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                                    </div>
+                                    {article && article.purchase_price && parseFloat(purchasePrice) !== article.purchase_price && (
+                                        <p className="text-xs mt-0.5 text-amber-600">
+                                            Alt: {article.purchase_price.toFixed(2)}€ → Neu: {parseFloat(purchasePrice || 0).toFixed(2)}€
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Anfangs- + Mindestbestand */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Anfangsbestand</label>
+                                    <input type="number" step="0.01" min="0" value={initialStock} onChange={(e) => setInitialStock(e.target.value)} placeholder="0" style={inputStyle}
+                                        onFocus={e => e.target.style.borderColor = '#2d4a2d'} onBlur={e => e.target.style.borderColor = 'var(--border)'} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-muted-foreground block mb-1">Mindestbestand</label>
+                                    <input type="number" step="0.01" min="0" value={minStock} onChange={(e) => setMinStock(e.target.value)} placeholder="Optional" style={inputStyle}
+                                        onFocus={e => e.target.style.borderColor = '#2d4a2d'} onBlur={e => e.target.style.borderColor = 'var(--border)'} />
+                                </div>
+                            </div>
+
+                            {/* Inventur-Intervalle */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground block mb-1">Inventur-Intervalle</label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between text-left transition-colors hover:border-foreground"
+                                            style={{ ...inputStyle, padding: '6px 10px', minHeight: '36px' }}
+                                        >
+                                            <div className="flex flex-wrap gap-1 flex-1">
+                                                {inventoryIntervals.length > 0 ? (
+                                                    inventoryIntervals.map(interval => {
+                                                        const option = intervalOptions.find(o => o.value === interval);
+                                                        return (
+                                                            <span
+                                                                key={interval}
+                                                                className="inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 font-medium"
+                                                                style={{ background: '#e8f0e4', color: '#2d4a2d' }}
+                                                                onClick={(e) => { e.stopPropagation(); toggleInterval(interval); }}
+                                                            >
+                                                                {option?.label}
+                                                                <X className="h-2.5 w-2.5" />
+                                                            </span>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">Intervalle wählen...</span>
+                                                )}
+                                            </div>
+                                            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                         </button>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2 mt-2 pt-2 border-t">
-                                    <button
-                                        type="button"
-                                        onClick={() => setInventoryIntervals(intervalOptions.map(o => o.value))}
-                                        className="flex-1 text-xs py-1 text-slate-600 hover:text-slate-900"
-                                    >
-                                        Alle wählen
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setInventoryIntervals([])}
-                                        className="flex-1 text-xs py-1 text-slate-600 hover:text-slate-900"
-                                    >
-                                        Alle entfernen
-                                    </button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <p className="text-xs text-slate-500">
-                            Wählen Sie, bei welchen Inventuren dieser Artikel gezählt werden soll
-                        </p>
-                    </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-2" align="start">
+                                        <div className="space-y-1">
+                                            {intervalOptions.map(option => (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => toggleInterval(option.value)}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+                                                >
+                                                    <div className="h-4 w-4 border rounded flex items-center justify-center flex-shrink-0" style={{
+                                                        background: inventoryIntervals.includes(option.value) ? '#2d4a2d' : 'transparent',
+                                                        borderColor: inventoryIntervals.includes(option.value) ? '#2d4a2d' : 'var(--border)'
+                                                    }}>
+                                                        {inventoryIntervals.includes(option.value) && (
+                                                            <Check className="h-3 w-3 text-white" />
+                                                        )}
+                                                    </div>
+                                                    <span>{option.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2 mt-2 pt-2 border-t">
+                                            <button type="button" onClick={() => setInventoryIntervals(intervalOptions.map(o => o.value))}
+                                                className="flex-1 text-xs py-1 transition-colors hover:opacity-70" style={{ color: '#2d4a2d', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                Alle wählen
+                                            </button>
+                                            <button type="button" onClick={() => setInventoryIntervals([])}
+                                                className="flex-1 text-xs py-1 text-muted-foreground hover:text-foreground transition-colors" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                Alle entfernen
+                                            </button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <p className="text-xs mt-1 text-muted-foreground">
+                                    Wählen Sie, bei welchen Inventuren dieser Artikel gezählt werden soll
+                                </p>
+                            </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="notes">Notizen</Label>
-                        <Input
-                            id="notes"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Optional..."
-                        />
-                    </div>
-                    </div>
+                            {/* Notizen */}
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground block mb-1">Notizen</label>
+                                <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional..." style={inputStyle}
+                                    onFocus={e => e.target.style.borderColor = '#2d4a2d'} onBlur={e => e.target.style.borderColor = 'var(--border)'} />
+                            </div>
+                        </div>
 
-                    <div className="flex gap-3 px-6 py-4 border-t bg-white sticky bottom-0">
-                        <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                            Abbrechen
-                        </Button>
-                        <Button type="submit" className="flex-1 bg-slate-900 hover:bg-slate-800">
-                            {article ? 'Speichern' : 'Hinzufügen'}
-                        </Button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
+                        {/* Footer */}
+                        <div className="flex gap-2 px-5 py-4 border-t bg-white sticky bottom-0">
+                            <button type="button" onClick={onClose}
+                                className="flex-1 text-sm font-medium rounded-lg py-2 transition-colors hover:bg-accent text-muted-foreground"
+                                style={{ border: '0.5px solid var(--border)', background: 'transparent' }}>
+                                Abbrechen
+                            </button>
+                            <button type="submit"
+                                className="flex-1 text-sm font-medium rounded-lg py-2 text-white transition-colors"
+                                style={{ background: '#2d4a2d' }}>
+                                {article ? 'Speichern' : 'Hinzufügen'}
+                            </button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
