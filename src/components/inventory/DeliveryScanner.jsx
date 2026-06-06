@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScanLine, Upload, Loader2, X, Plus, FileText, AlertTriangle } from 'lucide-react';
+import { ScanLine, Upload, Loader2, X, Plus, FileText, AlertTriangle, Lightbulb } from 'lucide-react';
 import { format } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 
@@ -52,11 +52,21 @@ export default function DeliveryScanner({ open, onClose, onSave, articles = [], 
 
             // Schritt 2: InvokeLLM mit file_urls + response_json_schema
             const result = await base44.integrations.Core.InvokeLLM({
-                prompt: `Du bist ein Experte für Lieferschein-Analyse. 
-Analysiere das beigefügte Dokument (Lieferschein, Bestellung oder Rechnung) und extrahiere alle relevanten Daten.
-Gib alle Artikel zurück die du findest, inklusive Mengen, Einheiten und Preise.
-Wenn das Datum nicht eindeutig ist, verwende das Bestelldatum oder Lieferdatum.
-Antworte NUR mit dem strukturierten JSON-Objekt gemäß Schema.`,
+                prompt: `Du bist ein präziser OCR-Spezialist für Lieferscheine und Rechnungen aus der Gastronomie und Lebensmittelbranche.
+
+Analysiere das beigefügte Dokument SEHR SORGFÄLTIG.
+
+WICHTIGE REGELN:
+- Lies den Text EXAKT so wie er auf dem Dokument steht - erfinde KEINE Artikel
+- Typische Artikel in Gastronomie-Lieferscheinen: Lebensmittel, Getränke, Verpackungsmaterial, Reinigungsmittel, Eiswaren, Molkereiprodukte, Backwaren, Frischware
+- Wenn ein Wort schwer lesbar ist, schreibe es so genau wie möglich ab
+- Lies die Artikelnummern (ArtNr.) wenn vorhanden
+- Einheiten sind typischerweise: ST (Stück), KG (Kilogramm), L (Liter), KT (Karton), GL (Glas), BD (Bund), SC (Schachtel), Beutel, Packung
+- Mengen sind ZAHLEN - lies sie exakt ab (z.B. 10, 2, 7)
+- Preise sind in Euro - lies sie exakt ab
+
+LIES NUR WAS WIRKLICH AUF DEM DOKUMENT STEHT.
+Erfinde keine Artikel die nicht sichtbar sind.`,
                 file_urls: [file_url],
                 response_json_schema: {
                     type: "object",
@@ -235,6 +245,21 @@ Antworte NUR mit dem strukturierten JSON-Objekt gemäß Schema.`,
                                 />
                             </div>
 
+                            {file && file.type.startsWith('image/') && (
+                                <div className="rounded-xl p-3 text-xs space-y-1.5" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                                    <div className="flex items-center gap-1.5 font-medium" style={{ color: '#92400e' }}>
+                                        <Lightbulb className="w-3.5 h-3.5" />
+                                        Tipps für bessere Erkennung:
+                                    </div>
+                                    <ul className="space-y-1 pl-1" style={{ color: '#78350f' }}>
+                                        <li>📐 Dokument gerade und von oben fotografieren</li>
+                                        <li>💡 Gute Beleuchtung, kein Blitz direkt auf das Papier</li>
+                                        <li>🔍 Gesamtes Dokument im Bild — nicht abschneiden</li>
+                                        <li>📄 PDF-Upload ist zuverlässiger als Foto</li>
+                                    </ul>
+                                </div>
+                            )}
+
                             {error && (
                                 <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 text-destructive text-xs">
                                     <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -270,6 +295,17 @@ Antworte NUR mit dem strukturierten JSON-Objekt gemäß Schema.`,
                     {/* PHASE: PREVIEW */}
                     {phase === 'preview' && (
                         <div className="space-y-4">
+                            {/* Photo accuracy warning */}
+                            {file && file.type.startsWith('image/') && (
+                                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-700">
+                                        Bitte sorgfältig prüfen: Bei Fotos kann die Erkennung ungenau sein.
+                                        Kontrolliere alle Artikel, Mengen und Preise bevor du buchst.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Duplicate warning */}
                             {isDuplicate && !ignoreDuplicate && (
                                 <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
