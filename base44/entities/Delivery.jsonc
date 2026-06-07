@@ -67,5 +67,55 @@
     "outlet_id",
     "supplier_id",
     "items"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.outlet_id": "{{user.data.outlet_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.outlet_id": "{{user.data.outlet_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.outlet_id": "{{user.data.outlet_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.outlet_id": "{{user.data.outlet_id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
 }
