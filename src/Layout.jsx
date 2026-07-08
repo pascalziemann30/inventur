@@ -1,15 +1,12 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { Package, History, Settings, LogOut, Store, BookOpen } from 'lucide-react';
+import { Package, History, Settings, Store, BookOpen } from 'lucide-react';
 import { Toaster } from "sonner";
-import { OutletProvider, useOutlet } from './components/outlet/OutletContext';
-import { Button } from "@/components/ui/button";
+import { OutletProvider } from './components/outlet/OutletContext';
 
 function LayoutContent({ children }) {
     const location = useLocation();
-    const navigate = useNavigate();
-    const { currentOutletName, clearOutlet } = useOutlet();
     const userRole = localStorage.getItem('user_role');
     
     const navigation = [
@@ -28,12 +25,6 @@ function LayoutContent({ children }) {
         return location.pathname === pageUrl || location.pathname === pageUrl + '/';
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('user_role');
-        clearOutlet();
-        navigate('/OutletLogin');
-    };
-
     // Don't show layout on login page
     if (location.pathname === createPageUrl('OutletLogin') || location.pathname === createPageUrl('AdminOverview')) {
         return <>{children}</>;
@@ -41,37 +32,6 @@ function LayoutContent({ children }) {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Outlet Header Bar */}
-            {currentOutletName && (
-                <div className="bg-slate-900 text-white py-2 px-4">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 text-sm">
-                                <Store className="w-4 h-4" />
-                                <span className="font-medium">{currentOutletName}</span>
-                            </div>
-                            <div className="hidden sm:block h-4 w-px bg-slate-700" />
-                            <Link 
-                                to={createPageUrl('AdminOverview')}
-                                className="hidden sm:flex items-center gap-2 text-xs text-slate-300 hover:text-white transition-colors"
-                            >
-                                <Store className="w-3 h-3" />
-                                Admin Übersicht
-                            </Link>
-                        </div>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleLogout}
-                            className="text-white hover:bg-slate-800 h-7"
-                        >
-                            <LogOut className="w-3 h-3 mr-2" />
-                            Logout
-                        </Button>
-                    </div>
-                </div>
-            )}
-            
             {children}
             
             {/* Bottom Navigation - Mobile */}
