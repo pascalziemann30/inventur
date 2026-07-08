@@ -57,7 +57,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
             setNotes(article.notes || '');
             setInventoryIntervals(article.inventory_intervals || []);
             setIsFinishedProduct(article.is_finished_product || false);
-            setRecipeItems(article.recipe_items || []);
+            // Rezeptur neu aufbauen und purchase_price aus aktueller Artikel-Liste anreichern,
+            // damit die Wareneinsatz-Berechnung beim erneuten Öffnen korrekt läuft.
+            const loadedRecipeItems = (article.recipe_items || []).map(r => {
+                const source = allArticles.find(a => a.id === r.article_id);
+                return { ...r, purchase_price: source?.purchase_price ?? 0 };
+            });
+            setRecipeItems(loadedRecipeItems);
             setSellingPrice(article.selling_price?.toString() || '');
         } else {
             resetForm();
@@ -109,8 +115,13 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
     const handleNameBlur = () => { detectCategoryAndUnit(name); };
 
     // Wareneinsatz-Berechnung
+    // Rohstoffe in kg/l werden in der Rezeptur in g/ml eingegeben → /1000 Umrechnung.
     const productionCost = recipeItems.reduce((sum, item) => {
-        return sum + (item.quantity * (item.purchase_price || 0));
+        const qty = item.quantity || 0;
+        const price = item.purchase_price || 0;
+        const unit = item.unit_abbreviation;
+        const effectiveQty = (unit === 'g' || unit === 'ml') ? qty / 1000 : qty;
+        return sum + (effectiveQty * price);
     }, 0);
 
     const handleSubmit = async (e) => {
@@ -231,10 +242,16 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         : [];
 
     const addRecipeItem = (a) => {
+        // Rezeptur-Einheit anhand der Einkaufseinheit bestimmen:
+        // kg → g, l → ml, alles andere (Stk, Fl, Pkg...) unverändert.
+        const purchaseUnit = a.unit_abbreviation || '';
+        let recipeUnit = purchaseUnit;
+        if (purchaseUnit === 'kg') recipeUnit = 'g';
+        else if (purchaseUnit === 'l') recipeUnit = 'ml';
         setRecipeItems([...recipeItems, {
             article_id: a.id,
             article_name: a.name,
-            unit_abbreviation: a.unit_abbreviation || '',
+            unit_abbreviation: recipeUnit,
             quantity: 1,
             purchase_price: a.purchase_price || 0
         }]);
