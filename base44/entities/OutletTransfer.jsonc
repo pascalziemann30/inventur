@@ -69,62 +69,9 @@
     "items"
   ],
   "rls": {
-    "create": {
-      "$or": [
-        {
-          "data.from_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "read": {
-      "$or": [
-        {
-          "data.from_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "data.to_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.from_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "data.to_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "$or": [
-        {
-          "data.from_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "data.to_outlet_id": "{{user.data.outlet_id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    }
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
   }
 }
