@@ -447,6 +447,9 @@ export default function Dashboard() {
             toast.success('Artikel aktualisiert');
             setShowArticleForm(false);
             setEditingArticle(null);
+        },
+        onError: (error) => {
+            toast.error(error.message || 'Fehler beim Aktualisieren des Artikels');
         }
     });
 

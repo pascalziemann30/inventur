@@ -196,7 +196,9 @@ export default function ArticleForm({ open, onClose, onSave, article, categories
         } else {
             onSave(articleData);
         }
-        resetForm();
+        // Kein resetForm() hier: Das Formular wird erst zurückgesetzt, wenn der Dialog
+        // nach erfolgreicher Speicherung geschlossen und neu geöffnet wird (useEffect bei [article, open]).
+        // Bei einem Speicherfehler bleibt das Formular geöffnet und mit den eingegebenen Werten gefüllt.
     };
 
     const handleProceedWithSimilar = () => {
