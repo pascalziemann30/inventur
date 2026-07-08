@@ -212,6 +212,8 @@ export default function Dashboard() {
                         min_stock: item.min_stock,
                         notes: item.notes,
                         is_active: item.is_active,
+                        is_finished_product: item.is_finished_product,
+                        recipe_items: item.recipe_items || [],
                         global_item_id: item.global_item_id,
                         outlets: [{
                             outlet_id: item.outlet_id,
@@ -244,6 +246,8 @@ export default function Dashboard() {
                     inventory_intervals: item.inventory_intervals || [],
                     notes: item.notes,
                     is_active: item.is_active,
+                    is_finished_product: item.is_finished_product,
+                    recipe_items: item.recipe_items || [],
                     outlet_item_id: item.id,
                     global_item_id: item.global_item_id
                 };
@@ -342,7 +346,11 @@ export default function Dashboard() {
                 min_stock: data.min_stock,
                 inventory_intervals: data.inventory_intervals || [],
                 notes: data.notes,
-                is_active: true
+                is_active: true,
+                is_finished_product: data.is_finished_product || false,
+                recipe_items: data.recipe_items || [],
+                selling_price: data.selling_price,
+                production_cost: data.production_cost
             });
 
             // Step 3: Create OutletStock ONLY for current outlet
@@ -396,7 +404,11 @@ export default function Dashboard() {
                 min_stock: data.min_stock,
                 inventory_intervals: data.inventory_intervals,
                 notes: data.notes,
-                is_active: data.is_active
+                is_active: data.is_active,
+                is_finished_product: data.is_finished_product || false,
+                recipe_items: data.recipe_items || [],
+                selling_price: data.selling_price,
+                production_cost: data.production_cost
             });
 
             // Update GlobalItem if needed
@@ -1332,7 +1344,7 @@ export default function Dashboard() {
                 outletId={currentOutletId}
                 outletName={currentOutletName}
                 isAggregator={isAggregatorOutlet}
-                allArticles={outletItems}
+                allArticles={articlesWithStock}
             />
             <DeliveryForm
                 open={showDeliveryForm}

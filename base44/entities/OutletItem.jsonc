@@ -55,6 +55,41 @@
       "type": "boolean",
       "default": true,
       "description": "Artikel aktiv/inaktiv"
+    },
+    "is_finished_product": {
+      "type": "boolean",
+      "default": false,
+      "description": "Fertigprodukt (mit Rezeptur)"
+    },
+    "recipe_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "string"
+          },
+          "article_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_abbreviation": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "Rezeptur-Rohstoffe (f\u00fcr Fertigprodukte)"
+    },
+    "selling_price": {
+      "type": "number",
+      "description": "Verkaufspreis (f\u00fcr Fertigprodukte)"
+    },
+    "production_cost": {
+      "type": "number",
+      "description": "Wareneinsatz (berechnete Produktionskosten, f\u00fcr Fertigprodukte)"
     }
   },
   "required": [
