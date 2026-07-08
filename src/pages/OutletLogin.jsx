@@ -57,8 +57,8 @@ export default function OutletLogin() {
             <div className="w-full max-w-sm">
                 {/* Title */}
                 <div className="text-center">
-                    <h1 className="text-lg font-semibold text-foreground">Inventur</h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">Bestandsverwaltung · Kolek Schröder</p>
+                    <h1 className="text-xl font-semibold text-foreground">ShiftCntrl.</h1>
+                    <p className="text-sm text-muted-foreground mt-0.5">Inventur</p>
                 </div>
 
                 {/* Outlet Selection */}
