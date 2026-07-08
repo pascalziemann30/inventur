@@ -65,7 +65,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const { currentOutletId, currentOutletName } = useOutlet();
     const [searchTerm, setSearchTerm] = useState('');
-    const userRole = localStorage.getItem('user_role');
+    const userRole = sessionStorage.getItem('user_role');
     const isEmployee = userRole === 'employee';
     const [activeTab, setActiveTab] = useState(isEmployee ? 'consumption' : 'articles');
     const [sortBy, setSortBy] = useState('name');
@@ -831,7 +831,7 @@ export default function Dashboard() {
         const shortMonth = now.toLocaleDateString('de-DE', { month: 'short' });
 
         const handleLogout = () => {
-            localStorage.removeItem('user_role');
+            sessionStorage.removeItem('user_role');
             navigate('/OutletLogin');
         };
 
@@ -998,7 +998,7 @@ export default function Dashboard() {
     }
 
     const handleAdminLogout = () => {
-        localStorage.removeItem('user_role');
+        sessionStorage.removeItem('user_role');
         navigate('/OutletLogin');
     };
 

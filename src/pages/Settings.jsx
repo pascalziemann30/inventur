@@ -31,7 +31,7 @@ export default function Settings() {
         queryFn: () => base44.auth.me()
     });
 
-    const userRole = localStorage.getItem('user_role');
+    const userRole = sessionStorage.getItem('user_role');
     const isAdmin = currentUser?.role === 'admin' || userRole === 'admin';
 
     const handleResetAllData = async () => {

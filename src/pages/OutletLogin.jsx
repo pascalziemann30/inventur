@@ -35,7 +35,7 @@ export default function OutletLogin() {
     const handleEmployeeLogin = () => {
         const outlet = getSelectedOutlet();
         if (!outlet) { toast.error('Bitte wähle ein Outlet aus'); return; }
-        localStorage.setItem('user_role', 'employee');
+        sessionStorage.setItem('user_role', 'employee');
         setOutlet(outlet.id, outlet.name);
         navigate('/Dashboard');
     };
@@ -44,7 +44,7 @@ export default function OutletLogin() {
         if (adminPassword === 'Kuno4488!') {
             const outlet = getSelectedOutlet();
             if (!outlet) { toast.error('Bitte wähle ein Outlet aus'); return; }
-            localStorage.setItem('user_role', 'admin');
+            sessionStorage.setItem('user_role', 'admin');
             setOutlet(outlet.id, outlet.name);
             navigate('/Dashboard');
         } else {

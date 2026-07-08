@@ -4,25 +4,25 @@ const OutletContext = createContext();
 
 export function OutletProvider({ children }) {
     const [currentOutletId, setCurrentOutletId] = useState(() => {
-        return localStorage.getItem('current_outlet_id') || null;
+        return sessionStorage.getItem('current_outlet_id') || null;
     });
 
     const [currentOutletName, setCurrentOutletName] = useState(() => {
-        return localStorage.getItem('current_outlet_name') || null;
+        return sessionStorage.getItem('current_outlet_name') || null;
     });
 
     const setOutlet = (outletId, outletName) => {
         setCurrentOutletId(outletId);
         setCurrentOutletName(outletName);
-        localStorage.setItem('current_outlet_id', outletId);
-        localStorage.setItem('current_outlet_name', outletName);
+        sessionStorage.setItem('current_outlet_id', outletId);
+        sessionStorage.setItem('current_outlet_name', outletName);
     };
 
     const clearOutlet = () => {
         setCurrentOutletId(null);
         setCurrentOutletName(null);
-        localStorage.removeItem('current_outlet_id');
-        localStorage.removeItem('current_outlet_name');
+        sessionStorage.removeItem('current_outlet_id');
+        sessionStorage.removeItem('current_outlet_name');
     };
 
     return (

@@ -7,7 +7,7 @@ import { OutletProvider } from './components/outlet/OutletContext';
 
 function LayoutContent({ children }) {
     const location = useLocation();
-    const userRole = localStorage.getItem('user_role');
+    const userRole = sessionStorage.getItem('user_role');
     
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },
