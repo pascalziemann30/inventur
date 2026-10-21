@@ -9,6 +9,7 @@ on:
       - 'base44/functions/verifyBookingStorage/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
+      - 'src/pages/InventoryCapture.jsx'
       - 'src/dev/countingPreview.jsx'
       - 'counting-preview.html'
       - 'vite.counting.config.js'
@@ -32,6 +33,7 @@ jobs:
       - run: npm run test:inventory
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:counting
+      - run: npm run build
       - run: npx --no-install eslint src/components/inventory/counting/
       - name: Check function entry syntax
         run: |

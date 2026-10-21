@@ -16,8 +16,15 @@ import { format } from 'date-fns';
 import SessionHeader from '../components/inventory/SessionHeader';
 import InventoryCaptureTable from '../components/inventory/InventuryCaptureTable';
 import CompletionDialog from '../components/inventory/CompletionDialog';
+import StorageVerificationPanel from '../components/inventory/counting/StorageVerificationPanel';
 
-export default function InventoryCapture() {
+export default function InventoryCaptureRoute() {
+    const [params] = useSearchParams();
+    if (params.get('diagnostics') === 'storage') return <StorageVerificationPanel />;
+    return <InventoryCapture />;
+}
+
+function InventoryCapture() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [searchParams] = useSearchParams();
