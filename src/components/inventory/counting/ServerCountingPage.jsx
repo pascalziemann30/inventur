@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
-import {base44} from '@/api/base44Client';
+import {inventoryTestClient as base44} from './testClient.js';
 import CountingWorkspace from './CountingWorkspace.jsx';
 import {inventoryRunApi,runErrorMessage} from './runApi.js';
 import InventoryTestControls from './InventoryTestControls.jsx';

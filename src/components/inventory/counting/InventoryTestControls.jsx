@@ -1,5 +1,5 @@
 import React,{useRef,useState} from 'react';
-import {base44} from '@/api/base44Client';
+import {inventoryTestClient as base44} from './testClient.js';
 
 export default function InventoryTestControls({outletId,onPrepared,run}) {
     const [busy,setBusy]=useState(false);

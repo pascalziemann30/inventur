@@ -1,4 +1,4 @@
-import {base44} from '@/api/base44Client';
+import {inventoryTestClient as base44} from './testClient.js';
 
 const messages={
     INVENTORY_TEST_ROLLOUT_DISABLED:'Der Inventur-Testzugang ist noch nicht oder nicht mehr freigegeben.',
