@@ -9,12 +9,16 @@ on:
       - 'base44/functions/verifyBookingStorage/**'
       - 'base44/functions/inventoryRuns/**'
       - 'base44/functions/inventoryTestSetup/**'
+      - 'base44/functions/reviewDelivery/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
+      - 'src/components/inventory/delivery/**'
       - 'src/pages/InventoryCapture.jsx'
       - 'src/Layout.jsx'
       - 'src/dev/countingPreview.jsx'
+      - 'src/dev/deliveryPreview.jsx'
       - 'counting-preview.html'
+      - 'delivery-preview.html'
       - 'vite.counting.config.js'
       - 'package.json'
       - 'package-lock.json'
@@ -37,13 +41,14 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:counting
       - run: npm run build
-      - run: npx --no-install eslint src/components/inventory/counting/
+      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/
       - name: Check function entry syntax
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
           node --check base44/functions/verifyBookingStorage/entry.ts
           node --check base44/functions/inventoryRuns/entry.ts
           node --check base44/functions/inventoryTestSetup/entry.ts
+          node --check base44/functions/reviewDelivery/entry.ts
       - name: Check schema JSON syntax
         run: |
           node --input-type=module - <<'JS'

@@ -21,7 +21,7 @@ The test setup can create a clearly named synthetic outlet, four synthetic artic
 
 ## Current release limits
 
-Existing direct client write rules on OutletStock and the legacy article models remain unchanged. The new endpoint therefore remains restricted to the test environment until every old stock-writing path is replaced and permissions are closed together. Real employee accounts and assignments must still be tested; unit tests with employee identities are not a substitute for that end-to-end check. Delivery scanning, proposal approval, canonical receipt deduplication, business history projection and the real 46-article import remain subsequent work.
+Existing direct client write rules on OutletStock and the legacy article models remain unchanged. The new endpoint therefore remains restricted to the test environment until every old stock-writing path is replaced and permissions are closed together. Real employee accounts and assignments must still be tested; unit tests with employee identities are not a substitute for that end-to-end check. A separate read-only delivery position review is now prepared (see `delivery-review.md`). Delivery scanning, proposal approval, canonical receipt deduplication, business history projection and the locally prepared real catalog import remain subsequent work.
 
 ## Observed Base44 test run on 2026-10-21
 
