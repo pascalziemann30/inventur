@@ -30,7 +30,7 @@ function CountCard({entry, onChange, disabled}) {
     const counted = entry.status === 'counted';
     return <article className={`count-card count-card--${entry.status}`} aria-label={entry.article_name}>
         <div className="count-card-heading"><div><p className="count-category">{entry.category_name || 'Artikel'}</p><h2>{entry.article_name}</h2></div>
-            <span className={`count-badge count-badge--${entry.status}`}>{counted && <Check size={13}/>} {statusLabels[entry.status]}</span></div>
+            <span className={`count-badge count-badge--${entry.status}`}>{counted && <Check size={13}/>} {entry.booked ? 'Gebucht' : statusLabels[entry.status]}</span></div>
         {entry.status === 'skipped' ? <div className="count-skipped"><p>Der bisherige Bestand bleibt erhalten.</p>
             <button className="count-link" disabled={disabled} onClick={() => {setValues({}); onChange({...resolveEntry(entry, 'reopen'), values: {}});}}><Undo2 size={15}/> Wieder aufnehmen</button></div>
             : <>
@@ -44,8 +44,9 @@ function CountCard({entry, onChange, disabled}) {
                 </React.Fragment>)}</div>
                 <div className="count-result"><span>Gezählte Gesamtmenge</span><strong>{result.quantity === null ? '—' : `${number(result.quantity)} ${entry.unit_abbreviation}`}</strong></div>
                 {(error || result.error) && <p className="count-error" role="alert">{error || result.error}</p>}
-                {counted && <div className="count-comparison"><span>Erwartet: {number(entry.last_stock)} {entry.unit_abbreviation}</span>
+                {counted && Number.isFinite(entry.last_stock) && <div className="count-comparison"><span>Erwartet: {number(entry.last_stock)} {entry.unit_abbreviation}</span>
                     <span>Differenz: {number(entry.counted_quantity - entry.last_stock)} {entry.unit_abbreviation}</span></div>}
+                {counted && !Number.isFinite(entry.last_stock) && <p className="count-footnote">Vergleich erscheint nach der Speicherbestätigung.</p>}
                 <div className="count-card-actions"><button className="count-link" disabled={disabled} onClick={() => {setValues({}); onChange(resolveEntry(entry, 'skip'));}}><SkipForward size={15}/> Überspringen</button>
                     <button className="count-confirm" disabled={disabled || counted || result.quantity === null || !!result.error} onClick={count}>
                         {counted ? <><Check size={16}/> Erfasst</> : <>Menge bestätigen <ChevronRight size={16}/></>}</button></div>
@@ -57,7 +58,7 @@ function CountCard({entry, onChange, disabled}) {
  * Mount with key=session.id so drafts from different sessions cannot share a write queue.
  */
 export default function CountingWorkspace({initialEntries, initialRevision = 0, outletName, title = 'Monatsinventur',
-    saveDraft, completeSession, preview = false}) {
+    saveDraft, completeSession, preview = false, onSaveState, onReload, completionLabel, readOnly = false}) {
     const [entries, setEntries] = useState(() => structuredClone(initialEntries));
     const entriesRef = useRef(entries);
     const [saveState, setSaveState] = useState({status: 'saved'});
@@ -69,7 +70,19 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
     const [completionError, setCompletionError] = useState(null);
     const dialogRef = useRef(null);
     const queueRef = useRef(null);
-    if (!queueRef.current) queueRef.current = createDraftQueue({save: saveDraft, initialRevision, onState: setSaveState});
+    if (!queueRef.current) queueRef.current = createDraftQueue({save: saveDraft, initialRevision,
+        onState:state=>{setSaveState(state);onSaveState?.(state);},
+        onAcknowledged:result=>{
+            if (!result.run?.entries) return;
+            const next=entriesRef.current.map(entry=>{
+                const confirmed=result.run.entries.find(candidate=>candidate.article_id === entry.article_id);
+                return confirmed && entry.status === 'counted' && confirmed.status === 'counted'
+                    && entry.count_version === confirmed.count_version && Object.keys(entry.values).length === Object.keys(confirmed.values).length
+                    && Object.entries(entry.values).every(([code,value])=>confirmed.values[code] === value)
+                    ? {...entry,last_stock:confirmed.last_stock} : entry;
+            });
+            entriesRef.current=next;setEntries(next);
+        }});
     const progress = countProgress(entries);
     const visible = useMemo(() => entries.filter(entry => (filter === 'all' || entry.status === filter)
         && entry.article_name.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de'))), [entries, search, filter]);
@@ -111,7 +124,8 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
                 <div role="status" className={`count-save count-save--${saveState.status}`}>{saveState.status === 'saved' ? <Check size={16}/> : <Clock3 size={16}/>}
                     {saveState.status === 'saved' ? preview ? 'Vorschau gespeichert' : 'Zwischenstand gespeichert' : saveState.status === 'saving' ? 'Wird gespeichert …' : 'Nicht gespeichert'}
                     {saveState.status === 'error' && <button onClick={() => queueRef.current.retry()}>Erneut versuchen</button>}</div></div>
-            {saveState.status === 'error' && <div className="count-error" role="alert"><AlertCircle size={18}/> {saveState.error?.message} Deine Eingaben bleiben im Fenster erhalten. Vor dem Schließen erneut speichern.</div>}
+            {saveState.status === 'error' && <div className="count-error" role="alert"><AlertCircle size={18}/> <div>{saveState.error?.message} Deine Eingaben bleiben im Fenster erhalten. Vor dem Schließen erneut speichern.
+                {onReload && <button className="count-link" onClick={()=>onReload(structuredClone(entriesRef.current))}>Aktuellen Stand laden und eigene Eingaben als Kopie behalten</button>}</div></div>}
             {completed ? <section className="count-completed" role="status"><Check size={36}/><h2>{preview ? 'Vorschau abgeschlossen' : 'Inventur abgeschlossen'}</h2>
                 <p>{progress.counted} gezählt · {progress.skipped} ausdrücklich übersprungen</p>{preview && <p>Es wurde kein echter Bestand verändert.</p>}</section> : <>
                 <section className="count-progress" aria-label="Zählfortschritt"><div><strong>{progress.counted + progress.skipped}<span> / {progress.total}</span></strong><p>Artikel bearbeitet</p></div>
@@ -119,10 +133,10 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
                     <p>{progress.open} offen · {progress.skipped} übersprungen</p></section>
                 <div className="count-tools"><label className="count-search"><Search size={17}/><input aria-label="Artikel suchen" placeholder="Artikel suchen …" value={search} onChange={event => setSearch(event.target.value)}/></label>
                     <div className="count-filters" role="group" aria-label="Artikel filtern">{[['all','Alle'],['open','Offen'],['counted','Gezählt'],['skipped','Übersprungen']].map(([value,label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
-                <div className="count-list">{visible.map(entry => <CountCard key={entry.article_id} entry={entry} onChange={changeEntry} disabled={processing || confirm}/>)}
+                <div className="count-list">{visible.map(entry => <CountCard key={entry.article_id} entry={entry} onChange={changeEntry} disabled={readOnly || processing || confirm || entry.editable === false || entry.booked}/>)}
                     {!visible.length && <p className="count-empty">{progress.total ? 'Keine Artikel in dieser Ansicht.' : 'Für diesen Zählrhythmus sind noch keine Artikel eingerichtet.'}</p>}</div>
                 <p className="count-footnote">Leer bedeutet noch offen. Mit 0 bestätigst du „nicht vorhanden“. Übersprungene Artikel behalten ihren bisherigen Bestand.</p>
-                <footer className="count-bottom"><span>{progress.open ? `${progress.open} Artikel noch offen` : 'Alle Artikel bearbeitet'}</span><button className="count-primary" disabled={!progress.canComplete || unsaved || processing || !completeSession} onClick={() => setConfirm(true)}>{preview ? 'Vorschau abschließen' : 'Inventur abschließen'} <ChevronRight size={18}/></button></footer>
+                <footer className="count-bottom"><span>{progress.open ? `${progress.open} Artikel noch offen` : 'Alle Artikel bearbeitet'}</span><button className="count-primary" disabled={readOnly || !progress.canComplete || unsaved || processing || !completeSession} onClick={() => setConfirm(true)}>{completionLabel || (preview ? 'Vorschau abschließen' : 'Inventur abschließen')} <ChevronRight size={18}/></button></footer>
             </>}
         </main>
         {confirm && <dialog ref={dialogRef} className="count-modal" aria-labelledby="count-complete-title" onCancel={event => {event.preventDefault(); if (!processing) setConfirm(false);}}>

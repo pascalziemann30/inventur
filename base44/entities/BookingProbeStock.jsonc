@@ -54,7 +54,8 @@
             "type": "string",
             "enum": [
               "delivery",
-              "inventory"
+              "inventory",
+              "inventory_fence"
             ]
           },
           "source_document_id": {

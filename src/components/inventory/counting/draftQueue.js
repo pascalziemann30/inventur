@@ -1,7 +1,7 @@
 /** Ordered full-snapshot writes; the adapter must also enforce server revisions.
  * On an uncertain response retry the EXACT request ID and body before newer edits.
  */
-export function createDraftQueue({save, onState = () => {}, makeId = () => crypto.randomUUID(), initialRevision = 0}) {
+export function createDraftQueue({save, onState = () => {}, onAcknowledged = () => {}, makeId = () => crypto.randomUUID(), initialRevision = 0}) {
     let next = null;
     let failed = null;
     let running = false;
@@ -33,6 +33,7 @@ export function createDraftQueue({save, onState = () => {}, makeId = () => crypt
                 revision = result.revision;
                 acknowledged = request.generation;
                 failed = null;
+                onAcknowledged(result, request);
             }
         } catch (cause) {
             error = cause;

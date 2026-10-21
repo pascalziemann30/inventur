@@ -17,10 +17,12 @@ import SessionHeader from '../components/inventory/SessionHeader';
 import InventoryCaptureTable from '../components/inventory/InventuryCaptureTable';
 import CompletionDialog from '../components/inventory/CompletionDialog';
 import StorageVerificationPanel from '../components/inventory/counting/StorageVerificationPanel';
+import ServerCountingPage from '../components/inventory/counting/ServerCountingPage';
 
 export default function InventoryCaptureRoute() {
     const [params] = useSearchParams();
     if (params.get('diagnostics') === 'storage') return <StorageVerificationPanel />;
+    if (params.get('workflow') === 'server') return <ServerCountingPage />;
     return <InventoryCapture />;
 }
 

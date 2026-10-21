@@ -7,9 +7,12 @@ on:
       - 'base44/shared/inventory/**'
       - 'base44/functions/bookDeliveryLine/**'
       - 'base44/functions/verifyBookingStorage/**'
+      - 'base44/functions/inventoryRuns/**'
+      - 'base44/functions/inventoryTestSetup/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
       - 'src/pages/InventoryCapture.jsx'
+      - 'src/Layout.jsx'
       - 'src/dev/countingPreview.jsx'
       - 'counting-preview.html'
       - 'vite.counting.config.js'
@@ -39,6 +42,8 @@ jobs:
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
           node --check base44/functions/verifyBookingStorage/entry.ts
+          node --check base44/functions/inventoryRuns/entry.ts
+          node --check base44/functions/inventoryTestSetup/entry.ts
       - name: Check schema JSON syntax
         run: |
           node --input-type=module - <<'JS'

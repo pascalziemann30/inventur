@@ -25,6 +25,11 @@ function LayoutContent({ children }) {
         return location.pathname === pageUrl || location.pathname === pageUrl + '/';
     };
 
+    // The dedicated test workflow has its own fixed action bar on small screens.
+    if (location.pathname === createPageUrl('InventoryCapture') && ['server'].includes(new URLSearchParams(location.search).get('workflow'))) {
+        return <>{children}<Toaster position="top-center" richColors /></>;
+    }
+
     // Don't show layout on login page
     if (location.pathname === createPageUrl('OutletLogin') || location.pathname === createPageUrl('AdminOverview')) {
         return <>{children}</>;

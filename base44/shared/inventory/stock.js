@@ -18,7 +18,7 @@ function operationFingerprint(operation) {
         global_item_id: operation.global_item_id,
         unit_abbreviation: operation.unit_abbreviation,
         quantity: quantityNumber(scaledQuantity(operation.quantity)),
-        expected_revision: operation.kind === 'inventory' ? operation.expected_revision : null,
+        expected_revision: operation.kind !== 'delivery' ? operation.expected_revision : null,
         source: operation.source,
     });
 }
@@ -47,21 +47,22 @@ function existingReceipt(stock, operationId, fingerprint) {
 export async function bookStockOperation({store, user, stockId, operation, now = () => new Date().toISOString(), maxAttempts = 8}) {
     assertOutletAccess(user, operation.outlet_id);
     if (!store.verifiedAtomicWrites) throw new BookingError('ATOMIC_WRITES_NOT_VERIFIED', 503);
-    if (!['delivery', 'inventory'].includes(operation.kind)) throw new BookingError('INVALID_OPERATION_KIND');
+    if (!['delivery', 'inventory', 'inventory_fence'].includes(operation.kind)) throw new BookingError('INVALID_OPERATION_KIND');
     if (typeof operation.id !== 'string' || !operation.id || operation.id.length > 200) throw new BookingError('OPERATION_ID_REQUIRED');
     if (!operation.source || typeof operation.source.document_id !== 'string' || !operation.source.document_id || typeof operation.source.line_id !== 'string' || !operation.source.line_id) throw new BookingError('SOURCE_REFERENCE_REQUIRED');
-    if (operation.kind === 'inventory' && (!Number.isSafeInteger(operation.expected_revision) || operation.expected_revision < 0)) throw new BookingError('EXPECTED_REVISION_REQUIRED');
+    if (operation.kind !== 'delivery' && (!Number.isSafeInteger(operation.expected_revision) || operation.expected_revision < 0)) throw new BookingError('EXPECTED_REVISION_REQUIRED');
+    if (operation.kind === 'inventory_fence' && scaledQuantity(operation.quantity) !== 0n) throw new BookingError('INVALID_FENCE_QUANTITY');
     const fingerprint = operationFingerprint(operation);
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const stock = await store.get(stockId);
         assertStock(stock, operation);
         const prior = existingReceipt(stock, operation.id, fingerprint);
         if (prior) return {already_applied: true, receipt: prior};
-        if (operation.kind === 'inventory' && stock.revision !== operation.expected_revision) throw new BookingError('STOCK_CHANGED_DURING_COUNT', 409);
+        if (operation.kind !== 'delivery' && stock.revision !== operation.expected_revision) throw new BookingError('STOCK_CHANGED_DURING_COUNT', 409);
         // Never discard old receipts to save space: doing so would permit old requests to book again.
         if (stock.booking_journal.length >= 1000) throw new BookingError('JOURNAL_ARCHIVE_REQUIRED', 409);
         const before = quantityNumber(scaledQuantity(stock.on_hand_quantity));
-        const after = operation.kind === 'delivery' ? addQuantity(before, operation.quantity) : quantityNumber(scaledQuantity(operation.quantity));
+        const after = operation.kind === 'inventory_fence' ? before : operation.kind === 'delivery' ? addQuantity(before, operation.quantity) : quantityNumber(scaledQuantity(operation.quantity));
         const receipt = {
             operation_id: operation.id,
             fingerprint,
