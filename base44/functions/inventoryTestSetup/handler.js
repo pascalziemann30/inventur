@@ -19,7 +19,8 @@ export function createInventoryTestSetupHandler({createClientFromRequest,isEnabl
             try {user=await client.auth.me();} catch {throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED',401);
             if (user.role !== 'admin') throw new BookingError('ADMIN_REQUIRED',403);
-            if (req.headers.get('X-Data-Env') !== 'dev' || !isEnabled(req)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
+            if (req.headers.get('X-Data-Env') !== 'dev') throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
+            if (!isEnabled(req)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
             const body=await req.json();
             if (!body || !['prepare','inspect','delivery'].includes(body.action) || Object.keys(body).some(key=>!['action','outlet_id','request_id'].includes(key))) throw new BookingError('INVALID_REQUEST',400);
             const entities=client.asServiceRole.entities;

@@ -2,6 +2,7 @@ import {inventoryTestClient as base44} from './testClient.js';
 
 const messages={
     INVENTORY_TEST_ROLLOUT_DISABLED:'Der Inventur-Testzugang ist noch nicht oder nicht mehr freigegeben.',
+    TEST_DATA_ENV_REQUIRED:'Diese Inventurprüfung erfordert ausdrücklich den Base44-Testdatenbereich.',
     AUTHENTICATION_REQUIRED:'Bitte mit deinem echten App-Konto anmelden.',OUTLET_FORBIDDEN:'Dein Konto ist diesem Standort nicht zugeordnet.',
     RUN_CHANGED_RELOAD:'Ein anderer Arbeitsstand wurde gespeichert. Lade ihn neu und vergleiche deine Eingaben.',
     STOCK_CHANGED_DURING_COUNT:'Der Bestand hat sich seit Beginn der Zählung geändert. Bitte diesen Artikel erneut zählen.',

@@ -14,7 +14,8 @@ export function createInventoryRunsHandler({createClientFromRequest,isEnabled,st
             try {user=await client.auth.me();} catch {throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED',401);
             // Test-only rollout: the SDK forwards this exact environment header to every entity call.
-            if (req.headers.get('X-Data-Env') !== 'dev' || !isEnabled(req)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
+            if (req.headers.get('X-Data-Env') !== 'dev') throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
+            if (!isEnabled(req)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
             const text=await req.text();
             if (text.length > 150_000) throw new BookingError('REQUEST_TOO_LARGE',413);
             let body;
