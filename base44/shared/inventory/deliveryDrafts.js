@@ -72,6 +72,17 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             status:line.confirmation ? confirmationCurrent(draft,line,catalog) ? 'confirmed' : 'confirmation_stale'
                 : line.proposal?.status === 'pending' ? 'proposal_pending' : line.proposal?.status === 'rejected' ? 'proposal_rejected' : 'open',
             confirmation:line.confirmation ? copy(line.confirmation) : null,proposal:line.proposal ? copy(line.proposal) : null}));
+        const effectiveTarget=line=>{
+            const state=states.find(state=>state.line_id === line.source.id);
+            if (state.status === 'confirmed') return state.confirmation.global_item_id;
+            const found=diagnosis.lines.find(row=>row.line_id === line.source.id);
+            return found.match === 'matched' ? found.candidates[0]?.global_item_id : null;
+        };
+        for (const state of states) {
+            const source=draft.lines.find(line=>line.source.id === state.line_id),target=effectiveTarget(source);
+            state.effective_duplicate_line_ids=target ? draft.lines.filter(line=>line.source.id !== state.line_id && effectiveTarget(line) === target).map(line=>line.source.id) : [];
+            state.review_required_before_booking=state.effective_duplicate_line_ids.length > 0;
+        }
         return {id:draft.id,outlet_id:draft.outlet_id,outlet_name:catalog.outlet.name,supplier_id:draft.supplier_id,
             supplier_name:catalog.supplier.name,delivery_date:draft.delivery_date,document_reference:draft.document_reference,
             status:'draft',revision:draft.revision,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,

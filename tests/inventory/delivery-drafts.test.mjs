@@ -124,6 +124,8 @@ test('admin can link a proposal only to a valid existing outlet offer with expli
     const saved=await f.service(f.admin).resolve({...input,identity_confirmed:true});
     assert.equal(saved.draft.line_states[1].status,'confirmed');assert.equal(saved.draft.line_states[1].proposal.status,'linked');
     assert.equal(saved.draft.line_states[1].confirmation.base_quantity,20);
+    assert.equal(saved.draft.line_states[1].review_required_before_booking,true);
+    assert.deepEqual(saved.draft.line_states[0].effective_duplicate_line_ids,['line-10']);
     assert.equal(saved.draft.lines[1].supplier_article_number,'NEU-010');
     assert.equal(f.catalog.offers.length,9);
 });
