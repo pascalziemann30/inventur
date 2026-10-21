@@ -32,7 +32,7 @@ The current replay key protects the **same persisted delivery line**. Duplicate 
 `INVENTORY_BOOKING_ENABLED` must remain unset. The endpoint returns 503 unless an operator sets it to `verified-v1` after all release prerequisites below are satisfied. The browser cannot set this switch.
 
 1. Deploy into an isolated test environment and confirm schema/function bundling with SDK 0.8.56. The repository's older functions retain their current SDK version.
-2. Execute `verifyBookingStorage` as an authenticated admin with `INVENTORY_STORAGE_PROBE_ALLOWED=test-only`. It uses only disposable `BookingProbeStock` records, never OutletStock, and reports cleanup. Leave the diagnostic switch unset afterward. No probe has been executed on Base44 as part of the local tests.
+2. Execute `verifyBookingStorage` as an authenticated admin with a time-limited `INVENTORY_STORAGE_PROBE_ALLOWED` value in the format `test-only|<issued Unix milliseconds>|<expires Unix milliseconds>`. The window must be positive, at most 15 minutes, already started and not expired. It uses only disposable `BookingProbeStock` records, never OutletStock, and reports cleanup. Leave the diagnostic switch unset or set to `disabled` afterward. Runtime settings may remain cached; the timestamp check prevents an old grant from remaining valid beyond its expiry.
 3. Confirm all four platform checks pass: concurrent calls for the same line, concurrent different lines, stale inventory revision, and retry after a committed write whose response was lost. Also require `cleanup_completed=true`. This diagnostic does not validate employee permissions.
 4. Implement the line creation/confirmation workflow, frozen conversion snapshots, canonical receipt identity, proposal review, history projection/reconciliation and parent status display. A line in `ready` or `booked` must never be editable through a generic mutation route.
 5. Replace all direct browser stock writes, including the old single-item count, scanner and deferred transfer/waste paths. Then deny direct create/update/delete on OutletStock and route these operations through authenticated server functions. Do the same for stock movement projections and admin-only master-price changes. The old open rules are deliberately not changed before their replacement paths are available.
@@ -51,3 +51,11 @@ Official references:
 - [Entities API, including conditional update methods](https://docs.base44.com/developers/references/sdk/docs/type-aliases/entities)
 - [Entity schema types and the absence of unique constraints](https://docs.base44.com/developers/backend/resources/entities/entity-schemas)
 - [Function packaging, shared files and runtime secrets](https://docs.base44.com/developers/backend/resources/backend-functions/overview)
+
+## Actual Base44 verification on 2026-10-21
+
+The branch was imported into Base44 and the separate Test Data environment enabled. The diagnostic was invoked through the authenticated app preview at commit `8fe2d7377866afdab4211f70617503482068ff5b`. All four concurrency/recovery checks passed and `cleanup_completed` was true. The production booking switch remained unset. This verifies observed conditional-write behavior on the isolated probe entity, not employee RLS, every possible interleaving, or the remaining workflow integration.
+
+The builder's backend test returned HTTP 409 at `create_probe`; the direct preview invocation succeeded. Therefore use the preview invocation with its real branch and test-data context for this verification, and do not assume the builder tester has equivalent context. The diagnostic panel is at `/InventoryCapture?diagnostics=storage` and requires actual admin authentication. The ordinary counting route retains its original behavior.
+
+Changing the diagnostic setting to `disabled` did not immediately stop the already deployed branch function in the observed test. The diagnostic entry now additionally requires an issued/expiry window and rejects the old indefinite value. This bound is enforced on every invocation, independently of a cached setting. It does not enable production bookings.

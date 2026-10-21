@@ -21,3 +21,7 @@ Die Bedienvorschau ist keine neue Bestandsschnittstelle. Vor Anschluss an die ec
 `completeSession()` darf nur den geprüften Serverabschluss aufrufen, keine direkten Bestandsänderungen aus dem Browser. Er muss gespeicherte Eingaben einfrieren, jede Position mit stabiler Vorgangs-ID und dem erfassten Bestandsversionsstand buchen, Teilfehler wieder aufnehmen und die Sitzung erst nach vollständiger Bestätigung abschließen. Eine inzwischen eingegangene Lieferung muss vor einem Überschreiben als Konflikt erscheinen. Der vorhandene CAS-Buchungskern ist dafür vorbereitet; der vollständige Sitzungsdienst und seine Integration stehen noch aus.
 
 Die bisherigen Live-Schreibwege und Berechtigungen bleiben bis zu dieser zusammenhängenden Umstellung unverändert. Die 46 echten Artikel werden weiterhin nicht importiert.
+
+## Plattformdiagnose
+
+`/InventoryCapture?diagnostics=storage` ist ein getrennter Admin-Prüfzugang innerhalb der App-Vorschau. Er verwendet die echte Base44-Anmeldung und ruft ausschließlich die gesperrte Prüffunktion auf; die normale Inventurerfassung wird dadurch nicht umgestellt. Testdatenmodus und korrekter Branch müssen aktiv sein. Eine veröffentlichte oder noch nicht verbundene Mitarbeiteroberfläche ist dies nicht.

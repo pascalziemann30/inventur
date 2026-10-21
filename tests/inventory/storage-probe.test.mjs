@@ -2,6 +2,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createStorageProbeHandler} from '../../base44/functions/verifyBookingStorage/handler.js';
 import {memoryStore} from './helpers.mjs';
+import {isStorageProbeAllowed} from '../../base44/shared/inventory/storageProbeGate.js';
+
+test('cached diagnostic grants expire, reject future and overlong windows, and default closed', () => {
+    const now = 1_800_000_000_000;
+    const grant = (issued, expires) => `test-only|${issued}|${expires}`;
+    assert.equal(isStorageProbeAllowed(grant(now - 1000, now + 1000), now), true);
+    assert.equal(isStorageProbeAllowed(grant(now - 1000, now), now), false);
+    assert.equal(isStorageProbeAllowed(grant(now + 1000, now + 2000), now), false);
+    assert.equal(isStorageProbeAllowed(grant(now, now + 900_001), now), false);
+    assert.equal(isStorageProbeAllowed(grant(now, now), now), false);
+    for (const value of [undefined, null, '', 'test-only', 'disabled', 'test-only|NaN|Infinity']) assert.equal(isStorageProbeAllowed(value, now), false);
+});
 
 function fixture() {
     const state = {user: {id: 'admin', role: 'admin'}, enabled: true, created: 0, deleted: 0};
