@@ -8,7 +8,12 @@ on:
       - 'base44/functions/bookDeliveryLine/**'
       - 'base44/functions/verifyBookingStorage/**'
       - 'tests/inventory/**'
+      - 'src/components/inventory/counting/**'
+      - 'src/dev/countingPreview.jsx'
+      - 'counting-preview.html'
+      - 'vite.counting.config.js'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/inventory-foundation.yml'
   push:
     branches: ['codex/inventory-foundation']
@@ -25,6 +30,9 @@ jobs:
         with:
           node-version: '24'
       - run: npm run test:inventory
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build:counting
+      - run: npx --no-install eslint src/components/inventory/counting/
       - name: Check function entry syntax
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
