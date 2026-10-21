@@ -1,0 +1,39 @@
+name: Inventory foundation
+
+on:
+  pull_request:
+    paths:
+      - 'base44/entities/**'
+      - 'base44/shared/inventory/**'
+      - 'base44/functions/bookDeliveryLine/**'
+      - 'base44/functions/verifyBookingStorage/**'
+      - 'tests/inventory/**'
+      - 'package.json'
+      - '.github/workflows/inventory-foundation.yml'
+  push:
+    branches: ['codex/inventory-foundation']
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: npm run test:inventory
+      - name: Check function entry syntax
+        run: |
+          node --check base44/functions/bookDeliveryLine/entry.ts
+          node --check base44/functions/verifyBookingStorage/entry.ts
+      - name: Check schema JSON syntax
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          for (const file of fs.readdirSync('base44/entities')) {
+            if (file.endsWith('.jsonc')) JSON.parse(fs.readFileSync(`base44/entities/${file}`, 'utf8'));
+          }
+          JS
