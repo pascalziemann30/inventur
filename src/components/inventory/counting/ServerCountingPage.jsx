@@ -100,17 +100,19 @@ export default function ServerCountingPage() {
         <aside className="count-server-note"><strong>Testbetrieb · echte Speicherung in Base44-Testdaten</strong><span>Die Produktions-App bleibt unverändert.</span></aside>
         {isAdmin && <InventoryTestControls outletId={run?.outlet_id || outletId} run={run} onPrepared={value=>{setOutletId(value.outlet_id);setOutlets(current=>[...current,{id:value.outlet_id,name:value.outlet_name}]);setError(null);}}/>}
         {error && <p className="count-error" role="alert">{error}</p>}
+        {run?.read_only && <aside className="count-server-note">Testfenster geschlossen · gespeicherter Stand nur lesbar.</aside>}
         {backup && <details className="count-copy"><summary>Eigene Eingaben als Vergleichskopie erhalten</summary><p>Diese Kopie wird nicht automatisch über den aktuellen Stand geschrieben.</p>
             <ul>{backup.map(entry=><li key={entry.article_id}><strong>{entry.article_name}</strong>: {entry.status === 'skipped' ? 'ausdrücklich übersprungen' : Object.entries(entry.values || {}).map(([code,value])=>`${code}: ${value || 'leer'}`).join(' · ') || 'offen'}</li>)}</ul></details>}
         {run ? <>
             {run.status === 'posting' && <div className="count-recovery"><h2>Abschluss noch offen</h2><p>Bereits übernommene Positionen werden bei einer Wiederholung nicht erneut gebucht.</p>
                 {run.entries.filter(entry=>entry.booking_error && !entry.booked).map(entry=><article key={entry.article_id}><strong>{entry.article_name}</strong><p>{runErrorMessage(entry.booking_error)}</p>
-                    <button disabled={busy || saveStatus !== 'saved'} onClick={()=>recount(entry)}>Diesen Artikel erneut zählen</button></article>)}</div>}
-            {run.status === 'completed' ? <main className="count-main"><section className="count-completed"><h1>Inventur abgeschlossen</h1><p>{run.entries.filter(entry=>entry.booked).length} Mengen übernommen · {run.entries.filter(entry=>entry.status === 'skipped').length} ausdrücklich übersprungen.</p>
-                <p>Der Abschluss ist auf dem Server gespeichert und nach erneutem Laden verfügbar.</p></section></main>
+                    <button disabled={busy || run.read_only || saveStatus !== 'saved'} onClick={()=>recount(entry)}>Diesen Artikel erneut zählen</button></article>)}</div>}
+            {run.status === 'completed' ? <><header className="count-top"><div className="count-brand">ShiftCntrl.<small>INVENTUR</small></div><span className="count-outlet">{run.outlet_name}</span></header>
+                <main className="count-main"><section className="count-completed"><h1>Inventur abgeschlossen</h1><p>{run.entries.filter(entry=>entry.booked).length} Mengen übernommen · {run.entries.filter(entry=>entry.status === 'skipped').length} ausdrücklich übersprungen.</p>
+                <p>Der Abschluss ist auf dem Server gespeichert und nach erneutem Laden verfügbar.</p><button className="count-primary" onClick={()=>{const next=new URLSearchParams(params);next.delete('run');next.set('outlet',run.outlet_id);setParams(next);}}>Zur Inventurübersicht</button></section></main></>
                 : <CountingWorkspace key={`${run.id}:${generation}`} initialEntries={run.entries} initialRevision={run.revision} outletName={run.outlet_name}
                     title={periods[run.period_type]} saveDraft={saveDraft} completeSession={complete} completionLabel={run.status === 'posting' ? 'Abschluss fortsetzen' : undefined}
-                    onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy}/>}
+                    onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy || run.read_only}/>}
         </> : <main className="count-main"><header className="count-title"><div><p className="count-eyebrow">SHIFTCTRL · INVENTUR</p><h1>Inventur starten oder fortsetzen</h1><p>Monatlich als Standard. Der Zählrhythmus filtert die Artikel bereits beim Start.</p></div></header>
             <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
                 <label>Zählrhythmus<select value={period} onChange={event=>setPeriod(event.target.value)} disabled={busy}>{Object.entries(periods).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>

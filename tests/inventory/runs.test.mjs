@@ -196,3 +196,13 @@ test('HTTP route rejects production, anonymous calls and claimed permissions bef
     actualUser=null;assert.equal((await call({action:'list',outlet_id:'outlet'})).status,401);
     assert.equal(accesses,0);
 });
+
+test('expired grant allows authorized dev reads, while all mutation actions remain disabled',async()=>{
+    const f=fixture();const run=await saved(f);
+    const handler=createInventoryRunsHandler({createClientFromRequest:()=>({auth:{me:async()=>user},asServiceRole:{entities:{}}}),isEnabled:()=>false,storeFor:()=>f.store});
+    const call=body=>handler(new Request('https://test.invalid/inventory',{method:'POST',headers:{'X-Data-Env':'dev'},body:JSON.stringify(body)}));
+    const read=await call({action:'get',id:run.id});assert.equal(read.status,200);assert.equal((await read.json()).read_only,true);
+    assert.equal((await call({action:'list',outlet_id:'outlet'})).status,200);
+    for (const action of ['save','finalize','reopen','start']) assert.equal((await call({action})).status,503);
+    assert.equal(f.stocks.get('stock-milk').writes(),0);
+});
