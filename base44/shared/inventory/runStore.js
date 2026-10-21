@@ -46,11 +46,15 @@ export function base44RunStore(entities) {
                 const stock=stockMatches[0];
                 if (stock.global_item_id !== global.id || stock.unit_abbreviation !== global.unit_abbreviation
                     || !Number.isSafeInteger(stock.revision) || stock.revision < 0 || !Array.isArray(stock.booking_journal)) reject('STOCK_NOT_INITIALIZED');
+                // Converted money values may have more than six decimals (e.g. a box price / 3 kg).
+                // Quantity precision must not round or reject an approved monetary snapshot.
+                if (typeof item.net_purchase_price !== 'number' || !Number.isFinite(item.net_purchase_price)
+                    || item.net_purchase_price < 0 || item.net_purchase_price > 1_000_000_000) reject('APPROVED_BASE_PRICE_REQUIRED');
                 const entry={article_id:item.id,article_name:item.display_name,global_item_id:global.id,
                     stock_id:stock.id,supplier_id:item.supplier_id,unit_id:global.unit_id,category_id:global.category_id,
                     category_name:category.name,unit_abbreviation:global.unit_abbreviation,
                     last_stock:quantityNumber(scaledQuantity(stock.on_hand_quantity)),stock_revision:stock.revision,
-                    net_base_unit_price:quantityNumber(scaledQuantity(item.net_purchase_price)),count_units:canonicalUnits(item.count_units || [])};
+                    net_base_unit_price:item.net_purchase_price,count_units:canonicalUnits(item.count_units || [])};
                 unitsFor(entry);
                 return entry;
             });

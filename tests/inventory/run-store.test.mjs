@@ -29,6 +29,12 @@ test('snapshot never silently defaults missing price/stock; changed conversions 
     delete f.data.OutletItem[0].net_purchase_price;
     await assert.rejects(f.store.snapshot('outlet','monthly'));
 });
+test('approved converted base prices retain precision independently of stock quantity precision',async()=>{
+    const f=catalog();f.data.OutletItem[0].net_purchase_price=26/3;
+    assert.equal((await f.store.snapshot('outlet','monthly')).entries[0].net_base_unit_price,26/3);
+    f.data.OutletItem[0].net_purchase_price=-1;
+    await assert.rejects(f.store.snapshot('outlet','monthly'),error=>error.code === 'APPROVED_BASE_PRICE_REQUIRED');
+});
 test('unverified session CAS response never reports a saved draft',async()=>{
     const f=catalog();f.entities.InventoryRun.updateMany=async()=>({success:true,updated:1});
     await assert.rejects(f.store.casRun({id:'run',outlet_id:'outlet',revision:0},{revision:1}),error=>error.code === 'UNVERIFIED_RUN_UPDATE_RESULT');

@@ -11,6 +11,7 @@ const messages={
     UNIQUE_STOCK_REQUIRED:'Die Bestandszuordnung ist unvollständig oder doppelt. Bitte vom Administrator prüfen lassen.',
     ARTICLE_REFERENCE_INCOMPLETE:'Mindestens ein Artikel hat unvollständige Verknüpfungen. Bitte vom Administrator prüfen lassen.',
     STOCK_NOT_INITIALIZED:'Ein Bestand ist noch nicht für die sichere Buchung vorbereitet.',
+    APPROVED_BASE_PRICE_REQUIRED:'Ein freigegebener Netto-Basispreis fehlt oder ist ungültig.',
     INVALID_CONFIRMED_COUNT:'Eine bestätigte Zählmenge ist ungültig.',OPEN_COUNTS_REMAIN:'Bitte alle Artikel zählen oder ausdrücklich überspringen.',
     ENTRY_ALREADY_BOOKED_RETRY_FINALIZE:'Die Menge wurde bereits übernommen. Bitte den Abschluss fortsetzen, um die Bestätigung nachzuholen.',
     DUPLICATE_START_REQUIRES_REVIEW:'Der Start ist doppelt vorhanden und muss geprüft werden. Es wird kein Bestand automatisch gebucht.',
