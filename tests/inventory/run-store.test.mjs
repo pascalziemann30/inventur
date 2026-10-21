@@ -63,3 +63,17 @@ test('fixture creates only synthetic dev catalog with initialized stock and no c
     const supplier=created.find(record=>record.entity === 'Supplier').data;
     assert.equal(Object.hasOwn(supplier,'email'),false);assert.equal(Object.hasOwn(supplier,'phone'),false);
 });
+test('delivery fixture adds approved synthetic offers and known/unknown receipt lines without booking stock',async()=>{
+    const created=[];let sequence=0;
+    const entities=new Proxy({},{get(_target,name){return {create:async data=>{created.push({entity:name,data});return {...data,id:`id-${++sequence}`};}};}});
+    const handler=createInventoryTestSetupHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'admin',role:'admin'})},asServiceRole:{entities}}),isEnabled:()=>true,uuid:()=> 'fixed-synthetic-fixture'});
+    const response=await handler(new Request('https://test.invalid/fixture',{method:'POST',headers:{'X-Data-Env':'dev'},body:JSON.stringify({action:'prepareDelivery'})}));
+    assert.equal(response.status,200);const result=await response.json();
+    const offers=created.filter(record=>record.entity==='SupplierItem');assert.equal(offers.length,4);
+    assert(offers.every(record=>record.data.status==='approved' && record.data.revision===0));
+    const milk=offers.find(record=>record.data.supplier_article_number==='TEST-milk');
+    assert.equal(milk.data.base_quantity_per_purchase,10);assert.equal(milk.data.net_purchase_price,15);
+    assert.equal(result.lines.length,2);assert.equal(result.lines[0].supplier_article_number,'TEST-milk');
+    assert.equal(result.lines[1].supplier_article_number,'TEST-new');
+    assert(created.filter(record=>record.entity==='OutletStock').every(record=>record.data.booking_journal.length===0));
+});

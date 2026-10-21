@@ -1,0 +1,22 @@
+{
+  "name": "DeliveryDraft",
+  "type": "object",
+  "properties": {
+    "outlet_id": {"type":"string"},
+    "outlet_name": {"type":"string"},
+    "supplier_id": {"type":"string"},
+    "supplier_name": {"type":"string"},
+    "delivery_date": {"type":"string","format":"date"},
+    "document_reference": {"type":"string"},
+    "reference_key": {"type":"string"},
+    "actor_id": {"type":"string"},
+    "start_key": {"type":"string"},
+    "start_fingerprint": {"type":"string"},
+    "status": {"type":"string","enum":["draft"],"default":"draft"},
+    "revision": {"type":"integer","minimum":0},
+    "lines": {"type":"array","items":{"type":"object"}},
+    "request_receipts": {"type":"array","items":{"type":"object"}}
+  },
+  "required": ["outlet_id","supplier_id","delivery_date","actor_id","start_key","start_fingerprint","revision","lines","request_receipts"],
+  "rls": {"create":false,"read":false,"update":false,"delete":false}
+}

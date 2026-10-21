@@ -10,6 +10,7 @@ on:
       - 'base44/functions/inventoryRuns/**'
       - 'base44/functions/inventoryTestSetup/**'
       - 'base44/functions/reviewDelivery/**'
+      - 'base44/functions/deliveryDrafts/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
       - 'src/components/inventory/delivery/**'
@@ -49,6 +50,7 @@ jobs:
           node --check base44/functions/inventoryRuns/entry.ts
           node --check base44/functions/inventoryTestSetup/entry.ts
           node --check base44/functions/reviewDelivery/entry.ts
+          node --check base44/functions/deliveryDrafts/entry.ts
       - name: Check schema JSON syntax
         run: |
           node --input-type=module - <<'JS'

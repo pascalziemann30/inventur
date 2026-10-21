@@ -22,9 +22,9 @@ export function createInventoryTestSetupHandler({createClientFromRequest,isEnabl
             if (req.headers.get('X-Data-Env') !== 'dev') throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
             if (!isEnabled(req)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
             const body=await req.json();
-            if (!body || !['prepare','inspect','delivery'].includes(body.action) || Object.keys(body).some(key=>!['action','outlet_id','request_id'].includes(key))) throw new BookingError('INVALID_REQUEST',400);
+            if (!body || !['prepare','prepareDelivery','inspect','delivery'].includes(body.action) || Object.keys(body).some(key=>!['action','outlet_id','request_id'].includes(key))) throw new BookingError('INVALID_REQUEST',400);
             const entities=client.asServiceRole.entities;
-            if (body.action === 'prepare') {
+            if (['prepare','prepareDelivery'].includes(body.action)) {
                 stage='prepare';
                 const tag=uuid();
                 const outlet=await entities.Outlet.create({name:`INVENTUR-TEST · ${tag.slice(0,8)}`,code:`INVENTORY-TEST-${tag}`,type:'NORMAL',is_active:true});
@@ -38,8 +38,18 @@ export function createInventoryTestSetupHandler({createClientFromRequest,isEnabl
                         inventory_intervals:definition.intervals,count_units:definition.units,notes:'Ausschließlich synthetischer Testartikel.'});
                     await entities.OutletStock.create({outlet_id:outlet.id,outlet_name:outlet.name,outlet_item_id:item.id,global_item_id:global.id,
                         display_name:definition.name,on_hand_quantity:definition.stock,unit_abbreviation:definition.unit,revision:0,booking_journal:[]});
+                    if (body.action === 'prepareDelivery') {
+                        const purchase=definition.units[0];
+                        await entities.SupplierItem.create({supplier_id:supplier.id,supplier_article_number:`TEST-${definition.code}`,
+                            global_item_id:global.id,original_name:definition.name,purchase_unit_code:purchase.code,purchase_unit_label:purchase.label,
+                            base_quantity_per_purchase:purchase.base_quantity,unit_abbreviation:definition.unit,net_purchase_price:definition.price*purchase.base_quantity,revision:0,status:'approved'});
+                    }
                 }
-                return Response.json({outlet_id:outlet.id,outlet_name:outlet.name,article_count:definitions.length,scope:'dev only; synthetic inventory test catalog'});
+                return Response.json({outlet_id:outlet.id,outlet_name:outlet.name,supplier_id:supplier.id,article_count:definitions.length,scope:'dev only; synthetic inventory test catalog',
+                    ...(body.action === 'prepareDelivery' ? {lines:[
+                        {id:'test-line-milk',original_name:'TEST · Milch',supplier_article_number:'TEST-milk',purchase_unit_code:'carton',purchase_quantity:'2,5',net_purchase_price:'15'},
+                        {id:'test-line-new',original_name:'TEST · neue Ware',supplier_article_number:'TEST-new',purchase_unit_code:'BT',purchase_quantity:'2',net_purchase_price:'3,50'},
+                    ]} : {})});
             }
             const outlet=await entities.Outlet.get(body.outlet_id);
             if (!outlet?.code?.startsWith('INVENTORY-TEST-')) throw new BookingError('NOT_AN_INVENTORY_TEST_OUTLET',403);
