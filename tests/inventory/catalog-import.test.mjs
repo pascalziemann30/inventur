@@ -13,6 +13,8 @@ function fixture(){
   bulkCreate:async(entity,values)=>{const created=values.map(data=>{const r={...clone(data),id:`record-${++counter}`};records.set(r.id,{entity,data:r});writes++;return clone(r);});
    if(failAfter){failAfter=false;throw new Error('lost response');}return reorder?created.reverse():created;},
   read:async(entity,id)=>{const r=records.get(id);assert.equal(r.entity,entity);return clone(r.data);},
+  findRecords:async(entity,query)=>clone([...records.values()].filter(r=>r.entity===entity&&Object.entries(query).every(([k,v])=>r.data[k]===v)).map(r=>r.data)),
+  readGroup:async(entity,ids)=>clone([...records.values()].filter(r=>r.entity===entity&&ids.includes(r.data.id)).map(r=>r.data)),
   update:async(entity,id,data)=>{const r=records.get(id);assert.equal(r.entity,entity);r.data={...r.data,...clone(data)};},
  };
  const user={id:'admin',role:'admin'},service=createCatalogImportService({store,user,uuid:()=> 'isolated-test-tag'});
@@ -81,6 +83,23 @@ test('platform-owned creator metadata cannot replace the explicit import actor',
  f.store.create=data=>create({...data,created_by:'platform-generated@example.invalid',created_by_id:'service-account'});
  const batch=await f.complete();assert.equal(batch.status,'imported');
  assert.equal((await f.service.verify(batch)).status,'verified');
+});
+test('an interrupted group can adopt proven complete records without creating or guessing missing rows',async()=>{
+ const f=fixture();let b=await f.start();
+ while(b.completed<b.total-b.counts.SupplierItem-b.counts.OutletStock)b=await f.service.step(b);
+ f.lose();await assert.rejects(f.service.step(b));const blocked=await f.service.get(b),writes=f.writes();
+ const inspection=await f.service.inspect(blocked);assert.equal(inspection.pending_valid,2);
+ const recovered=await f.service.recover(blocked);assert.equal(f.writes(),writes);assert.equal(recovered.status,'ready');
+ const finished=await f.service.step(recovered);assert.equal((await f.service.verify(finished)).status,'verified');
+});
+test('incomplete or duplicate pending records cannot be adopted or automatically recreated',async()=>{
+ for(const duplicate of [false,true]){
+  const f=fixture();let b=await f.start();while(b.completed<b.total-b.counts.SupplierItem-b.counts.OutletStock)b=await f.service.step(b);
+  f.lose();await assert.rejects(f.service.step(b));const blocked=await f.service.get(b);
+  const row=[...f.records.entries()].find(([,r])=>r.entity==='SupplierItem');
+  if(duplicate)f.records.set('duplicate',{...clone(row[1]),data:{...clone(row[1].data),id:'duplicate'}});else f.records.delete(row[0]);
+  const before=f.writes();await assert.rejects(f.service.recover(blocked),{code:'IMPORT_RECOVERY_NOT_PROVEN'});assert.equal(f.writes(),before);
+ }
 });
 test('handler requires authentication, dev data and a currently open write window; closed results remain readable',async()=>{
  const f=fixture(),b=await f.complete();let user=f.user,enabled=false,reads=0;

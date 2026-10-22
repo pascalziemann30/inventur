@@ -73,6 +73,8 @@ export function base44CatalogImportStore(e){
    return r.updated===1;
   },
   bulkCreate:(entity,values)=>e[entity].bulkCreate(values),read:(entity,id)=>e[entity].get(id),update:(entity,id,data)=>e[entity].update(id,data),
+  findRecords:(entity,query)=>e[entity].filter(query,'id',3),
+  readGroup:(entity,ids)=>e[entity].filter({id:{$in:ids}},'id',501),
  };
 }
 export function createCatalogImportService({store,user,uuid=()=>crypto.randomUUID()}){
@@ -92,8 +94,36 @@ export function createCatalogImportService({store,user,uuid=()=>crypto.randomUUI
   const b=await load(id);if(b.revision!==revision)fail('IMPORT_CHANGED_RELOAD');
   if(!statuses.includes(b.status))fail('IMPORT_NOT_READY');return change(b,{status:'working'});
  };
+ const pendingRecords=async b=>{
+  const remaining=b.plan.nodes.slice(b.created.length),entity=remaining[0]?.entity;
+  const nodes=remaining.filter((n,i)=>i<20&&n.entity===entity);
+  // Only reference-scoped entities can be recovered; never infer ownership of shared name-only units.
+  const keys={SupplierItem:['supplier_id','global_item_id','purchase_unit_code'],OutletStock:['outlet_id','outlet_item_id'],OutletItem:['outlet_id','global_item_id']};
+  if(!keys[entity]||!nodes.length)fail('IMPORT_RECOVERY_REQUIRES_MANUAL_INSPECTION');
+  const found=await Promise.all(nodes.map(async node=>{
+   const payload=resolveImportNode(node,b.created),query=Object.fromEntries(keys[entity].map(k=>[k,payload[k]]));
+   const records=await store.findRecords(entity,query);
+   const valid=Array.isArray(records)&&records.length===1&&Object.entries(payload).every(([k,v])=>same(records[0][k],v));
+   return {key:node.key,entity,id:valid?records[0].id:null,matches:Array.isArray(records)?records.length:-1,valid};
+  }));
+  return {entity,found};
+ };
  return {
   get:async({id})=>view(await load(id)),
+  async inspect({id}){
+   const b=await load(id);if(!['working','blocked'].includes(b.status))fail('IMPORT_INSPECTION_NOT_REQUIRED');
+   const pending=await pendingRecords(b);
+   return {...view(b),pending_entity:pending.entity,pending_count:pending.found.length,
+    pending_valid:pending.found.filter(r=>r.valid).length,pending_ambiguous:pending.found.filter(r=>r.matches>1).length};
+  },
+  async recover({id,revision}){
+   const b=await load(id);if(b.revision!==revision||!['working','blocked'].includes(b.status))fail('IMPORT_CHANGED_RELOAD');
+   const pending=await pendingRecords(b);
+   if(!pending.found.every(r=>r.valid))fail('IMPORT_RECOVERY_NOT_PROVEN');
+   // Adopt a fully stored group only. This operation never creates or modifies catalog records.
+   const created=[...b.created,...pending.found.map(({key,entity,id})=>({key,entity,id}))];
+   return view(await change(b,{created,status:created.length===b.plan.nodes.length?'imported':'ready',error:''}));
+  },
   async start({key,articles}){
    if(!string(key,80)||!/^[a-zA-Z0-9-]{16,80}$/.test(key))fail('IMPORT_KEY_REQUIRED',400);
    // Validate before persisting anything; never accepts an existing destination outlet.
@@ -128,13 +158,18 @@ export function createCatalogImportService({store,user,uuid=()=>crypto.randomUUI
    }
   },
   async verify({id,revision}){
-   let b=await claim(id,revision,['imported','verified']);
+   const loaded=await load(id);
+   if(loaded.created.length!==loaded.plan.nodes.length)fail('IMPORT_NOT_COMPLETE');
+   let b=await claim(id,revision,['imported','verified','blocked','working']);
    try{
     const results=[];
-    // Bounded parallel reads; verification never writes article or stock records.
-    for(let i=0;i<b.created.length;i+=20){
-     const group=b.created.slice(i,i+20);
-     results.push(...await Promise.all(group.map(async row=>({row,value:await store.read(row.entity,row.id)}))));
+    // One bounded query per entity avoids hundreds of individual API requests.
+    for(const entity of importTables){
+     const group=b.created.filter(row=>row.entity===entity);
+     const found=await store.readGroup(entity,group.map(r=>r.id));
+     if(!Array.isArray(found)||found.length!==group.length||new Set(found.map(r=>r.id)).size!==group.length)fail('IMPORT_READBACK_MISMATCH');
+     const byId=new Map(found.map(r=>[r.id,r]));
+     results.push(...group.map(row=>({row,value:byId.get(row.id)})));
     }
     for(const {row,value} of results){
      const expected=resolveImportNode(b.plan.nodes.find(n=>n.key===row.key),b.created);
