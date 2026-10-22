@@ -11,7 +11,7 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
     useEffect(()=>{
         const source=scan?.frozen_review || scan?.reads?.[0];
         setLines((source?.lines || []).map(row=>({...row,checked:!!scan?.frozen_review})));
-        setReference(source?.document_reference || '');setDate(source?.delivery_date || '');setDocumentChecked(false);setNetChecked(false);
+        setReference(source?.document_reference || '');setDate(source?.delivery_date || '');setDocumentChecked(scan?.frozen_review?.document_checked===true);setNetChecked(scan?.frozen_review?.prices_net_checked===true);
     },[scan]);
     const locked=readOnly || busy || ['committing','committed'].includes(scan?.status);
     const run=async action=>{setBusy(true);setError('');try{await action();}catch(cause){setError(cause.message);}finally{setBusy(false);}};
