@@ -129,6 +129,24 @@ test('admin can link a proposal only to a valid existing outlet offer with expli
     assert.equal(saved.draft.lines[1].supplier_article_number,'NEU-010');
     assert.equal(f.catalog.offers.length,9);
 });
+test('name-only offers can be explicitly confirmed without inventing supplier numbers',async()=>{
+    const f=fixture();delete f.catalog.offers[0].supplier_article_number;f.input.lines[0].supplier_article_number='';
+    const draft=await f.start(),s=f.service(f.employee),input=f.request(draft,{line_id:'line-1',supplier_item_id:'offer-001',acknowledged_issues:[]});
+    await assert.rejects(s.confirm(input),{code:'LINE_HINTS_NOT_ACKNOWLEDGED'});
+    const result=await s.confirm({...input,acknowledged_issues:['NAME_IDENTITY_CHECK_REQUIRED']});
+    assert.equal(result.draft.line_states[0].status,'confirmed');
+    assert.equal(result.draft.lines[0].supplier_article_number,'');
+    assert.equal(result.draft.line_states[0].confirmation.supplier_article_number,'');
+    assert.equal((await s.get(draft.id)).line_states[0].status,'confirmed');
+});
+test('admin can explicitly link a differently named proposal to a numberless offer, keeping the source',async()=>{
+    const f=fixture();delete f.catalog.offers[0].supplier_article_number;
+    const draft=await f.start(),proposed=(await f.service(f.employee).propose(f.request(draft,{line_id:'line-10',note:''}))).draft;
+    const result=await f.service(f.admin).resolve(f.request(proposed,{request_id:'resolve-request-001',line_id:'line-10',resolution:'link',note:'Product and pack checked',supplier_item_id:'offer-001',identity_confirmed:true}));
+    assert.equal(result.draft.line_states[1].status,'confirmed');
+    assert.equal(result.draft.lines[1].supplier_article_number,'NEU-010');
+    assert.equal(result.draft.line_states[1].confirmation.supplier_article_number,'');
+});
 test('editing proposed source archives its previous proposal and returns the line to open',async()=>{
     const f=fixture(),draft=await f.start(),s=f.service(f.employee);
     const proposed=(await s.propose(f.request(draft,{line_id:'line-10',note:''}))).draft;

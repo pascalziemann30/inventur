@@ -4,6 +4,11 @@ import {BookingError, monetaryNumber, scaledQuantity, toBaseQuantity, baseUnitPr
 export const searchName = value => String(value || '').normalize('NFKC').toLocaleLowerCase('de')
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const text = value => typeof value === 'string' ? value.trim() : '';
+// Exact name comparison keeps punctuation, dimensions and variant words intact.
+const exactName = value => text(value).normalize('NFKC').toLocaleLowerCase('de').replace(/\s+/gu, ' ');
+export const offerIdentityKey = offer => JSON.stringify([text(offer.supplier_id),
+    text(offer.supplier_article_number) ? 'sku' : 'name',
+    text(offer.supplier_article_number) || exactName(offer.original_name), text(offer.purchase_unit_code)]);
 const validMoney = value => {
     try {return monetaryNumber(value) > 0;} catch {return false;}
 };
@@ -77,7 +82,9 @@ export function reviewDeliveryLines({lines, catalog, outletId, supplierId}) {
     }
     const results = lines.map(line => {
         const sku = text(line.supplier_article_number), pack = text(line.purchase_unit_code);
-        const exact = sku && pack ? offers.filter(offer => offer.supplier_article_number === sku && offer.purchase_unit_code === pack) : [];
+        const exact = pack ? offers.filter(offer => offer.purchase_unit_code === pack && (sku
+            ? offer.supplier_article_number === sku
+            : exactName(offer.original_name) === exactName(line.original_name))) : [];
         const sameSku = sku ? offers.filter(offer => offer.supplier_article_number === sku) : [];
         const suggestions = offers.map(offer => ({offer,score:suggestionScore(line.original_name,offer.original_name)}))
             .filter(({score}) => score >= .3).sort((a,b) => b.score-a.score || a.offer.id.localeCompare(b.offer.id));
@@ -85,7 +92,7 @@ export function reviewDeliveryLines({lines, catalog, outletId, supplierId}) {
         const projected = candidates.slice(0,5).map(offer => linkedCandidate(offer,catalog,outletId,supplierId));
         const candidate = exact.length === 1 ? projected[0] : null;
         const issues = [];
-        if (!sku) issues.push('SUPPLIER_NUMBER_MISSING');
+        if (!sku && exact.length === 1) issues.push('NAME_IDENTITY_CHECK_REQUIRED');
         if (!pack) issues.push('PURCHASE_UNIT_MISSING');
         if (exact.length > 1) issues.push('DUPLICATE_SUPPLIER_IDENTITY');
         if (candidate) issues.push(...candidate.problems);

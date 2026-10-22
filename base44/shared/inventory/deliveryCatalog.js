@@ -1,5 +1,6 @@
 import {BookingError} from './quantities.js';
 import {assertOutletAccess} from './stock.js';
+import {offerIdentityKey} from './deliveryReview.js';
 
 export const boundedDeliveryRows = async promise => {
     const rows=await promise;
@@ -19,8 +20,7 @@ export async function loadDeliveryCatalog(e,user,outletId,supplierId) {
     const ids=[...new Set(items.filter(item=>item.is_active === true).map(item=>item.global_item_id).filter(Boolean))];
     const globals=(await Promise.all(ids.map(id=>e.GlobalItem.get(id)))).filter(Boolean);
     const scopedOffers=offers.filter(offer=>ids.includes(offer.global_item_id)).map(offer=>({...offer,
-        identity_conflict:offers.filter(other=>other.supplier_article_number === offer.supplier_article_number
-            && other.purchase_unit_code === offer.purchase_unit_code).length > 1,
+        identity_conflict:offers.filter(other=>offerIdentityKey(other) === offerIdentityKey(offer)).length > 1,
     }));
     return {outlet,supplier,items,offers:scopedOffers,globals};
 }

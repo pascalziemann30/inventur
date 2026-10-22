@@ -27,10 +27,22 @@ test('same article number at a different supplier never matches',()=>{
     const f=deliveryExamples();f.catalog.offers.forEach(offer=>offer.supplier_id='other');
     assert(review(f).lines.every(line=>line.match==='unknown'));
 });
-test('identical descriptions without a supplier number remain suggestions and cannot silently identify a product',()=>{
+test('unique exact descriptions without a supplier number require explicit identity confirmation',()=>{
     const f=deliveryExamples();f.lines[0].supplier_article_number='';
-    const line=review(f).lines[0];assert.equal(line.match,'needs_assignment');
-    assert(line.issues.includes('SUPPLIER_NUMBER_MISSING'));assert.equal(line.base_quantity,null);
+    delete f.catalog.offers[0].supplier_article_number;
+    const line=review(f).lines[0];assert.equal(line.match,'matched');
+    assert(line.issues.includes('NAME_IDENTITY_CHECK_REQUIRED'));assert.equal(line.bookable,false);
+    assert.equal(line.base_quantity,25);
+});
+test('name matching keeps punctuation and variants, and ambiguous names never choose the first offer',()=>{
+    const f=deliveryExamples();f.lines[0].supplier_article_number='';
+    f.catalog.offers.push({...f.catalog.offers[0],id:'another',supplier_article_number:'another'});
+    assert.equal(review(f).lines[0].match,'ambiguous');
+    f.catalog.offers.pop();
+    for(const name of ['Beispielmilch 2 l','Beispielmilch 1-l','Beispielmilch Barista 1 l']){
+        f.lines[0].original_name=name;const row=review(f).lines[0];
+        assert.equal(row.match,'needs_assignment');assert.equal(row.base_quantity,null);
+    }
 });
 test('duplicate supplier identities are not resolved by taking the first approved offer',()=>{
     const f=deliveryExamples();f.catalog.offers.push({...f.catalog.offers[0],id:'dup',status:'draft'});
@@ -83,7 +95,7 @@ test('candidate lists are bounded and communicate truncation rather than claimin
     const f=deliveryExamples();f.lines[0].supplier_article_number='';
     for(let i=0;i<8;i++)f.catalog.offers.push({...f.catalog.offers[0],id:`copy-${i}`});
     const line=review(f).lines[0];assert.equal(line.candidates.length,5);assert.equal(line.candidate_count,9);
-    assert.equal(line.candidates_truncated,true);assert.equal(line.match,'needs_assignment');
+    assert.equal(line.candidates_truncated,true);assert.equal(line.match,'ambiguous');
 });
 
 function endpoint(){
@@ -113,6 +125,14 @@ test('catalog limit never silently truncates review to a misleading partial cata
     const t=endpoint();t.e.SupplierItem.filter=async()=>Array(501).fill(t.f.catalog.offers[0]);
     const response=await t.request();assert.equal(response.status,409);
     assert.equal((await response.json()).error,'REVIEW_CATALOG_REQUIRES_PAGING');
+});
+test('numberless offers with distinct names and the same purchase unit do not conflict in the loaded catalog',async()=>{
+    const t=endpoint();t.f.catalog.offers.forEach(offer=>delete offer.supplier_article_number);
+    t.f.lines.forEach(line=>line.supplier_article_number='');
+    const response=await t.request(),result=await response.json();
+    assert.equal(response.status,200);assert.equal(result.summary.matched,9);
+    assert(result.lines.slice(0,9).every(row=>row.issues.includes('NAME_IDENTITY_CHECK_REQUIRED')));
+    assert(!result.lines.some(row=>row.issues.includes('DUPLICATE_SUPPLIER_IDENTITY')));
 });
 test('duplicate supplier identity outside the authorized outlet is flagged without disclosing its product details',async()=>{
     const t=endpoint();t.f.catalog.offers.push({...t.f.catalog.offers[0],id:'hidden',global_item_id:'hidden-global',original_name:'Private other product'});

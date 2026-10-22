@@ -10,7 +10,7 @@ const eq=(a,b)=>JSON.stringify(a) === JSON.stringify(b);
 const stable=value=>Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
     ? Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])])) : value;
 const lineFields=['id','original_name','supplier_article_number','purchase_unit_code','purchase_quantity','net_purchase_price'];
-const acknowledgeable=['DESCRIPTION_CHECK_REQUIRED','RECEIPT_PRICE_DIFFERS','POSSIBLE_REPEATED_LINE'];
+const acknowledgeable=['DESCRIPTION_CHECK_REQUIRED','RECEIPT_PRICE_DIFFERS','POSSIBLE_REPEATED_LINE','NAME_IDENTITY_CHECK_REQUIRED'];
 const sourceLines=draft=>draft.lines.map(line=>line.source);
 const review=(draft,catalog)=>reviewDeliveryLines({lines:sourceLines(draft),catalog,outletId:draft.outlet_id,supplierId:draft.supplier_id});
 
@@ -30,7 +30,7 @@ function cleanLines(lines) {
 
 function snapshot(offer,candidate,line) {
     return {supplier_item_id:offer.id,global_item_id:offer.global_item_id,outlet_item_id:candidate.outlet_item_id,
-        supplier_article_number:offer.supplier_article_number,purchase_unit_code:offer.purchase_unit_code,
+        supplier_article_number:offer.supplier_article_number ?? '',purchase_unit_code:offer.purchase_unit_code,
         offer_revision:offer.revision,base_quantity_per_purchase:offer.base_quantity_per_purchase,
         unit_abbreviation:offer.unit_abbreviation,source:copy(line),
         base_quantity:toBaseQuantity(line.purchase_quantity,offer.base_quantity_per_purchase),
@@ -41,9 +41,11 @@ function candidateFor(draft,line,offerId,catalog) {
     const offer=catalog.offers.find(offer=>offer.id === offerId);
     if (!offer) fail('OFFER_NOT_AVAILABLE');
     // Admin linkage must still validate approved offer, outlet, unit, conversion, quantity and receipt price.
-    const effective={...line,supplier_article_number:offer.supplier_article_number,purchase_unit_code:offer.purchase_unit_code};
+    // Only validates the explicitly selected stored offer; the unchanged source is retained in the snapshot.
+    const effective={...line,original_name:offer.original_name,supplier_article_number:offer.supplier_article_number ?? '',purchase_unit_code:offer.purchase_unit_code};
     const diagnosis=reviewDeliveryLines({lines:[effective],catalog,outletId:draft.outlet_id,supplierId:draft.supplier_id}).lines[0];
-    if (diagnosis.match !== 'matched' || diagnosis.issues.some(issue=>!acknowledgeable.includes(issue))) fail('LINE_NOT_CONFIRMABLE');
+    if (diagnosis.match !== 'matched' || diagnosis.candidates[0]?.supplier_item_id !== offerId
+        || diagnosis.issues.some(issue=>!acknowledgeable.includes(issue))) fail('LINE_NOT_CONFIRMABLE');
     return {offer,candidate:diagnosis.candidates[0]};
 }
 

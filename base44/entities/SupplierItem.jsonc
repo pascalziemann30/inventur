@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "supplier_id": { "type": "string" },
-    "supplier_article_number": { "type": "string", "description": "Exakte Artikelnummer als Text; führende Nullen erhalten" },
+    "supplier_article_number": { "type": "string", "description": "Optional: echte Lieferantenartikelnummer als Text; führende Nullen erhalten. Interne IDs sind kein Ersatz." },
     "global_item_id": { "type": "string" },
     "original_name": { "type": "string" },
     "purchase_unit_code": { "type": "string", "description": "Originaleinheit im Kontext dieses Lieferantenartikels" },
@@ -15,9 +15,9 @@
     "status": { "type": "string", "enum": ["draft", "approved", "archived"], "default": "draft" },
     "source_reference": { "type": "string" },
     "source_barcode": { "type": "string", "description": "Ungeprüfter Quellwert; nicht allein zur Artikelzuordnung verwenden" },
-    "lookup_key": { "type": "string", "description": "Exakte Kombination Lieferant/Artikelnummer/Einkaufseinheit; ersetzt keinen serverseitigen Eindeutigkeitsnachweis" }
+    "lookup_key": { "type": "string", "description": "Suchhilfe aus Lieferant, optionaler Artikelnummer oder vollständiger Bezeichnung und Einkaufseinheit; ersetzt keinen serverseitigen Eindeutigkeitsnachweis" }
   },
-  "required": ["supplier_id", "supplier_article_number", "global_item_id", "original_name", "purchase_unit_code", "purchase_unit_label", "base_quantity_per_purchase", "unit_abbreviation", "revision"],
+  "required": ["supplier_id", "global_item_id", "original_name", "purchase_unit_code", "purchase_unit_label", "base_quantity_per_purchase", "unit_abbreviation", "revision"],
   "rls": {
     "create": { "user_condition": { "role": "admin" } },
     "read": { "$or": [{ "user_condition": { "role": "admin" } }, { "user_condition": { "role": "user" } }] },

@@ -48,6 +48,16 @@ test('single-position delivery completes and repeated or concurrent booking neve
     assert(replies.every(reply=>reply.status==='completed'));assert.equal(f.stock.writes(),1);
     await f.book(draft);assert.equal(f.stock.snapshot().on_hand_quantity,35);
 });
+test('name-only confirmation books once and retries without a supplier number',async()=>{
+    const f=fixture();delete f.example.catalog.offers[0].supplier_article_number;f.example.lines[0].supplier_article_number='';
+    let draft=await f.service.start({outlet_id:f.example.outletId,supplier_id:f.example.supplierId,delivery_date:'2026-10-22',document_reference:'NAME-ONLY',start_key:'name-only-start-00001',lines:[f.example.lines[0]]});
+    await assert.rejects(f.book(draft),{code:'UNCONFIRMED_LINE_CANNOT_BOOK'});
+    draft=(await f.service.confirm({id:draft.id,revision:draft.revision,request_id:'name-only-confirm-01',line_id:'line-1',supplier_item_id:'offer-001',acknowledged_issues:['NAME_IDENTITY_CHECK_REQUIRED']})).draft;
+    const booked=await f.book(draft);assert.equal(booked.status,'completed');
+    assert.equal(booked.lines[0].supplier_article_number,'');
+    assert.equal(f.stock.snapshot().on_hand_quantity,35);
+    await f.book(draft);assert.equal(f.stock.writes(),1);
+});
 test('lost stock response resumes using the durable stock receipt',async()=>{
     const f=fixture(),draft=await f.start();f.stock.loseResponse=true;
     const result=await f.book(draft);assert.equal(result.line_states[0].status,'booked');assert.equal(f.stock.writes(),1);
