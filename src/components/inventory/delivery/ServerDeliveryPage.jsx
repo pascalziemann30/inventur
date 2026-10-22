@@ -41,6 +41,7 @@ export default function ServerDeliveryPage() {
         }).catch(cause=>{if(active)setError(cause.message);}).finally(()=>{if(active)setLoading(false);});
         return()=>{active=false;};
     },[id]);
+    const navigateWorkflow=(workflow,extra={})=>{const next=new URLSearchParams(params);next.set('workflow',workflow);next.delete('delivery');next.delete('scan');for(const [key,value] of Object.entries(extra))next.set(key,value);setParams(next);};
     const open=value=>{const next=new URLSearchParams(params);next.set('delivery',value.id);setParams(next);};
     const start=async event=>{
         event.preventDefault();setBusy(true);setError('');
@@ -89,11 +90,11 @@ export default function ServerDeliveryPage() {
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}
         {draft ? <>
             <div className="delivery-draft-meta"><button className="count-link" disabled={busy || !!pending} onClick={()=>{const next=new URLSearchParams(params);next.delete('delivery');setParams(next);setListVersion(v=>v+1);}}>Zur Lieferübersicht</button><span>{draft.delivery_date} · Beleg {draft.document_reference || 'ohne Referenz'} · Stand {draft.revision} · {statusLabel[draft.status]}</span></div>
-            {draft.source_scan_id && <p><a className="count-link" href={`/InventoryCapture?workflow=scan&scan=${encodeURIComponent(draft.source_scan_id)}`}>Originalbeleg und Gegenprüfung öffnen</a></p>}
+            {draft.source_scan_id && <p><button className="count-link" onClick={()=>navigateWorkflow('scan',{scan:draft.source_scan_id})}>Originalbeleg und Gegenprüfung öffnen</button></p>}
             <DeliveryReviewWorkspace key={`${id}:${generation}`} initialLines={draft.lines} initialReview={draft.review} lineStates={draft.line_states}
                 outletName={draft.outlet_name} supplierName={draft.supplier_name} offers={draft.offers} isAdmin={draft.is_admin}
                 readOnly={draft.read_only} externalBusy={busy || !!pending} posting={draft.posting} bookingEnabled={draft.booking_enabled} batchLineIds={draft.batch_line_ids}
-                onBook={line_ids=>send({action:'book',input:{id,revision:revisionRef.current,line_ids}})}
+                onInventory={()=>navigateWorkflow('server')} onBook={line_ids=>send({action:'book',input:{id,revision:revisionRef.current,line_ids}})}
                 onEditLines={lines=>{localCopyRef.current=lines;try{sessionStorage.setItem(backupKey(id),JSON.stringify(lines));}catch{setError('Die lokale Vergleichskopie konnte nicht dauerhaft gespeichert werden. Bitte Eingaben vor dem Neuladen sichern.');}}}
                 reviewLines={lines=>reviewDraftLines(draft.outlet_id,draft.supplier_id,lines)}
                 onSave={lines=>mutate('save',{lines})}
@@ -103,7 +104,7 @@ export default function ServerDeliveryPage() {
         </> : <main className="count-main">
             <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG</p><h1>Lieferentwürfe</h1><p>Erfassen, prüfen und später weiterbearbeiten.</p></div></div>
             {options?.read_only && <p className="count-preview">Testfenster geschlossen. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
-            <p><a className="count-confirm" href="/InventoryCapture?workflow=scan">Beleg scannen · Foto oder Datei</a></p>
+            <p><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button></p>
             <form className="count-start" onSubmit={start}>
                 <label>Standort<select aria-label="Lieferstandort" required disabled={busy} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label>Lieferant<select aria-label="Lieferant" required disabled={busy} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options?.suppliers.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

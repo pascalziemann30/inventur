@@ -10,13 +10,13 @@ async function scanApi(action,input={}){
 }
 export default function ServerScanPage(){
     const [params,setParams]=useSearchParams(),id=params.get('scan');
-    const [options,setOptions]=useState(null),[scan,setScan]=useState(null),[outlet,setOutlet]=useState(''),[supplier,setSupplier]=useState(''),[error,setError]=useState('');
-    useEffect(()=>{deliveryDraftApi('options').then(value=>{setOptions(value);if(value.outlets.length===1)setOutlet(value.outlets[0].id);}).catch(e=>setError(e.message));},[]);
-    useEffect(()=>{if(id)scanApi('get',{id}).then(setScan).catch(e=>setError(e.message));else setScan(null);},[id]);
+    const [options,setOptions]=useState(null),[scan,setScan]=useState(null),[outlet,setOutlet]=useState(''),[supplier,setSupplier]=useState(''),[error,setError]=useState(''),[version,setVersion]=useState(0);
+    useEffect(()=>{deliveryDraftApi('options').then(value=>{setOptions(value);if(value.outlets.length===1)setOutlet(value.outlets[0].id);}).catch(e=>setError(e.message));},[version]);
+    useEffect(()=>{let active=true;setScan(null);if(id)scanApi('get',{id}).then(value=>{if(active)setScan(value);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[id,version]);
     const openScan=value=>{setScan(value);const next=new URLSearchParams(params);next.set('scan',value.id);setParams(next);};
     return <div className="counting-workspace"><aside className="count-server-note"><strong>Testbetrieb · Belegscan</strong><span>Private Belege · echte Anmeldung · keine automatische Bestandsbuchung</span></aside><main className="count-main">
-        <a className="count-link" href="/InventoryCapture?workflow=delivery">Zur Lieferübersicht</a>
-        {error && <p role="alert" className="count-error">{error}</p>}
+        <button className="count-link" onClick={()=>{const next=new URLSearchParams(params);next.set('workflow','delivery');next.delete('scan');next.delete('delivery');setParams(next);}}>Zur Lieferübersicht</button>
+        {error && <div role="alert" className="count-error"><p>{error}</p><button className="count-confirm" onClick={()=>{setError('');setVersion(value=>value+1);}}>Gespeicherten Stand erneut laden</button></div>}
         {!options && <p role="status">Zugriff wird geprüft …</p>}
         {options?.read_only && <p className="count-preview">Testfenster geschlossen. Bereits gespeicherte Scans bleiben lesbar.</p>}
         {!id && options && <div className="count-start"><label>Standort<select aria-label="Scanstandort" value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options.outlets.map(row=><option value={row.id} key={row.id}>{row.name}</option>)}</select></label><label>Lieferant<select aria-label="Scanlieferant" value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options.suppliers.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select></label></div>}
