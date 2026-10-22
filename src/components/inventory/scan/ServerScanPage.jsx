@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {employeeMode} from '../entry/entryMode.js';
 import {useSearchParams} from 'react-router-dom';
 import {inventoryTestClient} from '../counting/testClient.js';
 import {deliveryDraftApi} from '../delivery/draftApi.js';
@@ -14,7 +15,7 @@ export default function ServerScanPage(){
     useEffect(()=>{let active=true;Promise.all([deliveryDraftApi('options'),scanApi('status')]).then(([value,status])=>{if(!active)return;setOptions({...value,read_only:status.read_only});if(value.outlets.length===1)setOutlet(value.outlets[0].id);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[version]);
     useEffect(()=>{let active=true;setScan(null);if(id)scanApi('get',{id}).then(value=>{if(active)setScan(value);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[id,version]);
     const openScan=value=>{setScan(value);const next=new URLSearchParams(params);next.set('scan',value.id);setParams(next);};
-    return <div className="counting-workspace"><aside className="count-server-note"><strong>Testbetrieb · Belegscan</strong><span>Private Belege · echte Anmeldung · keine automatische Bestandsbuchung</span></aside><main className="count-main">
+    return <div className="counting-workspace"><aside className="count-server-note"><strong>Testbetrieb · Belegscan</strong><span>Private Belege · {employeeMode()?'bestätigter Standort':'echte Anmeldung'} · keine automatische Bestandsbuchung</span></aside><main className="count-main">
         <button className="count-link" onClick={()=>{const next=new URLSearchParams(params);next.set('workflow','delivery');next.delete('scan');next.delete('delivery');setParams(next);}}>Zur Lieferübersicht</button>
         {error && <div role="alert" className="count-error"><p>{error}</p><button className="count-confirm" onClick={()=>{setError('');setVersion(value=>value+1);}}>Gespeicherten Stand erneut laden</button></div>}
         {uploadSeconds!==null && <p className="count-preview">Privat gespeichert · Übertragung und Verarbeitung: {uploadSeconds} Sekunden</p>}

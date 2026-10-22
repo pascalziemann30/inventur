@@ -22,8 +22,11 @@ import CatalogImportPage from '../components/inventory/counting/CatalogImportPag
 import ServerScanPage from '../components/inventory/scan/ServerScanPage';
 import ServerDeliveryPage from '../components/inventory/delivery/ServerDeliveryPage';
 
+import LocationEntryPage from '../components/inventory/entry/LocationEntryPage';
+
 export default function InventoryCaptureRoute() {
     const [params] = useSearchParams();
+    if (params.get('workflow') === 'entry') return <LocationEntryPage />;
     if (params.get('diagnostics') === 'storage') return <StorageVerificationPanel />;
     if (params.get('workflow') === 'server') return <ServerCountingPage />;
     if (params.get('workflow') === 'import') return <CatalogImportPage />;

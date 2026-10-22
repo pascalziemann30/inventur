@@ -26,7 +26,7 @@ function LayoutContent({ children }) {
     };
 
     // The dedicated test workflow has its own fixed action bar on small screens.
-    if (location.pathname === createPageUrl('InventoryCapture') && ['server','delivery'].includes(new URLSearchParams(location.search).get('workflow'))) {
+    if (location.pathname === createPageUrl('InventoryCapture') && ['server','delivery','scan','entry'].includes(new URLSearchParams(location.search).get('workflow'))) {
         return <>{children}<Toaster position="top-center" richColors /></>;
     }
 

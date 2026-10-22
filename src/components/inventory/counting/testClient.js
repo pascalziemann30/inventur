@@ -1,9 +1,10 @@
 import {createClient} from '@base44/sdk';
 import {appParams} from '@/lib/app-params';
+import {entryTransport} from '../entry/entryMode.js';
 
-// Dedicated client: this entire pre-release workflow always reads/writes Test Data.
-// Do not reuse it for the production cutover or infer an environment from a claimed role.
-export const inventoryTestClient=createClient({
-    appId:appParams.appId,token:appParams.token,functionsVersion:appParams.functionsVersion,
-    serverUrl:'',appBaseUrl:appParams.appBaseUrl,requiresAuth:false,headers:{'X-Data-Env':'dev'},
-});
+// Pre-release clients always use Test Data. The marker is never an authorization.
+const options={appId:appParams.appId,functionsVersion:appParams.functionsVersion,
+ serverUrl:'',appBaseUrl:appParams.appBaseUrl,requiresAuth:false};
+const admin=createClient({...options,token:appParams.token,headers:{'X-Data-Env':'dev'}});
+export const employeeTestClient=createClient({...options,headers:{'X-Data-Env':'dev','X-Inventory-Mode':'employee'}});
+export const inventoryTestClient=entryTransport({admin,employee:employeeTestClient});

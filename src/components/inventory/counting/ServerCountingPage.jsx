@@ -1,5 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
+import {employeeMode} from '../entry/entryMode.js';
+import {employeeTestClient} from './testClient.js';
 import {inventoryTestClient as base44} from './testClient.js';
 import CountingWorkspace from './CountingWorkspace.jsx';
 import {inventoryRunApi,runErrorMessage} from './runApi.js';
@@ -31,6 +33,12 @@ export default function ServerCountingPage() {
     useEffect(()=>{
         let active=true;
         (async()=>{
+            if(employeeMode()){
+                const {data}=await employeeTestClient.functions.invoke('locationEntry',{action:'context'});
+                if(!data?.outlet?.id||data.is_admin!==false)throw new Error('Bitte die Inventur erneut über Shift Control öffnen.');
+                if(active){setIsAdmin(false);setOutlets([data.outlet]);setOutletId(data.outlet.id);}
+                return;
+            }
             const user=await base44.auth.me();
             if (!user?.id) throw new Error('Bitte mit deinem echten App-Konto anmelden.');
             const all=await base44.entities.Outlet.filter({is_active:true},'name',501);

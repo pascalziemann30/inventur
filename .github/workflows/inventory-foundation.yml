@@ -13,12 +13,16 @@ on:
       - 'base44/functions/deliveryDrafts/**'
       - 'base44/functions/scanDelivery/**'
       - 'base44/functions/catalogImport/**'
+      - 'base44/functions/locationEntry/**'
+      - 'integration/shift-control-location-entry/**'
+      - 'src/components/inventory/entry/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
       - 'src/components/inventory/delivery/**'
       - 'src/components/inventory/scan/**'
       - 'src/pages/InventoryCapture.jsx'
       - 'src/Layout.jsx'
+      - 'src/main.jsx'
       - 'src/dev/countingPreview.jsx'
       - 'src/dev/deliveryPreview.jsx'
       - 'counting-preview.html'
@@ -45,7 +49,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:counting
       - run: npm run build
-      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/
+      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/
       - name: Check function entry syntax
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
@@ -56,6 +60,7 @@ jobs:
           node --check base44/functions/deliveryDrafts/entry.ts
           node --check base44/functions/scanDelivery/entry.ts
           node --check base44/functions/catalogImport/entry.ts
+          node --check base44/functions/locationEntry/entry.ts
       - name: Check schema JSON syntax
         run: |
           node --input-type=module - <<'JS'

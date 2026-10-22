@@ -8,13 +8,13 @@ const fields={options:[],list:['outlet_id'],get:['id'],start:['outlet_id','suppl
     propose:['id','request_id','revision','line_id','note'],resolve:['id','request_id','revision','line_id','resolution','note','supplier_item_id','identity_confirmed'],
     book:['id','revision','line_ids']};
 
-export function createDeliveryDraftHandler({createClientFromRequest,isEnabled,storeFor=base44DeliveryDraftStore,now}) {
+export function createDeliveryDraftHandler({createClientFromRequest,isEnabled,storeFor=base44DeliveryDraftStore,now,resolveActor=(_req,client)=>client.auth.me()}) {
     return async req=>{
         try {
             if (req.method !== 'POST') throw new BookingError('METHOD_NOT_ALLOWED',405);
             const client=createClientFromRequest(req);
             let user;
-            try {user=await client.auth.me();} catch {throw new BookingError('AUTHENTICATION_REQUIRED',401);}
+            try {user=await resolveActor(req,client);} catch(error) {if(error instanceof BookingError)throw error;throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED',401);
             if (req.headers.get('X-Data-Env') !== 'dev') throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
             const raw=await req.text();
