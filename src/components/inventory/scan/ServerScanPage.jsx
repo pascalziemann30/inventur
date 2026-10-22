@@ -11,7 +11,7 @@ async function scanApi(action,input={}){
 export default function ServerScanPage(){
     const [params,setParams]=useSearchParams(),id=params.get('scan');
     const [options,setOptions]=useState(null),[scan,setScan]=useState(null),[outlet,setOutlet]=useState(''),[supplier,setSupplier]=useState(''),[error,setError]=useState(''),[version,setVersion]=useState(0);
-    useEffect(()=>{let active=true;Promise.all([deliveryDraftApi('options'),scanApi('status')]).then(([value,status])=>{if(!active)return;setOptions({...value,read_only:value.read_only || status.read_only});if(value.outlets.length===1)setOutlet(value.outlets[0].id);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[version]);
+    useEffect(()=>{let active=true;Promise.all([deliveryDraftApi('options'),scanApi('status')]).then(([value,status])=>{if(!active)return;setOptions({...value,read_only:status.read_only});if(value.outlets.length===1)setOutlet(value.outlets[0].id);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[version]);
     useEffect(()=>{let active=true;setScan(null);if(id)scanApi('get',{id}).then(value=>{if(active)setScan(value);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[id,version]);
     const openScan=value=>{setScan(value);const next=new URLSearchParams(params);next.set('scan',value.id);setParams(next);};
     return <div className="counting-workspace"><aside className="count-server-note"><strong>Testbetrieb · Belegscan</strong><span>Private Belege · echte Anmeldung · keine automatische Bestandsbuchung</span></aside><main className="count-main">
