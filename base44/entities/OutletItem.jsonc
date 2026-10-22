@@ -1,0 +1,136 @@
+{
+  "name": "OutletItem",
+  "type": "object",
+  "properties": {
+    "outlet_id": {
+      "type": "string",
+      "description": "Outlet-ID (zu welchem Outlet gehört dieser Artikel)"
+    },
+    "outlet_name": {
+      "type": "string",
+      "description": "Outlet Name (Schnellzugriff)"
+    },
+    "global_item_id": {
+      "type": "string",
+      "description": "Verknüpfung zum GlobalItem"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Anzeigename (outlet-spezifisch, kann abweichen)"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Lieferant (outlet-spezifisch)"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Lieferantenname (Schnellzugriff)"
+    },
+    "net_purchase_price": {
+      "type": "number",
+      "description": "Freigegebener Netto-Stammpreis je Basiseinheit; kein Kartonpreis"
+    },
+    "min_stock": {
+      "type": "number",
+      "description": "Mindestbestand für Warnung"
+    },
+    "inventory_intervals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "weekly",
+          "monthly",
+          "yearly"
+        ]
+      },
+      "default": [],
+      "description": "Zugeordnete Inventur-Intervalle"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Outlet-spezifische Notizen"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Artikel aktiv/inaktiv"
+    },
+    "is_finished_product": {
+      "type": "boolean",
+      "default": false,
+      "description": "Fertigprodukt (mit Rezeptur)"
+    },
+    "recipe_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "article_id": {
+            "type": "string"
+          },
+          "article_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_abbreviation": {
+            "type": "string"
+          }
+        }
+      },
+      "default": [],
+      "description": "Rezeptur-Rohstoffe (für Fertigprodukte)"
+    },
+    "selling_price": {
+      "type": "number",
+      "description": "Verkaufspreis (für Fertigprodukte)"
+    },
+    "production_cost": {
+      "type": "number",
+      "description": "Wareneinsatz (berechnete Produktionskosten, für Fertigprodukte)"
+    },
+    "count_units": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "base_quantity": {
+            "type": "number",
+            "minimum": 0.000001
+          },
+          "whole_numbers_only": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "base_quantity"
+        ]
+      },
+      "description": "Artikelbezogene Zähleinheiten; Einkaufseinheiten bleiben gesondert im SupplierItem"
+    }
+  },
+  "required": [
+    "outlet_id",
+    "global_item_id",
+    "display_name",
+    "supplier_id"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

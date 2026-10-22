@@ -1,0 +1,311 @@
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Building2, Users, TrendingUp, Lock, GitMerge, Trash2, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export default function Settings() {
+    const navigate = useNavigate();
+    const [isMerging, setIsMerging] = useState(false);
+    const [showResetDialog, setShowResetDialog] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [resetStep, setResetStep] = useState('');
+
+    const { data: currentUser } = useQuery({
+        queryKey: ['currentUser'],
+        queryFn: () => base44.auth.me()
+    });
+
+    const userRole = sessionStorage.getItem('user_role');
+    const isAdmin = currentUser?.role === 'admin' || userRole === 'admin';
+
+    const handleResetAllData = async () => {
+        setIsResetting(true);
+        let hasErrors = false;
+
+        const steps = [
+            { name: 'StockMovement', label: 'Lagerbewegungen', entity: base44.entities.StockMovement },
+            { name: 'OutletStock', label: 'Bestandsmengen', entity: base44.entities.OutletStock },
+            { name: 'OutletItem', label: 'Outlet-Artikel', entity: base44.entities.OutletItem },
+            { name: 'GlobalItem', label: 'Globale Artikel', entity: base44.entities.GlobalItem },
+            { name: 'Article', label: 'Artikel', entity: base44.entities.Article },
+            { name: 'Delivery', label: 'Lieferungen', entity: base44.entities.Delivery },
+            { name: 'InventorySession', label: 'Inventur-Sessions', entity: base44.entities.InventorySession },
+            { name: 'Inventory', label: 'Inventur-Einträge', entity: base44.entities.Inventory },
+            { name: 'Waste', label: 'Waste-Einträge', entity: base44.entities.Waste },
+            { name: 'OutletTransfer', label: 'Outlet-Transfers', entity: base44.entities.OutletTransfer },
+            { name: 'PriceHistory', label: 'Preishistorie', entity: base44.entities.PriceHistory },
+            { name: 'Supplier', label: 'Lieferanten', entity: base44.entities.Supplier },
+        ];
+
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            setResetStep(`Schritt ${i + 1}/${steps.length}: ${step.label} wird gelöscht...`);
+            try {
+                const items = await step.entity.list();
+                for (const item of items) {
+                    await step.entity.delete(item.id);
+                }
+            } catch (error) {
+                hasErrors = true;
+                toast.error(`Fehler in Schritt ${i + 1}: ${error.message}`);
+            }
+        }
+
+        setIsResetting(false);
+        setShowResetDialog(false);
+        setResetStep('');
+
+        if (hasErrors) {
+            toast.warning('Reset abgeschlossen — einige Einträge konnten nicht gelöscht werden.');
+        } else {
+            toast.success('App erfolgreich zurückgesetzt — alle Daten wurden gelöscht.');
+        }
+        navigate(createPageUrl('Dashboard'));
+    };
+
+    const handleMergeSuppliers = async () => {
+        if (!confirm('Möchten Sie doppelte Lieferanten wirklich zusammenführen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+            return;
+        }
+
+        setIsMerging(true);
+        try {
+            const response = await base44.functions.invoke('mergeSuppliers', {});
+            if (response.data.success) {
+                toast.success(response.data.message);
+            } else {
+                toast.error(response.data.error || 'Fehler beim Zusammenführen');
+            }
+        } catch (error) {
+            toast.error('Fehler beim Zusammenführen der Lieferanten');
+            console.error(error);
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <header className="bg-white border-b border-slate-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+                    <div className="flex items-center gap-4">
+                        <Link to={createPageUrl('Dashboard')}>
+                            <Button variant="ghost" size="icon">
+                                <ArrowLeft className="w-5 h-5" />
+                            </Button>
+                        </Link>
+                        <div>
+                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                                Einstellungen
+                            </h1>
+                            <p className="text-sm text-slate-500">
+                                System verwalten & konfigurieren
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Suppliers */}
+                    <Card 
+                        className="cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => navigate(createPageUrl('Suppliers'))}
+                    >
+                        <CardHeader>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <Building2 className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg">Lieferanten</CardTitle>
+                                    <CardDescription>Lieferanten verwalten</CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-slate-600">
+                                Lieferanten anlegen, bearbeiten und Kontaktdaten pflegen
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Analytics */}
+                    <Card 
+                        className="cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => navigate(createPageUrl('Analytics'))}
+                    >
+                        <CardHeader>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-100 rounded-lg">
+                                    <TrendingUp className="w-6 h-6 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg">Auswertungen</CardTitle>
+                                    <CardDescription>Einkaufs- & Verbrauchsanalyse</CardDescription>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-slate-600">
+                                Monats- und Jahresauswertungen mit Einkaufspreisen
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* User Management - Admin Only */}
+                    {isAdmin && (
+                        <Card 
+                            className="cursor-pointer hover:shadow-lg transition-shadow border-amber-200 bg-amber-50/50"
+                            onClick={() => navigate(createPageUrl('Users'))}
+                        >
+                            <CardHeader>
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-amber-100 rounded-lg">
+                                        <Users className="w-6 h-6 text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            Benutzer
+                                            <Lock className="w-4 h-4 text-amber-600" />
+                                        </CardTitle>
+                                        <CardDescription>Nur für Admins</CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-slate-600">
+                                    Benutzer einladen und Rollen verwalten
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+
+                {/* Admin Tools */}
+                {isAdmin && (
+                    <Card className="mt-6 border-purple-200 bg-purple-50/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Lock className="w-5 h-5 text-purple-600" />
+                                Admin-Tools
+                            </CardTitle>
+                            <CardDescription>Wartungs- und Bereinigungsfunktionen</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                    <div>
+                                        <p className="font-medium text-sm">Lieferanten zusammenführen</p>
+                                        <p className="text-xs text-slate-600">Doppelte Lieferanten automatisch bereinigen</p>
+                                    </div>
+                                    <Button
+                                        onClick={handleMergeSuppliers}
+                                        disabled={isMerging}
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <GitMerge className="w-4 h-4" />
+                                        {isMerging ? 'Führt zusammen...' : 'Zusammenführen'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Datenverwaltung - Admin Only */}
+                {isAdmin && (
+                    <div className="mt-6">
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Datenverwaltung</p>
+                        <div className="bg-muted border border-border rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Alle Daten zurücksetzen</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Setzt alle Bestands-, Bewegungs- und Transaktionsdaten zurück. Outlets, Kategorien, Einheiten und Benutzer bleiben erhalten.</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowResetDialog(true)}
+                                    className="flex items-center gap-2 border border-destructive text-destructive rounded-xl px-4 py-2 text-sm hover:bg-destructive/10 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Alle Daten zurücksetzen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* User Info */}
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Angemeldeter Benutzer</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Name:</span>
+                                <span className="font-medium">{currentUser?.full_name || '-'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">E-Mail:</span>
+                                <span className="font-medium">{currentUser?.email || '-'}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Rolle:</span>
+                                <span className={`font-medium ${currentUser?.role === 'admin' ? 'text-amber-600' : 'text-slate-900'}`}>
+                                    {currentUser?.role === 'admin' ? 'Administrator' : 'Mitarbeiter'}
+                                </span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </main>
+
+            {/* Reset Confirmation Dialog */}
+            <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>App komplett zurücksetzen?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Dieser Vorgang löscht unwiderruflich: alle Artikel, Bestände, Lieferungen, Inventuren, Waste-Einträge, Transfers, Preishistorie und Lagerbewegungen. Outlets, Kategorien, Einheiten und Benutzer bleiben erhalten. Diese Aktion kann nicht rückgängig gemacht werden.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isResetting}>Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleResetAllData}
+                            disabled={isResetting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isResetting ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    {resetStep || 'Daten werden gelöscht...'}
+                                </span>
+                            ) : 'Ja, alles löschen'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
+}

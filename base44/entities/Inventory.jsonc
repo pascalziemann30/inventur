@@ -1,0 +1,55 @@
+{
+  "name": "Inventory",
+  "type": "object",
+  "properties": {
+    "article_id": {
+      "type": "string",
+      "description": "Verkn\u00fcpfter Artikel"
+    },
+    "article_name": {
+      "type": "string",
+      "description": "Artikelname (f\u00fcr schnelle Anzeige)"
+    },
+    "counted_quantity": {
+      "type": "number",
+      "description": "Gez\u00e4hlte Menge"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheit"
+    },
+    "inventory_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum der Inventur"
+    },
+    "inventory_type": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "monthly",
+        "yearly",
+        "initial",
+        "adhoc"
+      ],
+      "description": "Art der Inventur"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Bemerkungen"
+    },
+    "previous_stock": {
+      "type": "number",
+      "description": "Bestand vor der Inventur"
+    },
+    "difference": {
+      "type": "number",
+      "description": "Differenz zum erwarteten Bestand"
+    }
+  },
+  "required": [
+    "article_id",
+    "counted_quantity",
+    "inventory_date"
+  ]
+}
