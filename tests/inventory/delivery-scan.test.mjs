@@ -86,3 +86,44 @@ test('real admin role may inspect another owner original but cannot overwrite th
     await assert.rejects(f.service.analyze({id:scan.id,revision:scan.revision}),{code:'SCAN_OWNER_REQUIRED'});
     await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review:{}}),{code:'SCAN_OWNER_REQUIRED'});
 });
+
+test('confirmed excluded fees and transport are retained as evidence but never handed to the stock draft',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const result=raw();result.lines.push({...result.lines[0],original_name:'Liefergebühr',supplier_article_number:'FEE',purchase_quantity:'',net_purchase_price:'',line_kind:'delivery_fee'});return result;};
+    const scan=await f.analyze(),review=f.review(scan);review.lines[1].disposition='exclude_delivery_fee';
+    await f.service.commit({id:scan.id,revision:scan.revision,review});
+    const saved=[...f.rows.values()][0];assert.equal(saved.frozen_review.lines.length,1);assert.equal(saved.frozen_review.excluded_lines.length,1);assert.equal(saved.frozen_review.reviewed_lines.length,2);
+    assert.equal(f.calls.find(row=>row.draft).draft.lines.length,1);assert.equal(saved.frozen_review.policy.overall_discounts,'ignore_for_inventory');
+});
+test('exclusion must itself be human checked and cannot silently drop an extracted row',async()=>{
+    const f=fixture(),scan=await f.analyze(),review=f.review(scan);review.lines[0].disposition='exclude_transport';review.lines[0].checked=false;
+    await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review}),{code:'SCAN_HUMAN_REVIEW_REQUIRED'});
+    review.lines[0].checked=true;await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review}),{code:'SCAN_NO_GOODS'});
+    assert.equal(f.created.size,0);
+});
+test('missing declared page needs a specific no-additional-goods confirmation with durable actor and coverage',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>({...raw(),declared_pages:2,page_numbers:[1]});
+    const scan=await f.analyze(),review=f.review(scan);assert.deepEqual(scan.coverage.missing_pages,[2]);
+    await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review}),{code:'SCAN_MISSING_PAGES_REVIEW_REQUIRED'});
+    review.missing_pages_no_goods_checked=true;await f.service.commit({id:scan.id,revision:scan.revision,review});
+    const frozen=[...f.rows.values()][0].frozen_review;assert.equal(frozen.checked_by,'person');assert.equal(frozen.coverage_review.missing_pages_no_goods_checked,true);assert.deepEqual(frozen.coverage_review.missing_pages,[2]);
+});
+test('adding a page invalidates prior reads and sends both originals to each new blind read',async()=>{
+    const f=fixture(),scan=await f.analyze();
+    const second=new File([new Uint8Array([137,80,78,71,13,10,26,10,0,2])],'page-two.png',{type:'image/png'});
+    const appended=await f.service.append({id:scan.id,revision:scan.revision,file:second});assert.equal(appended.status,'uploaded');assert.deepEqual(appended.reads,[]);assert.equal(appended.source_files.length,2);
+    await f.service.analyze({id:scan.id,revision:appended.revision});
+    assert(f.calls.filter(row=>row.prompt).slice(-2).every(call=>call.file_urls.length===2));
+    await assert.rejects(f.service.append({id:scan.id,revision:scan.revision,file:second}),{code:'SCAN_CHANGED_RELOAD'});
+});
+test('identical appended bytes recover the same source set without another private upload',async()=>{
+    const f=fixture(),scan=await f.upload();await f.service.append({id:scan.id,revision:scan.revision,file:file()});
+    assert.equal(f.calls.filter(row=>row==='private').length,1);
+});
+test('different complete receipts in one scan are rejected before review or draft creation',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>({...raw(),multiple_documents:true});
+    await assert.rejects(f.analyze(),{code:'SCAN_MULTIPLE_DOCUMENTS'});assert.equal(f.created.size,0);
+});
+test('model metadata preserves distinct packaging fields and dated notes without selecting oldest date',()=>{
+    const result=parseScanRead({...raw(),other_dates:['2026-09-30'],lines:[{...raw().lines[0],colli_quantity:'3',colli_unit:'KT',content_quantity:'3',content_unit:'BT',line_total:'161,73',line_kind:'goods'}]});
+    assert.equal(result.delivery_date,'2026-10-22');assert.equal(result.lines[0].colli_unit,'KT');assert.equal(result.lines[0].content_unit,'BT');assert.deepEqual(result.other_dates,['2026-09-30']);
+});

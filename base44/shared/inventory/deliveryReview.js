@@ -1,11 +1,11 @@
-import {BookingError, scaledQuantity, toBaseQuantity, baseUnitPrice} from './quantities.js';
+import {BookingError, monetaryNumber, scaledQuantity, toBaseQuantity, baseUnitPrice} from './quantities.js';
 
 // Search normalization is deliberately NOT an identity key. Numbers and variant words survive.
 export const searchName = value => String(value || '').normalize('NFKC').toLocaleLowerCase('de')
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const text = value => typeof value === 'string' ? value.trim() : '';
 const validMoney = value => {
-    try {return scaledQuantity(value) > 0n;} catch {return false;}
+    try {return monetaryNumber(value) > 0;} catch {return false;}
 };
 
 // Conservative spelling/abbreviation help for suggestions only. Never an identity or approval.

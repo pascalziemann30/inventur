@@ -60,7 +60,7 @@ test('repeated article lines are visible even when quantities and prices differ'
 });
 test('blank, zero, negative or invalid quantities/prices produce explicit issues',()=>{
     for(const value of ['',null,'-1','1.1234567','1e3']){
-        const f=deliveryExamples();f.lines[0].purchase_quantity=value;f.lines[0].net_purchase_price=value;
+        const f=deliveryExamples();f.lines[0].purchase_quantity=value;f.lines[0].net_purchase_price=value==='1.1234567'?'1.12345678901234567':value;
         const line=review(f).lines[0];assert(line.issues.includes('POSITIVE_PURCHASE_QUANTITY_REQUIRED'));
         assert(line.issues.includes('POSITIVE_RECEIPT_PRICE_REQUIRED'));assert.equal(line.base_quantity,null);
     }

@@ -48,8 +48,16 @@ export function countCakes(wholeCakes, loosePieces, portionsPerCake) {
     return addQuantity(toBaseQuantity(quantityNumber(whole), quantityNumber(portions)), quantityNumber(loose));
 }
 
+export function monetaryNumber(value) {
+    if(typeof value!=='string' && typeof value!=='number')throw new BookingError('INVALID_PRICE');
+    const text=String(value).trim().replace(',','.');
+    if(!/^\d+(?:\.\d{1,16})?$/.test(text))throw new BookingError('INVALID_PRICE');
+    const price=Number(text);
+    if(!Number.isFinite(price) || price<0 || price>1_000_000_000)throw new BookingError('INVALID_PRICE');
+    return price;
+}
 export function baseUnitPrice(purchasePrice, factor) {
-    const price = quantityNumber(scaledQuantity(purchasePrice));
+    const price = monetaryNumber(purchasePrice);
     const quantity = quantityNumber(scaledQuantity(factor));
     if (quantity === 0) throw new BookingError('CONVERSION_REQUIRED');
     return price / quantity;

@@ -65,6 +65,12 @@
     },
     "frozen_review": {
       "type": "object"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     }
   },
   "required": [

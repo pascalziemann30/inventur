@@ -22,13 +22,13 @@ export function createScanDeliveryHandler({createClientFromRequest,isEnabled,ser
             let body;
             if(multipart){const form=await new Response(bytes,{headers:{'content-type':req.headers.get('content-type')}}).formData();body={};for(const [key,value]of form){if(Object.hasOwn(body,key))throw new BookingError('INVALID_REQUEST',400);body[key]=value;}}
             else{try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{throw new BookingError('INVALID_REQUEST',400);}}
-            const fields={upload:['file','outlet_id','supplier_id'],get:['id'],analyze:['id','revision'],commit:['id','revision','review']};
-            if(!body || typeof body!=='object' || !Object.hasOwn(fields,body.action) || Object.keys(body).some(key=>key!=='action' && !fields[body.action].includes(key)) || multipart!==(body.action==='upload'))throw new BookingError('INVALID_REQUEST',400);
+            const fields={upload:['file','outlet_id','supplier_id'],append:['id','revision','file'],get:['id'],analyze:['id','revision'],commit:['id','revision','review']};
+            if(!body || typeof body!=='object' || !Object.hasOwn(fields,body.action) || Object.keys(body).some(key=>key!=='action' && !fields[body.action].includes(key)) || multipart!==['upload','append'].includes(body.action))throw new BookingError('INVALID_REQUEST',400);
             if(!writable && body.action!=='get')throw new BookingError('DELIVERY_SCAN_TEST_DISABLED',503);
             const entities=client.asServiceRole.entities;
             const service=serviceFor?serviceFor(client,user):createDeliveryScanService({store:base44DeliveryScanStore(entities,user),core:client.asServiceRole.integrations.Core,user,
                 drafts:createDeliveryDraftService({store:base44DeliveryDraftStore(entities,user),user,now}),now});
-            const {action,...input}=body;
+            const {action,...input}=body;if(action==='append')input.revision=Number(input.revision);
             const result=action==='get'?await service.get(input.id):await service[action](input);
             return Response.json({...result,read_only:!writable});
         }catch(error){if(error instanceof BookingError)return Response.json({error:error.code},{status:error.status});
