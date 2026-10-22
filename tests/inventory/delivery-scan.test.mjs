@@ -163,3 +163,27 @@ test('an asynchronous closed readiness gate cannot become a truthy write grant',
     assert.equal((await (await handler(request('status'))).json()).read_only,true);
     assert.equal((await handler(request('analyze'))).status,503);
 });
+
+test('a checked colli/price-unit quantity error cannot create a delivery draft',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const read=raw();Object.assign(read.lines[0],{purchase_quantity:'3',net_purchase_price:'5',line_total:'45,00',colli_quantity:'3',colli_unit:'KT',content_quantity:'3',content_unit:'BT'});return read;};
+    const scan=await f.analyze();await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review:f.review(scan)}),{code:'SCAN_LINE_AMOUNT_MISMATCH'});assert.equal(f.created.size,0);assert.equal([...f.rows.values()][0].status,'review');
+    const review=f.review(scan);review.lines[0].purchase_quantity='9';await f.service.commit({id:scan.id,revision:scan.revision,review});
+    const saved=[...f.rows.values()][0];assert.equal(saved.frozen_review.reviewed_lines[0].reviewed_line_total,'45,00');assert.equal(saved.reads[0].lines[0].purchase_quantity,'3');assert.equal(saved.frozen_review.lines[0].purchase_quantity,'9');assert(!('reviewed_line_total' in saved.frozen_review.lines[0]));
+});
+test('an incorrectly read line amount can be corrected explicitly without overwriting the raw reading',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const read=raw();Object.assign(read.lines[0],{purchase_quantity:'2',net_purchase_price:'5',line_total:'70'});return read;};
+    const scan=await f.analyze(),review=f.review(scan);review.lines[0].reviewed_line_total='10';await f.service.commit({id:scan.id,revision:scan.revision,review});
+    const saved=[...f.rows.values()][0];assert.equal(saved.reads[0].lines[0].line_total,'70');assert.equal(saved.frozen_review.reviewed_lines[0].reviewed_line_total,'10');
+});
+test('clearing a printed line amount does not remove its required arithmetic check',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const read=raw();read.lines[0].line_total='20';return read;};
+    const scan=await f.analyze(),review=f.review(scan);review.lines[0].reviewed_line_total='';await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review}),{code:'SCAN_LINE_AMOUNT_MISMATCH'});assert.equal(f.created.size,0);
+});
+test('missing unit prices remain open instead of being invented from a printed total',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const read=raw();read.lines[0].line_total='20';read.lines[0].net_purchase_price='';return read;};
+    const scan=await f.analyze();await f.service.commit({id:scan.id,revision:scan.revision,review:f.review(scan)});assert.equal([...f.rows.values()][0].frozen_review.lines[0].net_purchase_price,'');
+});
+test('printed monetary rounding within one cent does not force an incorrect price correction',async()=>{
+    const f=fixture();f.core.InvokeLLM=async()=>{const read=raw();Object.assign(read.lines[0],{purchase_quantity:'1',net_purchase_price:'5.003',line_total:'5.00'});return read;};
+    const scan=await f.analyze();await f.service.commit({id:scan.id,revision:scan.revision,review:f.review(scan)});assert.equal(f.created.size,1);
+});

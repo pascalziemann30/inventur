@@ -1,6 +1,6 @@
 import {BookingError} from './quantities.js';
 import {assertOutletAccess} from './stock.js';
-import {receiptPolicy,pageCoverage,assertCoverageReview,reviewedRows} from './scanRules.js';
+import {receiptPolicy,pageCoverage,assertCoverageReview,reviewedRows,lineAmountChecks} from './scanRules.js';
 import {reviewDeliveryLines} from './deliveryReview.js';
 
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
@@ -124,6 +124,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
                 if(!review || review.document_checked!==true || review.prices_net_checked!==true)fail('SCAN_HUMAN_REVIEW_REQUIRED',400);
                 const coverage=assertCoverageReview(scan.reads,review);
                 const {all,goods:lines,excluded}=reviewedRows(review.lines,scan.reads[0].lines,scanFields);
+                if(lineAmountChecks(scan.reads,all).some(line=>line.mismatch))fail('SCAN_LINE_AMOUNT_MISMATCH',400);
                 if(!safeString(review.document_reference,100) || !review.document_reference.trim() || !safeString(review.delivery_date,10))fail('SCAN_HEADER_REVIEW_REQUIRED',400);
                 // Validate before freezing. No AI output can assign a product or manufacture an approval.
                 const catalog=await store.catalog(scan.outlet_id,scan.supplier_id);reviewDeliveryLines({lines,catalog,outletId:scan.outlet_id,supplierId:scan.supplier_id});
