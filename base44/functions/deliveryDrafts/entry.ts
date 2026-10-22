@@ -3,7 +3,7 @@ import {secrets} from 'base44:runtime';
 import {isStorageProbeAllowed} from '../../shared/inventory/storageProbeGate.js';
 import {createDeliveryDraftHandler} from './handler.js';
 
-// Manual and scan-created delivery drafts share the bounded dev-only session grant.
+// Original-backed and manual drafts use the same expiring test-only write grant.
 export default createDeliveryDraftHandler({createClientFromRequest,
     isEnabled:()=>isStorageProbeAllowed(secrets.get('INVENTORY_SESSION_TEST_ALLOWED')),
 });

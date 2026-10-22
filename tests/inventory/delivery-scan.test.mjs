@@ -79,3 +79,10 @@ test('scan handler enforces actual authentication, dev-only gate and rejects arb
     assert.equal((await handler(request({action:'get',id:'x'},'prod'))).status,503);
     assert.equal((await handler(request({action:'get',id:'x',source_url:'https://evil.example'}))).status,400);assert.equal(called,false);
 });
+
+test('real admin role may inspect another owner original but cannot overwrite their scan review',async()=>{
+    const f=fixture(),scan=await f.upload();f.user.id='admin';f.user.role='admin';
+    const inspected=await f.service.get(scan.id);assert.equal(inspected.can_edit,false);assert.equal(inspected.id,scan.id);
+    await assert.rejects(f.service.analyze({id:scan.id,revision:scan.revision}),{code:'SCAN_OWNER_REQUIRED'});
+    await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review:{}}),{code:'SCAN_OWNER_REQUIRED'});
+});

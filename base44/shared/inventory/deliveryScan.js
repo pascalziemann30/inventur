@@ -38,11 +38,11 @@ export async function validateScanFile(file){
     return {hash,mime,size:bytes.length};
 }
 export function createDeliveryScanService({store,core,user,drafts,now=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID()}){
-    const load=async id=>{
+    const load=async(id,write=false)=>{
         if(typeof id!=='string' || !id || id.length>100)fail('SCAN_ID_REQUIRED',400);
         const scan=await store.get(id);if(!scan)fail('SCAN_NOT_FOUND',404);
         assertOutletAccess(user,scan.outlet_id);
-        if(scan.actor_id!==user.id)fail('SCAN_OWNER_REQUIRED',403);
+        if(scan.actor_id!==user.id && (write || user.role!=='admin'))fail('SCAN_OWNER_REQUIRED',403);
         await store.catalog(scan.outlet_id,scan.supplier_id);
         return scan;
     };
@@ -54,7 +54,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
         const review=lines?.every(row=>row.original_name.trim())?reviewDeliveryLines({lines,catalog,outletId:scan.outlet_id,supplierId:scan.supplier_id}):null;
         const source=await core.CreateFileSignedUrl({file_uri:scan.file_uri,expires_in:300});
         return {id:scan.id,outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,outlet_name:catalog.outlet.name,supplier_name:catalog.supplier.name,status:scan.status,revision:scan.revision,
-            mime:scan.mime,file_name:scan.file_name,source_url:source.signed_url,reads:scan.reads || [],comparison:scan.comparison || null,review,
+            can_edit:scan.actor_id===user.id,mime:scan.mime,file_name:scan.file_name,source_url:source.signed_url,reads:scan.reads || [],comparison:scan.comparison || null,review,
             frozen_review:scan.frozen_review || null,draft_id:scan.draft_id || null,error:scan.error || null};
     };
     return {
@@ -73,7 +73,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
         },
         async get(id){return project(await load(id));},
         async analyze({id,revision}){
-            let scan=await load(id);
+            let scan=await load(id,true);
             if(['review','committing','committed'].includes(scan.status))return project(scan);
             if(scan.revision!==revision)fail('SCAN_CHANGED_RELOAD');
             if(scan.status==='analyzing' && Date.parse(now())-Date.parse(scan.analysis_started_at)<5*60*1000)fail('SCAN_ANALYSIS_PENDING',423);
@@ -93,7 +93,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
             }
         },
         async commit({id,revision,review}){
-            let scan=await load(id);
+            let scan=await load(id,true);
             if(scan.status==='committed')return {draft_id:scan.draft_id};
             if(scan.status!=='committing'){
                 if(scan.status!=='review' || scan.revision!==revision)fail('SCAN_CHANGED_RELOAD');

@@ -24,3 +24,8 @@ The connected draft workflow now provides authenticated selectors, saved drafts 
 ## Connected booking package (2026-10-22)
 
 The persisted draft workflow now supports explicit selection, a confirmation dialog, frozen partial stock booking and per-position history. See `delivery-drafts.md` for the current limits, reference registry and observed runtime exercise. The standalone preview remains read-only with synthetic data. OCR/image parsing, genuinely new master article approval and the production permission cutover remain pending.
+
+
+## Scan intake (2026-10-22)
+
+A private, authenticated photo/PDF scan with two blind reads and mandatory per-row human review now precedes this workspace. Corrected OCR remains unconfirmed input: supplier SKU/unit identity and changed descriptions are still checked here. See `delivery-scan.md` for actual hosted synthetic-image results and the still-pending real-photo/iPad acceptance. The production scanner has not been switched over.

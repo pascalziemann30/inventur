@@ -20,7 +20,7 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
         if(!['image/jpeg','image/png','image/webp','application/pdf'].includes(file.type) || file.size>10*1024*1024){setError('Bitte JPG, PNG, WebP oder PDF bis 10 MB wählen. HEIC gegebenenfalls zuvor als JPEG exportieren.');return;}
         await run(async()=>onScan(await api('upload',{file,outlet_id:outletId,supplier_id:supplierId})));
     };
-    const change=(id,key,value)=>{setLines(rows=>rows.map(row=>row.id===id?{...row,[key]:value,checked:false}:row));setDocumentChecked(false);};
+    const change=(id,key,value)=>{setLines(rows=>rows.map(row=>row.id===id?{...row,[key]:value,checked:false,edited:true}:row));setDocumentChecked(false);};
     const submit=()=>run(async()=>{const result=await api('commit',{id:scan.id,revision:scan.revision,review:{delivery_date:date,document_reference:reference,document_checked:documentChecked,prices_net_checked:netChecked,lines:lines.map(row=>({id:row.id,...Object.fromEntries(scanFields.map(key=>[key,row[key]])),checked:row.checked}))}});onDraft(result.draft_id);});
     return <section className="scan-workspace">
         <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG · BELEG ERFASSEN</p><h1>Beleg scannen</h1><p>Foto oder Datei → gegenlesen → Artikel zuordnen → ausdrücklich buchen.</p></div></div>
@@ -39,7 +39,7 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
                     {!!scan.comparison?.warnings.length && <p className="delivery-warning">Die Lesungen weichen bei Belegkopf, Seiten- oder Positionszahl ab. Beide Lesungen und sämtliche Originalseiten vergleichen.</p>}
                     <label>Belegreferenz<input aria-label="Gegenprüfung Belegreferenz" value={reference} disabled={locked} onChange={e=>{setReference(e.target.value);setDocumentChecked(false);}}/></label><label>Lieferdatum<input aria-label="Gegenprüfung Lieferdatum" type="date" value={date} disabled={locked} onChange={e=>{setDate(e.target.value);setDocumentChecked(false);}}/></label></section>
                     {lines.map((line,index)=>{
-                        const diagnosis=scan.review?.lines.find(row=>row.line_id===line.id),other=scan.reads[1]?.lines[index];
+                        const diagnosis=line.edited?null:scan.review?.lines.find(row=>row.line_id===line.id),other=scan.reads[1]?.lines[index];
                         return <article key={line.id} className="delivery-line"><div className="delivery-line-title"><strong>Position {index+1} · Seite {line.page || 'manuell'}</strong><span>{diagnosis?.match==='matched'?'Vorhandener Artikel gefunden – noch nicht zugeordnet':diagnosis?.candidates.length?'Ähnliche vorhandene Artikel prüfen':'Zuordnung noch offen'}</span></div><p className="scan-raw">Originallesung: {line.source_text || 'manuell ergänzt'}</p>{!!scan.comparison?.lines[index]?.disagreements.length && <p className="delivery-warning">Abweichende Lesungen – diese Position besonders prüfen.</p>}
                             <div className="delivery-fields">{scanFields.map(field=><label key={field}>{labels[field]}<input aria-label={`${labels[field]} ${line.id}`} value={line[field]} disabled={locked} onChange={e=>change(line.id,field,e.target.value)}/></label>)}</div>
                             {diagnosis?.candidates.length>0 && <p>Vorschläge: {diagnosis.candidates.map(row=>`${row.name} (${row.supplier_article_number} / ${row.purchase_unit_code})`).join(' · ')}</p>}
