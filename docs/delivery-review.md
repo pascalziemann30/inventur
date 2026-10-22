@@ -19,3 +19,8 @@ The read-only endpoint is also used by the connected delivery-draft workflow (se
 16 additional automated tests cover matching, variants, duplicates, quantities, source prices, strict request shapes, actual-request identity checks, outlet scope, catalog limits and private-candidate projection. Together with the existing suite there are 82 tests. Both preview entries, full application build and targeted frontend lint are checked. Manual browser checks cover 9+1 results, an isolated unknown-position filter, conflict diagnostics and invalidation/recalculation after an input change.
 
 The connected draft workflow now provides authenticated selectors, saved drafts with revision checks, persisted proposals and admin rejection/linkage to an existing approved product. Pending work: OCR ingestion as untrusted structured lines, creation/approval of truly new master products, complete canonical receipt deduplication, materializing immutable booking positions, resuming partial bookings through the stock journal, and history. Only after these parts and the actual employee/outlet test pass may the legacy write paths and permissions be cut over together. No production readiness is implied by this review-only step.
+
+
+## Connected booking package (2026-10-22)
+
+The persisted draft workflow now supports explicit selection, a confirmation dialog, frozen partial stock booking and per-position history. See `delivery-drafts.md` for the current limits, reference registry and observed runtime exercise. The standalone preview remains read-only with synthetic data. OCR/image parsing, genuinely new master article approval and the production permission cutover remain pending.

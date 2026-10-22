@@ -105,4 +105,24 @@ test('registry lost response recovers its claim; uninitialized or full registry 
     assert.equal(f.outlet().delivery_registry.length,1);
     const invalid={get:async()=>({is_active:true}),cas:async()=>{throw new Error('must not write');}};
     await assert.rejects(claimDeliveryReference({store:invalid,outletId:'x',supplierId:'s',reference:'r',draftId:'d'}),{code:'DELIVERY_REGISTRY_NOT_INITIALIZED'});
+    const full={get:async()=>({is_active:true,delivery_registry_revision:1000,delivery_registry:Array.from({length:1000},(_,i)=>({key:String(i)}))}),cas:async()=>{throw new Error('must not discard claims');}};
+    await assert.rejects(claimDeliveryReference({store:full,outletId:'x',supplierId:'s',reference:'r',draftId:'d'}),{code:'DELIVERY_REGISTRY_ARCHIVE_REQUIRED'});
+});
+
+test('multi-position batch preserves its first commit while a later stock retries independently',async()=>{
+    const f=fixture(),second=memoryStore({id:'stock-two',outlet_id:f.example.outletId,outlet_item_id:'item-002',global_item_id:'global-002',unit_abbreviation:'kg',on_hand_quantity:3.5,revision:0,booking_journal:[]});
+    const stores={'stock':f.stock,'stock-two':second};
+    f.store.stocks={verifiedAtomicWrites:true,get:id=>stores[id].get(),compareAndSwap:(old,next)=>stores[old.id].compareAndSwap(old,next)};
+    f.store.stockFor=async c=>c.outlet_item_id==='item-001'?'stock':'stock-two';
+    let draft=await f.service.start({outlet_id:f.example.outletId,supplier_id:f.example.supplierId,delivery_date:'2026-10-22',document_reference:'TWO-KNOWN-ONE-OPEN',start_key:'multi-start-key-0001',lines:[f.example.lines[0],f.example.lines[1],f.example.lines[9]]});
+    for(const [line_id,supplier_item_id] of [['line-1','offer-001'],['line-2','offer-002']])draft=(await f.service.confirm({id:draft.id,revision:draft.revision,request_id:`multi-confirm-${line_id}`,line_id,supplier_item_id,acknowledged_issues:[]})).draft;
+    const input={id:draft.id,revision:draft.revision,line_ids:['line-1','line-2']};
+    second.failBefore=true;
+    const interrupted=await f.service.book(input);
+    assert.equal(interrupted.status,'posting');assert.equal(f.stock.snapshot().on_hand_quantity,35);assert.equal(second.snapshot().on_hand_quantity,3.5);
+    const resumed=await f.service.book(input);
+    assert.equal(resumed.status,'partially_booked');assert.equal(second.snapshot().on_hand_quantity,4.5);
+    assert.equal(f.stock.writes(),1);assert.equal(second.writes(),1);
+    assert.equal(resumed.line_states[2].status,'open');
+    await f.service.book(input);assert.equal(f.stock.writes(),1);assert.equal(second.writes(),1);
 });

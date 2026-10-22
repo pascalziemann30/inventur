@@ -7,6 +7,7 @@ import './deliveryReview.css';
 const backupKey=id=>`delivery_input_copy:${id}`;
 const pendingKey=id=>`delivery_pending_request:${id}`;
 const readLocal=key=>{try{return JSON.parse(sessionStorage.getItem(key) || 'null');}catch{return null;}};
+const statusLabel={draft:'Entwurf',posting:'Buchung läuft',partially_booked:'Teilweise gebucht',completed:'Vollständig gebucht'};
 const dateToday=()=>new Date().toLocaleDateString('en-CA');
 
 export default function ServerDeliveryPage() {
@@ -87,7 +88,7 @@ export default function ServerDeliveryPage() {
         {pending && <div className="count-copy"><strong>Antwort noch unklar</strong><p>Der exakt gleiche Vorgang bleibt für einen erneuten Versuch erhalten. Weitere Änderungen sind bis zur Klärung gesperrt.</p><button className="count-confirm" disabled={busy} onClick={()=>send(requestRef.current).catch(()=>{})}>Gleichen Vorgang erneut versuchen</button></div>}
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}
         {draft ? <>
-            <div className="delivery-draft-meta"><button className="count-link" disabled={busy || !!pending} onClick={()=>{const next=new URLSearchParams(params);next.delete('delivery');setParams(next);setListVersion(v=>v+1);}}>Zur Lieferübersicht</button><span>{draft.delivery_date} · Beleg {draft.document_reference || 'ohne Referenz'} · Stand {draft.revision}</span></div>
+            <div className="delivery-draft-meta"><button className="count-link" disabled={busy || !!pending} onClick={()=>{const next=new URLSearchParams(params);next.delete('delivery');setParams(next);setListVersion(v=>v+1);}}>Zur Lieferübersicht</button><span>{draft.delivery_date} · Beleg {draft.document_reference || 'ohne Referenz'} · Stand {draft.revision} · {statusLabel[draft.status]}</span></div>
             <DeliveryReviewWorkspace key={`${id}:${generation}`} initialLines={draft.lines} initialReview={draft.review} lineStates={draft.line_states}
                 outletName={draft.outlet_name} supplierName={draft.supplier_name} offers={draft.offers} isAdmin={draft.is_admin}
                 readOnly={draft.read_only} externalBusy={busy || !!pending} posting={draft.posting} bookingEnabled={draft.booking_enabled} batchLineIds={draft.batch_line_ids}
@@ -109,7 +110,7 @@ export default function ServerDeliveryPage() {
                 <label>Erste Belegposition<input aria-label="Erste Belegposition" required maxLength={300} disabled={busy} value={firstName} onChange={e=>setFirstName(e.target.value)}/></label>
                 <button className="count-primary" disabled={busy || options?.read_only || !options}>Lieferentwurf anlegen</button>
             </form>
-            <section className="count-sessions"><h2>Gespeicherte Entwürfe</h2>{!drafts.length && <p>Für den ausgewählten Standort ist noch kein Entwurf gespeichert.</p>}{drafts.map(item=><button key={item.id} onClick={()=>open(item)}><strong>{item.document_reference || 'Ohne Belegreferenz'} · {item.supplier_name}</strong><span>{item.delivery_date} · {item.positions} Positionen · {item.pending_proposals} Vorschläge offen</span></button>)}</section>
+            <section className="count-sessions"><h2>Gespeicherte Entwürfe</h2>{!drafts.length && <p>Für den ausgewählten Standort ist noch kein Entwurf gespeichert.</p>}{drafts.map(item=><button key={item.id} onClick={()=>open(item)}><strong>{item.document_reference || 'Ohne Belegreferenz'} · {item.supplier_name}</strong><span>{item.delivery_date} · {item.positions} Positionen · {statusLabel[item.status]} · {item.pending_proposals} Vorschläge offen</span></button>)}</section>
             {options?.is_admin && <details className="count-copy"><summary>Admin-Testwerkzeug</summary><p>Erstellt einen eigenen synthetischen Standort, vier Testartikel mit Einkaufszuordnungen und einen Lieferentwurf mit einer bekannten und einer unbekannten Position.</p><button className="count-confirm" disabled={busy || options.read_only} onClick={fixture}>Synthetische Testlieferung vorbereiten</button></details>}
         </main>}
     </div>;
