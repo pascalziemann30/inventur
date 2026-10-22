@@ -140,3 +140,19 @@ test('malformed null review rows are rejected before any draft write',async()=>{
     await assert.rejects(f.service.commit({id:scan.id,revision:scan.revision,review:{...review,lines:[null]}}),{code:'SCAN_HUMAN_REVIEW_REQUIRED'});
     assert.equal(f.created.size,0);
 });
+
+test('scan readiness uses the actual scan gate without accessing catalogs or private storage',async()=>{
+    let enabled=false,created=0;
+    const handler=createScanDeliveryHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'person'})}}),isEnabled:()=>enabled,serviceFor:()=>{created++;throw Error('must not create service');}});
+    const request=()=>new Request('https://example.com/function',{method:'POST',headers:{'Content-Type':'application/json','X-Data-Env':'dev'},body:JSON.stringify({action:'status'})});
+    let result=await handler(request());assert.equal(result.status,200);assert.equal((await result.json()).read_only,true);
+    enabled=true;result=await handler(request());assert.equal((await result.json()).read_only,false);assert.equal(created,0);
+});
+test('blind readings run concurrently and a failed read waits for its peer before releasing the attempt',async()=>{
+    const f=fixture(),scan=await f.upload();let started=0,release;
+    const pending=new Promise(resolve=>{release=resolve;});
+    f.core.InvokeLLM=async()=>{started++;if(started===1)throw Error('unavailable');await pending;return raw();};
+    const result=f.service.analyze({id:scan.id,revision:scan.revision});
+    while(started<2)await new Promise(resolve=>setImmediate(resolve));
+    assert.equal([...f.rows.values()][0].status,'analyzing');release();await assert.rejects(result);assert.equal([...f.rows.values()][0].status,'failed');assert.equal(f.created.size,0);
+});
