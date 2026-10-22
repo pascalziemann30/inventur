@@ -64,7 +64,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
         const lines=scan.reads?.[0]?.lines.map(row=>({id:row.id,...Object.fromEntries(scanFields.map(field=>[field,row[field]]))}));
         // Missing names remain blank until the human corrects them, rather than inventing a product name.
         const review=lines?.every(row=>row.original_name.trim())?reviewDeliveryLines({lines,catalog,outletId:scan.outlet_id,supplierId:scan.supplier_id}):null;
-        const sources=[];for(const file of scan.files || [{file_uri:scan.file_uri,file_name:scan.file_name,mime:scan.mime,file_hash:scan.file_hash}]){const source=await core.CreateFileSignedUrl({file_uri:file.file_uri,expires_in:300});sources.push({file_name:file.file_name,mime:file.mime,source_url:source.signed_url});}
+        const sources=[];for(const file of (scan.files?.length?scan.files:[{file_uri:scan.file_uri,file_name:scan.file_name,mime:scan.mime,file_hash:scan.file_hash}])){const source=await core.CreateFileSignedUrl({file_uri:file.file_uri,expires_in:300});sources.push({file_name:file.file_name,mime:file.mime,source_url:source.signed_url});}
         return {id:scan.id,outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,outlet_name:catalog.outlet.name,supplier_name:catalog.supplier.name,status:scan.status,revision:scan.revision,
             can_edit:scan.actor_id===user.id,mime:scan.mime,file_name:scan.file_name,source_url:sources[0].source_url,source_files:sources,coverage:scan.reads?.length?pageCoverage(scan.reads):null,receipt_policy:receiptPolicy,reads:scan.reads || [],comparison:scan.comparison || null,review,
             frozen_review:scan.frozen_review || null,draft_id:scan.draft_id || null,error:scan.error || null};
@@ -86,7 +86,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
         async append({id,revision,file}){
             const scan=await load(id,true);
             if(!['uploaded','failed','review'].includes(scan.status) || scan.revision!==revision)fail('SCAN_CHANGED_RELOAD');
-            const checked=await validateScanFile(file),files=scan.files || [{file_uri:scan.file_uri,file_name:scan.file_name,mime:scan.mime,file_hash:scan.file_hash}];
+            const checked=await validateScanFile(file),files=(scan.files?.length?scan.files:[{file_uri:scan.file_uri,file_name:scan.file_name,mime:scan.mime,file_hash:scan.file_hash}]);
             if(files.some(source=>source.file_hash===checked.hash))return project(scan);
             if(files.length>=20)fail('SCAN_FILE_LIMIT',400);
             const duplicate=await store.find({outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,file_hash:checked.hash});
@@ -102,7 +102,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
             if(scan.status==='analyzing' && Date.parse(now())-Date.parse(scan.analysis_started_at)<5*60*1000)fail('SCAN_ANALYSIS_PENDING',423);
             const attempt=uuid();scan=await update(scan,{status:'analyzing',analysis_attempt:attempt,analysis_started_at:now(),error:''});
             try{
-                const urls=[];for(const file of scan.files || [{file_uri:scan.file_uri}]){const {signed_url}=await core.CreateFileSignedUrl({file_uri:file.file_uri,expires_in:600});if(!signed_url)fail('SCAN_SOURCE_UNAVAILABLE',503);urls.push(signed_url);}
+                const urls=[];for(const file of (scan.files?.length?scan.files:[{file_uri:scan.file_uri}])){const {signed_url}=await core.CreateFileSignedUrl({file_uri:file.file_uri,expires_in:600});if(!signed_url)fail('SCAN_SOURCE_UNAVAILABLE',503);urls.push(signed_url);}
                 const reads=[];
                 for(let pass=0;pass<2;pass++)reads.push(parseScanRead(await core.InvokeLLM({prompt:`${scanPrompt}\n${rulesPrompt}\n${pass?'Separate Kontrolllesung: lies ausschließlich das Original, ohne Rückgriff auf eine vorherige Ausgabe.':'Erste vollständige Lesung.'}`,file_urls:urls,response_json_schema:scanSchema,add_context_from_internet:false})));
                 if(reads.some(read=>read.multiple_documents))fail('SCAN_MULTIPLE_DOCUMENTS',422);
@@ -130,7 +130,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
                 scan=await update(scan,{status:'committing',frozen_review:{lines,reviewed_lines:all,excluded_lines:excluded,coverage_review:coverage,policy:receiptPolicy,delivery_date:review.delivery_date,document_reference:review.document_reference,checked_by:user.id,checked_at:now(),document_checked:true,prices_net_checked:true}});
             }
             const frozen=scan.frozen_review;
-            const draft=await drafts.start({outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,delivery_date:frozen.delivery_date,document_reference:frozen.document_reference,start_key:`scan-${scan.id}`,lines:frozen.lines,scan_evidence:{scan_id:scan.id,file_hash:scan.file_hash,source_file_hashes:(scan.files || [{file_hash:scan.file_hash}]).map(file=>file.file_hash),excluded_line_ids:(frozen.excluded_lines || []).map(line=>line.id),coverage_review:frozen.coverage_review || null,policy:frozen.policy || null,reviewed_by:frozen.checked_by,reviewed_at:frozen.checked_at}});
+            const draft=await drafts.start({outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,delivery_date:frozen.delivery_date,document_reference:frozen.document_reference,start_key:`scan-${scan.id}`,lines:frozen.lines,scan_evidence:{scan_id:scan.id,file_hash:scan.file_hash,source_file_hashes:((scan.files?.length?scan.files:[{file_hash:scan.file_hash}])).map(file=>file.file_hash),excluded_line_ids:(frozen.excluded_lines || []).map(line=>line.id),coverage_review:frozen.coverage_review || null,policy:frozen.policy || null,reviewed_by:frozen.checked_by,reviewed_at:frozen.checked_at}});
             scan=await load(id);
             if(scan.status!=='committed')await update(scan,{status:'committed',draft_id:draft.id});
             return {draft_id:draft.id};

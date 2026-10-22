@@ -127,3 +127,10 @@ test('model metadata preserves distinct packaging fields and dated notes without
     const result=parseScanRead({...raw(),other_dates:['2026-09-30'],lines:[{...raw().lines[0],colli_quantity:'3',colli_unit:'KT',content_quantity:'3',content_unit:'BT',line_total:'161,73',line_kind:'goods'}]});
     assert.equal(result.delivery_date,'2026-10-22');assert.equal(result.lines[0].colli_unit,'KT');assert.equal(result.lines[0].content_unit,'BT');assert.deepEqual(result.other_dates,['2026-09-30']);
 });
+
+test('platform-default empty file arrays keep the primary original readable and analyzable',async()=>{
+ const f=fixture(),scan=await f.upload(),record=f.rows.get(scan.id);record.files=[];
+ const restored=await f.service.get(scan.id);assert.equal(restored.source_files.length,1);
+ const analyzed=await f.service.analyze({id:scan.id,revision:scan.revision});assert.equal(analyzed.status,'review');
+ assert(f.calls.filter(row=>row.prompt).every(call=>call.file_urls.length===1));
+});
