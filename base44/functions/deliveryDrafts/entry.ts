@@ -3,7 +3,7 @@ import {secrets} from 'base44:runtime';
 import {isStorageProbeAllowed} from '../../shared/inventory/storageProbeGate.js';
 import {createDeliveryDraftHandler} from './handler.js';
 
-// Renewed receipt verification grant remains dev-only and expires automatically.
+// Real-photo exercise complete; delivery writes remain gated and dev-only.
 export default createDeliveryDraftHandler({createClientFromRequest,
     isEnabled:()=>isStorageProbeAllowed(secrets.get('INVENTORY_SESSION_TEST_ALLOWED')),
 });
