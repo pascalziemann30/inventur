@@ -2,5 +2,5 @@ import {createClientFromRequest} from 'npm:@base44/sdk@0.8.56';
 import {secrets} from 'base44:runtime';
 import {isStorageProbeAllowed} from '../../shared/inventory/storageProbeGate.js';
 import {createScanDeliveryHandler} from './handler.js';
-// Restored complete preview: readiness-checked bounded dev verification only.
+// Prepared local receipt: check the same bounded dev grant on each request.
 export default createScanDeliveryHandler({createClientFromRequest,isEnabled:()=>isStorageProbeAllowed(secrets.get('INVENTORY_SESSION_TEST_ALLOWED'))});

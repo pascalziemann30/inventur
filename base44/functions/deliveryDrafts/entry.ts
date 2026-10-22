@@ -3,7 +3,7 @@ import {secrets} from 'base44:runtime';
 import {isStorageProbeAllowed} from '../../shared/inventory/storageProbeGate.js';
 import {createDeliveryDraftHandler} from './handler.js';
 
-// Restored complete preview: retain the same expiring development grant.
+// Prepared local receipt verification: development-only expiring grant.
 export default createDeliveryDraftHandler({createClientFromRequest,
     isEnabled:()=>isStorageProbeAllowed(secrets.get('INVENTORY_SESSION_TEST_ALLOWED')),
 });
