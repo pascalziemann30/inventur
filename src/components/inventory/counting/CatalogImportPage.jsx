@@ -2,8 +2,10 @@ import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {inventoryTestClient} from './testClient.js';
 import './counting.css';
+import './catalogImport.css';
 
 const labels={ready:'Bereit zum Fortsetzen',working:'Vorgang läuft oder muss geprüft werden',imported:'Import gespeichert – Gegenprüfung offen',verified:'Import vollständig gegengeprüft',closed:'Test abgeschlossen und Teststandort deaktiviert',blocked:'Angehalten – Klärung erforderlich'};
+const tableLabels={Outlet:'Teststandort',Supplier:'Lieferanten',Unit:'Einheiten',Category:'Testkategorie',GlobalItem:'Artikelstamm',OutletItem:'Standortartikel',SupplierItem:'Einkaufs- und Belegeinheiten',OutletStock:'Bestandsdatensätze'};
 export default function CatalogImportPage(){
  const [params,setParams]=useSearchParams(),id=params.get('import');
  const [json,setJson]=useState(''),[batch,setBatch]=useState(null),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[inspection,setInspection]=useState(null);
@@ -35,7 +37,7 @@ export default function CatalogImportPage(){
   const status=await api('status');setEnabled(status.enabled===true);
   if(id)setBatch(await api('get',{id}));
  });
- return <main className="count-shell"><header className="count-header"><div><p className="count-eyebrow">ADMIN · NUR TESTDATEN</p><h1>Kontrollierter Artikelimport</h1><p>Eigener Standort „Kuno15 · Importtest“. Anfangsbestände bleiben 0.</p></div></header>
+ return <main className="counting-workspace catalog-import"><header className="count-header"><div><p className="count-eyebrow">ADMIN · NUR TESTDATEN</p><h1>Kontrollierter Artikelimport</h1><p>Eigener Standort „Kuno15 · Importtest“. Anfangsbestände bleiben 0.</p></div></header>
   <section className="count-card"><p>Artikelnummern sind optional. Ungeklärte Gebinde dürfen nicht enthalten sein. Dieser Ablauf verändert keinen bestehenden Standort.</p>
    <p role="status">{enabled?'Testfenster geöffnet':'Testfenster geschlossen · gespeicherte Ergebnisse bleiben lesbar'}</p>
    {!batch&&<><label htmlFor="import-json">Geprüfte Artikeldaten</label><textarea id="import-json" aria-label="Geprüfte Artikeldaten" value={json} onChange={e=>setJson(e.target.value)} rows={5} style={{width:'100%'}} disabled={busy}/>
@@ -43,8 +45,8 @@ export default function CatalogImportPage(){
    <button disabled={busy} onClick={refresh}>Stand neu laden</button>
    {error&&<p role="alert">{error}</p>}
    {batch&&<><h2>{labels[batch.status]||batch.status}</h2><p>{batch.article_count} Artikel · {batch.completed} / {batch.total} Datensätze gespeichert</p>
-    <dl>{Object.entries(batch.counts).map(([name,total])=><React.Fragment key={name}><dt>{name}</dt><dd>{total}</dd></React.Fragment>)}</dl>
-    <p>Teststandort-ID: {batch.outlet_id||'Noch nicht angelegt'}</p>
+    <dl>{Object.entries(batch.counts).map(([name,total])=><React.Fragment key={name}><dt>{tableLabels[name]||name}</dt><dd>{total}</dd></React.Fragment>)}</dl>
+    <details><summary>Technische Referenz</summary><p>Teststandort-ID: {batch.outlet_id||'Noch nicht angelegt'}</p></details>
     {batch.error&&<p role="alert">{batch.error} · Keine automatische Wiederholung unsicherer Schreibvorgänge.</p>}
     {['working','blocked'].includes(batch.status)&&batch.completed<batch.total&&<button disabled={busy} onClick={()=>perform(async()=>setInspection(await api('inspect',{id:batch.id})))}>Unterbrochene Gruppe nur lesend prüfen</button>}
     {inspection&&<p>{inspection.pending_entity}: {inspection.pending_valid} / {inspection.pending_count} Datensätze eindeutig und vollständig gespeichert. Mehrdeutig: {inspection.pending_ambiguous}.</p>}

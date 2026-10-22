@@ -8,4 +8,6 @@ The backend builds a new test outlet, suppliers, units, one temporary test categ
 
 Verification reads every created record again and checks all expected fields and references, zero stock, empty booking journals and the count-unit conversions. Closing a verified test deactivates only its newly created outlet and retains all imported test records and the batch for audit. This is not a destructive rollback and is not a production importer.
 
+For an interrupted group of reference-scoped supplier offers, outlet articles or stocks, the admin can inspect the pending group without writing. Recovery may adopt existing IDs only when every pending record is uniquely present and all expected fields match. Missing, duplicate or changed records cannot be adopted or automatically recreated. A stale worker cannot overwrite the recovered checkpoint. Verification uses one bounded ID query per entity rather than individual reads for every record. Requests between import groups are paced.
+
 Reads remain available to the creating admin after the test grant closes. Other admins cannot operate the batch through this endpoint. Existing entity-level permissions and older production write paths remain separate cutover tasks; this workflow does not claim to resolve them.

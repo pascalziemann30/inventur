@@ -15,7 +15,7 @@ export function createCatalogImportHandler({createClientFromRequest,isEnabled,st
    const body=JSON.parse(raw);
    if(!body||!Object.hasOwn(fields,body.action)||Object.keys(body).some(k=>k!=='action'&&!fields[body.action].includes(k)))throw new BookingError('INVALID_REQUEST',400);
    const enabled=(await isEnabled(req))===true;
-   if(body.action==='status')return Response.json({enabled,runtime_version:'catalog-import-test-v1'});
+   if(body.action==='status')return Response.json({enabled,runtime_version:'catalog-import-test-v2'});
    if(!enabled&&!['get','inspect'].includes(body.action))throw new BookingError('IMPORT_TEST_WINDOW_CLOSED',503);
    stage=body.action;
    const service=createCatalogImportService({store:storeFor(client.asServiceRole.entities),user});
