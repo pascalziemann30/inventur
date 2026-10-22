@@ -1,0 +1,87 @@
+{
+  "name": "DeliveryScan",
+  "type": "object",
+  "properties": {
+    "outlet_id": {
+      "type": "string"
+    },
+    "supplier_id": {
+      "type": "string"
+    },
+    "actor_id": {
+      "type": "string"
+    },
+    "file_hash": {
+      "type": "string"
+    },
+    "file_uri": {
+      "type": "string"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "mime": {
+      "type": "string"
+    },
+    "analysis_attempt": {
+      "type": "string"
+    },
+    "analysis_started_at": {
+      "type": "string"
+    },
+    "draft_id": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "analyzing",
+        "failed",
+        "review",
+        "committing",
+        "committed"
+      ]
+    },
+    "reads": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "comparison": {
+      "type": "object"
+    },
+    "frozen_review": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "outlet_id",
+    "supplier_id",
+    "actor_id",
+    "file_hash",
+    "file_uri",
+    "mime",
+    "status",
+    "revision",
+    "reads"
+  ],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

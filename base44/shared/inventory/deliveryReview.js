@@ -8,11 +8,22 @@ const validMoney = value => {
     try {return scaledQuantity(value) > 0n;} catch {return false;}
 };
 
+// Conservative spelling/abbreviation help for suggestions only. Never an identity or approval.
+function nearWord(a,b){
+    if(a===b)return true;
+    if(!/^[a-zäöüß]+$/i.test(a+b) || Math.min(a.length,b.length)<4)return false;
+    if(a.startsWith(b) || b.startsWith(a))return true;
+    if(Math.min(a.length,b.length)<5 || Math.abs(a.length-b.length)>1)return false;
+    let previous=Array.from({length:b.length+1},(_,i)=>i);
+    for(let i=1;i<=a.length;i++){const next=[i];for(let j=1;j<=b.length;j++)next[j]=Math.min(next[j-1]+1,previous[j]+1,previous[j-1]+(a[i-1]===b[j-1]?0:1));previous=next;}
+    return previous[b.length]<=1;
+}
 function suggestionScore(left, right) {
     const a = new Set(searchName(left).split(' ').filter(Boolean));
     const b = new Set(searchName(right).split(' ').filter(Boolean));
     if (!a.size || !b.size) return 0;
-    const common = [...a].filter(token => b.has(token)).length;
+    const remaining=[...b];let common=0;
+    for(const token of a){const index=remaining.findIndex(other=>nearWord(token,other));if(index!==-1){common++;remaining.splice(index,1);}}
     return common / Math.max(a.size, b.size);
 }
 

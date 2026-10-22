@@ -102,6 +102,7 @@ export default function ServerDeliveryPage() {
         </> : <main className="count-main">
             <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG</p><h1>Lieferentwürfe</h1><p>Erfassen, prüfen und später weiterbearbeiten.</p></div></div>
             {options?.read_only && <p className="count-preview">Testfenster geschlossen. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
+            <p><a className="count-confirm" href="/InventoryCapture?workflow=scan">Beleg scannen · Foto oder Datei</a></p>
             <form className="count-start" onSubmit={start}>
                 <label>Standort<select aria-label="Lieferstandort" required disabled={busy} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label>Lieferant<select aria-label="Lieferant" required disabled={busy} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options?.suppliers.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
