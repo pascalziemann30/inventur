@@ -1,12 +1,26 @@
 import {BookingError} from './quantities.js';
 import {boundedDeliveryRows,loadDeliveryCatalog} from './deliveryCatalog.js';
 import {assertOutletAccess} from './stock.js';
+import {base44StockStore} from './base44Store.js';
 
 export function base44DeliveryDraftStore(entities,user) {
     const drafts=entities.DeliveryDraft;
     if (typeof drafts?.updateMany !== 'function') throw new BookingError('SDK_CONDITIONAL_UPDATE_UNAVAILABLE',503);
     return {
         verifiedAtomicWrites:true,
+        get stocks(){return base44StockStore(entities,true);},
+        registry:{get:id=>entities.Outlet.get(id),async cas(outlet,patch){
+            const result=await entities.Outlet.updateMany({id:outlet.id,delivery_registry_revision:outlet.delivery_registry_revision},{$set:patch});
+            if(result?.success!==true || result.has_more!==false || ![0,1].includes(result.updated))throw new BookingError('UNVERIFIED_REGISTRY_UPDATE_RESULT',503);
+            return result.updated===1;
+        }},
+        async stockFor(confirmation,outletId){
+            const rows=await boundedDeliveryRows(entities.OutletStock.filter({outlet_id:outletId,outlet_item_id:confirmation.outlet_item_id},'id',501));
+            if(rows.length!==1)throw new BookingError('UNIQUE_STOCK_REQUIRED',409);
+            const stock=rows[0];
+            if(stock.global_item_id!==confirmation.global_item_id || stock.unit_abbreviation!==confirmation.unit_abbreviation)throw new BookingError('STOCK_LINK_MISMATCH',409);
+            return stock.id;
+        },
         get:id=>drafts.get(id),create:data=>drafts.create(data),
         find:query=>boundedDeliveryRows(drafts.filter(query,'-created_date',501)),
         catalog:(outlet,supplier)=>loadDeliveryCatalog(entities,user,outlet,supplier),

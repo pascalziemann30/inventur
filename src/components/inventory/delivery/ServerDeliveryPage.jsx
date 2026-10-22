@@ -82,7 +82,7 @@ export default function ServerDeliveryPage() {
     };
     if(loading)return <div className="counting-workspace"><main className="count-main"><p role="status">Lieferungen werden geladen …</p></main></div>;
     return <div className="counting-workspace">
-        <aside className="count-server-note"><strong>Testbetrieb · gespeicherte Lieferentwürfe</strong><span>Keine Bestandsbuchung und kein Produktivimport.</span></aside>
+        <aside className="count-server-note"><strong>Testbetrieb · gespeicherte Lieferentwürfe</strong><span>Bestandsbuchungen ausschließlich im Testdatenbereich · kein Produktivimport.</span></aside>
         {error && <div role="alert" className="count-copy"><p>{error}</p>{draft && <button className="count-confirm" disabled={busy} onClick={reload}>Gespeicherten Stand laden · lokale Eingaben als Vergleich behalten</button>}</div>}
         {pending && <div className="count-copy"><strong>Antwort noch unklar</strong><p>Der exakt gleiche Vorgang bleibt für einen erneuten Versuch erhalten. Weitere Änderungen sind bis zur Klärung gesperrt.</p><button className="count-confirm" disabled={busy} onClick={()=>send(requestRef.current).catch(()=>{})}>Gleichen Vorgang erneut versuchen</button></div>}
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}
@@ -90,7 +90,8 @@ export default function ServerDeliveryPage() {
             <div className="delivery-draft-meta"><button className="count-link" disabled={busy || !!pending} onClick={()=>{const next=new URLSearchParams(params);next.delete('delivery');setParams(next);setListVersion(v=>v+1);}}>Zur Lieferübersicht</button><span>{draft.delivery_date} · Beleg {draft.document_reference || 'ohne Referenz'} · Stand {draft.revision}</span></div>
             <DeliveryReviewWorkspace key={`${id}:${generation}`} initialLines={draft.lines} initialReview={draft.review} lineStates={draft.line_states}
                 outletName={draft.outlet_name} supplierName={draft.supplier_name} offers={draft.offers} isAdmin={draft.is_admin}
-                readOnly={draft.read_only} externalBusy={busy || !!pending}
+                readOnly={draft.read_only} externalBusy={busy || !!pending} posting={draft.posting} bookingEnabled={draft.booking_enabled} batchLineIds={draft.batch_line_ids}
+                onBook={line_ids=>send({action:'book',input:{id,revision:revisionRef.current,line_ids}})}
                 onEditLines={lines=>{localCopyRef.current=lines;try{sessionStorage.setItem(backupKey(id),JSON.stringify(lines));}catch{setError('Die lokale Vergleichskopie konnte nicht dauerhaft gespeichert werden. Bitte Eingaben vor dem Neuladen sichern.');}}}
                 reviewLines={lines=>reviewDraftLines(draft.outlet_id,draft.supplier_id,lines)}
                 onSave={lines=>mutate('save',{lines})}

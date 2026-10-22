@@ -4,7 +4,8 @@ import {createDeliveryDraftService} from '../../shared/inventory/deliveryDrafts.
 
 const fields={options:[],list:['outlet_id'],get:['id'],start:['outlet_id','supplier_id','delivery_date','document_reference','start_key','lines'],
     save:['id','request_id','revision','lines'],confirm:['id','request_id','revision','line_id','supplier_item_id','acknowledged_issues'],
-    propose:['id','request_id','revision','line_id','note'],resolve:['id','request_id','revision','line_id','resolution','note','supplier_item_id','identity_confirmed']};
+    propose:['id','request_id','revision','line_id','note'],resolve:['id','request_id','revision','line_id','resolution','note','supplier_item_id','identity_confirmed'],
+    book:['id','revision','line_ids']};
 
 export function createDeliveryDraftHandler({createClientFromRequest,isEnabled,storeFor=base44DeliveryDraftStore,now}) {
     return async req=>{
@@ -27,7 +28,7 @@ export function createDeliveryDraftHandler({createClientFromRequest,isEnabled,st
             const {action,...input}=body;
             const value=action === 'options' ? await service.options() : action === 'list' ? await service.list(input.outlet_id)
                 : action === 'get' ? await service.get(input.id) : await service[action](input);
-            return Response.json(['get','options'].includes(action) ? {...value,read_only:!writable} : value);
+            return Response.json(action === 'book' ? {draft:value} : ['get','options'].includes(action) ? {...value,read_only:!writable} : value);
         } catch(error) {
             if (error instanceof BookingError) return Response.json({error:error.code},{status:error.status});
             return Response.json({error:'DELIVERY_DRAFT_REQUEST_UNCERTAIN_RETRY_SAME_OPERATION'},{status:500});

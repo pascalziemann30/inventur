@@ -27,7 +27,7 @@ export function createInventoryTestSetupHandler({createClientFromRequest,isEnabl
             if (['prepare','prepareDelivery'].includes(body.action)) {
                 stage='prepare';
                 const tag=uuid();
-                const outlet=await entities.Outlet.create({name:`INVENTUR-TEST · ${tag.slice(0,8)}`,code:`INVENTORY-TEST-${tag}`,type:'NORMAL',is_active:true});
+                const outlet=await entities.Outlet.create({name:`INVENTUR-TEST · ${tag.slice(0,8)}`,code:`INVENTORY-TEST-${tag}`,type:'NORMAL',is_active:true,delivery_registry_revision:0,delivery_registry:[]});
                 const supplier=await entities.Supplier.create({name:`TEST-Lieferant · ${tag.slice(0,8)}`,is_active:true,notes:'Synthetische Beispieldaten, keine echten Lieferantendaten.'});
                 const category=await entities.Category.create({name:`Inventur-Test · ${tag.slice(0,8)}`});
                 for (const definition of definitions) {

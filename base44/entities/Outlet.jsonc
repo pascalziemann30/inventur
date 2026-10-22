@@ -17,7 +17,7 @@
         "AGGREGATOR"
       ],
       "default": "NORMAL",
-      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur \u00dcbersicht"
+      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur Übersicht"
     },
     "address": {
       "type": "string",
@@ -27,6 +27,17 @@
       "type": "boolean",
       "default": true,
       "description": "Outlet aktiv/inaktiv"
+    },
+    "delivery_registry_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "delivery_registry": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Atomar reservierte Belegreferenzen; vor Buchungsstart ausdrücklich initialisieren, niemals stillschweigend leeren"
     }
   },
   "required": [

@@ -1,5 +1,6 @@
 import {BookingError,toBaseQuantity,baseUnitPrice} from './quantities.js';
-import {assertOutletAccess} from './stock.js';
+import {assertOutletAccess,bookStockOperation} from './stock.js';
+import {claimDeliveryReference} from './deliveryRegistry.js';
 import {reviewDeliveryLines} from './deliveryReview.js';
 
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
@@ -69,12 +70,13 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         const catalog=await store.catalog(draft.outlet_id,draft.supplier_id);
         const diagnosis=review(draft,catalog);
         const states=draft.lines.map(line=>({line_id:line.source.id,
-            status:line.confirmation ? confirmationCurrent(draft,line,catalog) ? 'confirmed' : 'confirmation_stale'
+            status:line.booking_receipt ? 'booked' : line.confirmation ? confirmationCurrent(draft,line,catalog) ? 'confirmed' : 'confirmation_stale'
                 : line.proposal?.status === 'pending' ? 'proposal_pending' : line.proposal?.status === 'rejected' ? 'proposal_rejected' : 'open',
-            confirmation:line.confirmation ? copy(line.confirmation) : null,proposal:line.proposal ? copy(line.proposal) : null}));
+            confirmation:line.confirmation ? copy(line.confirmation) : null,proposal:line.proposal ? copy(line.proposal) : null,
+            booking_receipt:line.booking_receipt ? copy(line.booking_receipt) : null,booking_error:line.booking_error || null}));
         const effectiveTarget=line=>{
             const state=states.find(state=>state.line_id === line.source.id);
-            if (state.status === 'confirmed') return state.confirmation.global_item_id;
+            if (['confirmed','booked'].includes(state.status)) return state.confirmation.global_item_id;
             const found=diagnosis.lines.find(row=>row.line_id === line.source.id);
             return found.match === 'matched' ? found.candidates[0]?.global_item_id : null;
         };
@@ -85,8 +87,9 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         }
         return {id:draft.id,outlet_id:draft.outlet_id,outlet_name:catalog.outlet.name,supplier_id:draft.supplier_id,
             supplier_name:catalog.supplier.name,delivery_date:draft.delivery_date,document_reference:draft.document_reference,
-            status:'draft',revision:draft.revision,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,
-            is_admin:user.role === 'admin',booking_enabled:false,
+            status:draft.status,revision:draft.revision,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,
+            is_admin:user.role === 'admin',booking_enabled:true,posting:draft.status==='posting',
+            batch_line_ids:draft.booking_batch?.entries.map(entry=>entry.line_id) || [],
             offers:catalog.offers.filter(offer=>offer.status === 'approved').map(offer=>({id:offer.id,name:offer.original_name,sku:offer.supplier_article_number,purchase_unit_code:offer.purchase_unit_code,purchase_unit_label:offer.purchase_unit_label}))};
     };
     const unique=async draft=>{
@@ -110,6 +113,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         };
         const previous=prior(draft);
         if (previous) return ack(draft,previous);
+        if(['posting','completed'].includes(draft.status))fail('DRAFT_FROZEN_FOR_BOOKING');
         await unique(draft);
         if (draft.revision !== input.revision) fail('DRAFT_CHANGED_RELOAD');
         if (draft.request_receipts.length >= 1000 || draft.revision >= Number.MAX_SAFE_INTEGER) fail('DRAFT_REQUEST_LIMIT');
@@ -134,6 +138,17 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         return copy(line);
     };
     const replace=(draft,line)=>({lines:draft.lines.map(current=>current.source.id === line.source.id ? line : current)});
+    const editable=line=>{if(line.booking_receipt)fail('BOOKED_LINE_IMMUTABLE');};
+    const updateInternal=async(id,makePatch)=>{
+        for(let attempt=0;attempt<12;attempt++){
+            const draft=await load(id),patch=makePatch(draft);
+            if(!patch)return draft;
+            if(draft.revision>=Number.MAX_SAFE_INTEGER)fail('DRAFT_REQUEST_LIMIT');
+            const next={...patch,revision:draft.revision+1};
+            if(await store.cas(draft,next))return {...draft,...next};
+        }
+        fail('DRAFT_CHANGED_RETRY_BOOKING');
+    };
     return {
         options:()=>store.options(),
         async get(id) {return project(await load(id));},
@@ -141,6 +156,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             assertOutletAccess(user,outletId);
             return (await store.find({outlet_id:outletId})).map(draft=>({id:draft.id,delivery_date:draft.delivery_date,
                 document_reference:draft.document_reference,supplier_name:draft.supplier_name,revision:draft.revision,
+                status:draft.status,
                 positions:draft.lines.length,pending_proposals:draft.lines.filter(line=>line.proposal?.status === 'pending').length}));
         },
         async start({outlet_id,supplier_id,delivery_date,document_reference='',start_key,lines}) {
@@ -174,6 +190,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             const changed=sources.map(source=>{
                 const old=draft.lines.find(line=>line.source.id === source.id);
                 if (old && eq(old.source,source)) return old;
+                if(old)editable(old);
                 const history=copy(old?.proposal_history || []);
                 if (old?.proposal) history.push({...old.proposal,status:'superseded',superseded_by:user.id,superseded_at:now()});
                 if (history.length > 20) fail('PROPOSAL_HISTORY_LIMIT');
@@ -185,12 +202,13 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
                 const before=draft.lines.find(old=>old.source.id === line.source.id);
                 const oldRepeated=before ? review(draft,catalog).lines.find(old=>old.line_id === line.source.id)?.duplicate_line_ids : [];
                 const newRepeated=repeated.find(row=>row.line_id === line.source.id).duplicate_line_ids;
-                if (line.confirmation && !eq(oldRepeated,newRepeated)) {const next={...line};delete next.confirmation;return next;}
+                if (line.confirmation && !line.booking_receipt && !eq(oldRepeated,newRepeated)) {const next={...line};delete next.confirmation;return next;}
                 return line;
             })};
         }),
         confirm:input=>mutate('confirm',input,(draft,catalog)=>{
             const line=entry(draft,input.line_id),diagnosis=review(draft,catalog).lines.find(row=>row.line_id === input.line_id);
+            editable(line);
             if (line.proposal?.status === 'pending') fail('PROPOSAL_REVIEW_REQUIRED');
             if (diagnosis.match !== 'matched' || diagnosis.candidates[0]?.supplier_item_id !== input.supplier_item_id
                 || diagnosis.issues.some(issue=>!acknowledgeable.includes(issue))) fail('LINE_NOT_CONFIRMABLE');
@@ -201,6 +219,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         }),
         propose:input=>mutate('propose',input,(draft,catalog)=>{
             const line=entry(draft,input.line_id),diagnosis=review(draft,catalog).lines.find(row=>row.line_id === input.line_id);
+            editable(line);
             if (!['unknown','needs_assignment'].includes(diagnosis.match)) fail('PROPOSAL_NOT_REQUIRED');
             if (line.proposal?.status === 'pending') fail('PROPOSAL_ALREADY_PENDING');
             if (typeof input.note !== 'string' || input.note.length > 500) fail('INVALID_PROPOSAL_NOTE',400);
@@ -217,6 +236,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             if (user?.role !== 'admin') fail('ADMIN_REQUIRED',403);
             return mutate('resolve',input,(draft,catalog)=>{
             const line=entry(draft,input.line_id);
+            editable(line);
             if (line.proposal?.status !== 'pending') fail('PROPOSAL_NOT_PENDING');
             if (!['reject','link'].includes(input.resolution) || typeof input.note !== 'string' || !input.note.trim() || input.note.length > 500) fail('INVALID_PROPOSAL_REVIEW',400);
             if (input.resolution === 'link') {
@@ -228,6 +248,63 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
                 reviewed_at:now(),review_note:input.note,...(input.resolution === 'link' ? {approved_supplier_item_id:input.supplier_item_id} : {})};
             return replace(draft,line);
             });
+        },
+        async book({id,revision,line_ids}) {
+            if(!Number.isSafeInteger(revision) || revision<0 || !Array.isArray(line_ids) || !line_ids.length || line_ids.length>100
+                || line_ids.some(id=>typeof id!=='string') || new Set(line_ids).size!==line_ids.length)fail('INVALID_BOOKING_SELECTION',400);
+            let draft=await load(id);
+            const selected=[...line_ids].sort();
+            await unique(draft);
+            if(draft.status==='posting'){
+                if(!eq(selected,draft.booking_batch.entries.map(entry=>entry.line_id).sort()))fail('BOOKING_BATCH_ALREADY_FROZEN');
+            } else {
+                if(selected.every(id=>draft.lines.some(line=>line.source.id===id && line.booking_receipt)))return project(draft);
+                if(draft.status==='completed')fail('DRAFT_FROZEN_FOR_BOOKING');
+                if(draft.revision!==revision)fail('DRAFT_CHANGED_RELOAD');
+                const projection=await project(draft),entries=[];
+                for(const lineId of selected){
+                    const line=entry(draft,lineId),state=projection.line_states.find(row=>row.line_id===lineId);
+                    if(line.booking_receipt)fail('SELECT_ONLY_UNBOOKED_LINES',400);
+                    if(state.status!=='confirmed')fail('UNCONFIRMED_LINE_CANNOT_BOOK');
+                    if(state.review_required_before_booking)fail('REPEATED_PRODUCT_REQUIRES_REVIEW');
+                    const stock_id=await store.stockFor(line.confirmation,draft.outlet_id);
+                    entries.push({line_id:lineId,stock_id,confirmation:copy(line.confirmation)});
+                }
+                await claimDeliveryReference({store:store.registry,outletId:draft.outlet_id,supplierId:draft.supplier_id,reference:draft.reference_key,draftId:draft.id,now});
+                const patch={status:'posting',booking_batch:{entries,frozen_at:now(),frozen_by:user.id},revision:draft.revision+1};
+                if(await store.cas(draft,patch))draft={...draft,...patch};
+                else {
+                    draft=await load(id);
+                    if(draft.status!=='posting' || !eq(selected,draft.booking_batch.entries.map(entry=>entry.line_id).sort()))fail('DRAFT_CHANGED_RELOAD');
+                }
+            }
+            for(const frozen of draft.booking_batch.entries){
+                const current=await load(id),line=entry(current,frozen.line_id);
+                if(line.booking_receipt)continue;
+                if(current.status!=='posting')break;
+                const c=frozen.confirmation;
+                try {
+                    const result=await bookStockOperation({store:store.stocks,user,stockId:frozen.stock_id,now,
+                        operation:{id:`delivery-draft:${id}:${frozen.line_id}`,kind:'delivery',outlet_id:current.outlet_id,
+                            outlet_item_id:c.outlet_item_id,global_item_id:c.global_item_id,unit_abbreviation:c.unit_abbreviation,quantity:c.base_quantity,
+                            source:{document_id:id,line_id:frozen.line_id,supplier_item_id:c.supplier_item_id,purchase_unit_code:c.purchase_unit_code,
+                                purchase_quantity:c.source.purchase_quantity,net_purchase_price:c.source.net_purchase_price,
+                                conversion_revision:c.offer_revision,base_quantity_per_purchase:c.base_quantity_per_purchase,net_base_unit_price:c.net_base_unit_price}}});
+                    await updateInternal(id,latest=>{
+                        const target=latest.lines.find(row=>row.source.id===frozen.line_id);
+                        if(target.booking_receipt)return null;
+                        return {lines:latest.lines.map(row=>row.source.id===frozen.line_id?{...row,booking_receipt:copy(result.receipt),booking_error:null}:row)};
+                    });
+                } catch(error){
+                    await updateInternal(id,latest=>({lines:latest.lines.map(row=>row.source.id===frozen.line_id && !row.booking_receipt
+                        ?{...row,booking_error:error instanceof BookingError?error.code:'BOOKING_RETRY_REQUIRED'}:row)}));
+                }
+            }
+            draft=await updateInternal(id,latest=>{
+                if(latest.status!=='posting' || !latest.booking_batch.entries.every(entry=>latest.lines.some(line=>line.source.id===entry.line_id && line.booking_receipt)))return null;
+                return {status:latest.lines.every(line=>line.booking_receipt)?'completed':'partially_booked',booking_batch:{entries:[]}};
+            });
+            return project(draft);
         },
     };
 }

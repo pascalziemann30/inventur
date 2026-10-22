@@ -30,7 +30,7 @@ function fixture(){
 test('delivery draft persists source strings and recomputed review; no stock or active article is created',async()=>{
     const f=fixture(),draft=await f.start(),loaded=await f.service(f.employee).get(draft.id);
     assert.deepEqual(loaded.lines,f.input.lines);assert.equal(loaded.review.summary.matched,1);
-    assert.equal(loaded.booking_enabled,false);assert.equal(f.records.size,1);assert.equal(f.writes(),0);
+    assert.equal(loaded.booking_enabled,true);assert.equal(f.records.size,1);assert.equal(f.writes(),0);
 });
 test('same start recovers a lost create response and changed start input is rejected',async()=>{
     const f=fixture(),draft=await f.start();assert.equal((await f.start()).id,draft.id);assert.equal(f.records.size,1);
