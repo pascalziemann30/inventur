@@ -3,7 +3,7 @@ import {createDeliveryScanService} from '../../shared/inventory/deliveryScan.js'
 import {base44DeliveryScanStore} from '../../shared/inventory/deliveryScanStore.js';
 import {base44DeliveryDraftStore} from '../../shared/inventory/deliveryDraftStore.js';
 import {createDeliveryDraftService} from '../../shared/inventory/deliveryDrafts.js';
-export const scanRuntimeVersion='scan-readiness-v4';
+export const scanRuntimeVersion='scan-readiness-v5';
 export function createScanDeliveryHandler({createClientFromRequest,isEnabled,serviceFor,now}){
     return async req=>{
         try{
