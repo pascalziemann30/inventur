@@ -20,7 +20,7 @@ The new approximate word matching helps suggestions with limited spelling/abbrev
 
 ## Validation and remaining acceptance
 
-139 automated tests cover file signatures, missing values, repeated lines, dual-read differences, private uploads/hash recovery, unreadable documents, mandatory review, immutable retries, actual-user scope, approximate suggestions and API rejection of URLs/production/closed test grants. Local app build and targeted lint pass. These fixture tests do not prove the actual hosted integration or iPad camera; runtime results are recorded separately after execution.
+142 automated tests cover file signatures, missing values, repeated lines, dual-read differences, private uploads/hash recovery, unreadable documents, mandatory review, immutable retries, actual-user scope, approximate suggestions and API rejection of URLs/production/closed test grants. Local app build and targeted lint pass. These fixture tests do not prove the actual hosted integration or iPad camera; runtime results are recorded separately after execution.
 
 Before rollout: representative digital PDFs and genuine iPad photos (sharp, rotated, shadowed, crumpled, cropped, multiple pages); field-by-field comparison against manually transcribed truth; no false automatic approvals; safe rejection/recapture and full employee-login/outlet acceptance. A readable synthetic screenshot is not a photograph and cannot establish camera accuracy. Retention/export and recovery of orphan private files remain operational work. No production catalog import, merge or publication is part of this package.
 
@@ -44,3 +44,12 @@ Colli, content quantity/unit, unit-price quantity and row total are retained sep
 
 Money accepts up to16decimal places independently of six-decimal stock quantities, preserving calculated net prices without rounding them to cents before conversion. Actual article-specific counting configuration and receipt unit mappings remain private catalog preparation until import. Whole-number bag policies, individual carton counts, mixed full cartons/loose packs, weighed goods and fractional buckets use the existing server-validated count-unit model. No business catalog or original receipt image is added to the public repository.
 
+
+
+## Readiness and latency controls
+
+A read-only status action checks authentication, the development data header and the actual scanner runtime grant before opening the upload path. The frontend combines that status with delivery options and checks it again before sending a file. A closed scanner window therefore does not upload an original merely because another function still reports writable options. This is a preflight, not an atomic lease: expiry between status and upload is still rejected by the server. No grant lifetime or user scope is expanded.
+
+The scan store reuses the catalog only within its single authorized request. Different requests always reload it; no cross-user cache is introduced. Outlet and supplier reads run together, and the two model reads run concurrently with no cross-result input. Both must settle before the attempt is released, including on failure. This removes redundant waiting without weakening required human review or committing partial model output.
+
+A complete application tree must be preserved on every source update. Before moving the branch ref, compare the proposed tree against the last complete baseline: no missing baseline files and no unexpected changes outside the intended paths. The app manifest, frontend entry and workflow must exist. A synchronized editor message alone does not establish successful deployment; verify the actual preview and the current commit's CI.
