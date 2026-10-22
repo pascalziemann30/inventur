@@ -22,7 +22,7 @@ export function createDeliveryDraftHandler({createClientFromRequest,isEnabled,st
             try {body=JSON.parse(raw);} catch {throw new BookingError('INVALID_REQUEST',400);}
             if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.hasOwn(fields,body.action)
                 || Object.keys(body).some(key=>key !== 'action' && !fields[body.action].includes(key))) throw new BookingError('INVALID_REQUEST',400);
-            const writable=isEnabled(req);
+            const writable=(await isEnabled(req))===true;
             if (!writable && !['options','list','get'].includes(body.action)) throw new BookingError('DELIVERY_DRAFT_TEST_DISABLED',503);
             const service=createDeliveryDraftService({store:storeFor(client.asServiceRole.entities,user),user,now});
             const {action,...input}=body;

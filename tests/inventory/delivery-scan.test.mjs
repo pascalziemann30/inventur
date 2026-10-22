@@ -156,3 +156,10 @@ test('blind readings run concurrently and a failed read waits for its peer befor
     while(started<2)await new Promise(resolve=>setImmediate(resolve));
     assert.equal([...f.rows.values()][0].status,'analyzing');release();await assert.rejects(result);assert.equal([...f.rows.values()][0].status,'failed');assert.equal(f.created.size,0);
 });
+
+test('an asynchronous closed readiness gate cannot become a truthy write grant',async()=>{
+    const handler=createScanDeliveryHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'person'})}}),isEnabled:async()=>false,serviceFor:()=>{throw Error('no service for denied writes');}});
+    const request=action=>new Request('https://example.com/function',{method:'POST',headers:{'Content-Type':'application/json','X-Data-Env':'dev'},body:JSON.stringify({action})});
+    assert.equal((await (await handler(request('status'))).json()).read_only,true);
+    assert.equal((await handler(request('analyze'))).status,503);
+});

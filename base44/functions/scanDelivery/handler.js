@@ -12,7 +12,7 @@ export function createScanDeliveryHandler({createClientFromRequest,isEnabled,ser
             let user;try{user=await client.auth.me();}catch{throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if(!user?.id)throw new BookingError('AUTHENTICATION_REQUIRED',401);
             if(req.headers.get('X-Data-Env')!=='dev')throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
-            const writable=isEnabled(req),multipart=req.headers.get('content-type')?.startsWith('multipart/form-data');
+            const writable=(await isEnabled(req))===true,multipart=req.headers.get('content-type')?.startsWith('multipart/form-data');
             const limit=multipart?10*1024*1024+100000:150000;
             if(Number(req.headers.get('content-length'))>limit)throw new BookingError('REQUEST_TOO_LARGE',413);
             // Bound streamed bodies as well as their optional declared length.
