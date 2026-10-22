@@ -62,6 +62,10 @@
     "booking_batch": {
       "type": "object",
       "description": "Unveränderlicher Buchungsplan während posting; nach vollständiger Batch-Bestätigung leere entries"
+    },
+    "scan_evidence": {
+      "type": "object",
+      "description": "Serverseitig gebundener Originalscan und menschliche Gegenprüfung"
     }
   },
   "required": [

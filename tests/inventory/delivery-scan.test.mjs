@@ -56,7 +56,7 @@ test('human-checked import creates only a stable unconfirmed draft and repeat ne
     const f=fixture(),scan=await f.analyze(),input={id:scan.id,revision:scan.revision,review:f.review(scan)};
     assert.equal((await f.service.commit(input)).draft_id,'draft-one');await f.service.commit(input);assert.equal(f.created.size,1);
     const saved=[...f.rows.values()][0];assert.equal(saved.frozen_review.checked_by,'person');assert.equal(saved.status,'committed');
-    const start=f.calls.find(row=>row.draft).draft;assert(!('confirmation' in start.lines[0]));assert(!('outlet_item_id' in start.lines[0]));
+    const start=f.calls.find(row=>row.draft).draft;assert.equal(start.scan_evidence.scan_id,scan.id);assert.equal(start.scan_evidence.reviewed_by,'person');assert(!('confirmation' in start.lines[0]));assert(!('outlet_item_id' in start.lines[0]));
 });
 test('lost scan acknowledgment resumes the identical frozen import and ignores changed retry contents',async()=>{
     const f=fixture(),scan=await f.analyze(),input={id:scan.id,revision:scan.revision,review:f.review(scan)};f.loseAck();

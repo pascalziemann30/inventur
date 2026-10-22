@@ -89,6 +89,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             supplier_name:catalog.supplier.name,delivery_date:draft.delivery_date,document_reference:draft.document_reference,
             status:draft.status,revision:draft.revision,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,
             is_admin:user.role === 'admin',booking_enabled:true,posting:draft.status==='posting',
+            source_scan_id:draft.scan_evidence?.scan_id || null,
             batch_line_ids:draft.booking_batch?.entries.map(entry=>entry.line_id) || [],
             offers:catalog.offers.filter(offer=>offer.status === 'approved').map(offer=>({id:offer.id,name:offer.original_name,sku:offer.supplier_article_number,purchase_unit_code:offer.purchase_unit_code,purchase_unit_label:offer.purchase_unit_label}))};
     };
@@ -159,14 +160,14 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
                 status:draft.status,
                 positions:draft.lines.length,pending_proposals:draft.lines.filter(line=>line.proposal?.status === 'pending').length}));
         },
-        async start({outlet_id,supplier_id,delivery_date,document_reference='',start_key,lines}) {
+        async start({outlet_id,supplier_id,delivery_date,document_reference='',start_key,lines,scan_evidence}) {
             assertOutletAccess(user,outlet_id);
             if (!token(start_key) || typeof supplier_id !== 'string' || !supplier_id || supplier_id.length > 100
                 || typeof delivery_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(delivery_date)
                 || !Number.isFinite(Date.parse(delivery_date)) || new Date(delivery_date).toISOString().slice(0,10) !== delivery_date
                 || typeof document_reference !== 'string' || document_reference.length > 100) fail('INVALID_DRAFT_START',400);
             const sources=cleanLines(lines);
-            const fingerprint=JSON.stringify({outlet_id,supplier_id,delivery_date,document_reference,lines:sources});
+            const fingerprint=JSON.stringify({outlet_id,supplier_id,delivery_date,document_reference,lines:sources,...(scan_evidence?{scan_evidence}:{})});
             const existing=await store.find({outlet_id,actor_id:user.id,start_key});
             if (existing.length > 1) fail('DUPLICATE_DRAFT_REQUIRES_REVIEW');
             if (existing.length) {
@@ -179,7 +180,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             reviewDeliveryLines({lines:sources,catalog,outletId:outlet_id,supplierId:supplier_id});
             const draft=await store.create({outlet_id,outlet_name:catalog.outlet.name,supplier_id,supplier_name:catalog.supplier.name,
                 delivery_date,document_reference,reference_key,actor_id:user.id,start_key,start_fingerprint:fingerprint,
-                revision:0,status:'draft',request_receipts:[],lines:sources.map(source=>({source,proposal_history:[]}))});
+                ...(scan_evidence?{scan_evidence:copy(scan_evidence)}:{}),revision:0,status:'draft',request_receipts:[],lines:sources.map(source=>({source,proposal_history:[]}))});
             await unique(draft);
             return project(draft);
         },

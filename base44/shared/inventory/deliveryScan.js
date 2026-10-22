@@ -109,7 +109,7 @@ export function createDeliveryScanService({store,core,user,drafts,now=()=>new Da
                 scan=await update(scan,{status:'committing',frozen_review:{lines,delivery_date:review.delivery_date,document_reference:review.document_reference,checked_by:user.id,checked_at:now(),document_checked:true,prices_net_checked:true}});
             }
             const frozen=scan.frozen_review;
-            const draft=await drafts.start({outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,delivery_date:frozen.delivery_date,document_reference:frozen.document_reference,start_key:`scan-${scan.id}`,lines:frozen.lines});
+            const draft=await drafts.start({outlet_id:scan.outlet_id,supplier_id:scan.supplier_id,delivery_date:frozen.delivery_date,document_reference:frozen.document_reference,start_key:`scan-${scan.id}`,lines:frozen.lines,scan_evidence:{scan_id:scan.id,file_hash:scan.file_hash,reviewed_by:frozen.checked_by,reviewed_at:frozen.checked_at}});
             scan=await load(id);
             if(scan.status!=='committed')await update(scan,{status:'committed',draft_id:draft.id});
             return {draft_id:draft.id};
