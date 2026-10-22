@@ -18,6 +18,7 @@ import InventoryCaptureTable from '../components/inventory/InventuryCaptureTable
 import CompletionDialog from '../components/inventory/CompletionDialog';
 import StorageVerificationPanel from '../components/inventory/counting/StorageVerificationPanel';
 import ServerCountingPage from '../components/inventory/counting/ServerCountingPage';
+import CatalogImportPage from '../components/inventory/counting/CatalogImportPage';
 import ServerScanPage from '../components/inventory/scan/ServerScanPage';
 import ServerDeliveryPage from '../components/inventory/delivery/ServerDeliveryPage';
 
@@ -25,6 +26,7 @@ export default function InventoryCaptureRoute() {
     const [params] = useSearchParams();
     if (params.get('diagnostics') === 'storage') return <StorageVerificationPanel />;
     if (params.get('workflow') === 'server') return <ServerCountingPage />;
+    if (params.get('workflow') === 'import') return <CatalogImportPage />;
     if (params.get('workflow') === 'scan') return <ServerScanPage />;
     if (params.get('workflow') === 'delivery') return <ServerDeliveryPage />;
     return <InventoryCapture />;
