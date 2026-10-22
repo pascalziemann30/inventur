@@ -76,6 +76,12 @@ test('batch ownership and admin role are checked independently of client data',a
  const other=createCatalogImportService({store:f.store,user:{id:'different-admin',role:'admin'}});
  await assert.rejects(other.get(b),{code:'IMPORT_NOT_FOUND'});
 });
+test('platform-owned creator metadata cannot replace the explicit import actor',async()=>{
+ const f=fixture(),create=f.store.create;
+ f.store.create=data=>create({...data,created_by:'platform-generated@example.invalid',created_by_id:'service-account'});
+ const batch=await f.complete();assert.equal(batch.status,'imported');
+ assert.equal((await f.service.verify(batch)).status,'verified');
+});
 test('handler requires authentication, dev data and a currently open write window; closed results remain readable',async()=>{
  const f=fixture(),b=await f.complete();let user=f.user,enabled=false,reads=0;
  const handler=createCatalogImportHandler({createClientFromRequest:()=>({auth:{me:async()=>user},asServiceRole:{entities:{}}}),isEnabled:async()=>enabled,

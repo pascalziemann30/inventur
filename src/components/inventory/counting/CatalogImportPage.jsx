@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {inventoryTestClient} from './testClient.js';
 import './counting.css';
@@ -7,6 +7,7 @@ const labels={ready:'Bereit zum Fortsetzen',working:'Vorgang läuft oder muss ge
 export default function CatalogImportPage(){
  const [params,setParams]=useSearchParams(),id=params.get('import');
  const [json,setJson]=useState(''),[batch,setBatch]=useState(null),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const startRequest=useRef(null);
  const api=async(action,input={})=>{
   const response=await inventoryTestClient.functions.invoke('catalogImport',{action,...input});
   if(response.data?.error)throw new Error(response.data.error);return response.data;
@@ -24,7 +25,8 @@ export default function CatalogImportPage(){
  };
  const start=()=>perform(async()=>{
   const articles=JSON.parse(json);
-  const result=await api('start',{key:crypto.randomUUID(),articles});setBatch(result);
+  if(startRequest.current?.json!==json)startRequest.current={json,key:crypto.randomUUID()};
+  const result=await api('start',{key:startRequest.current.key,articles});setBatch(result);
   const next=new URLSearchParams(params);next.set('import',result.id);setParams(next);
   await advance(result);
  });

@@ -80,7 +80,7 @@ export function createCatalogImportService({store,user,uuid=()=>crypto.randomUUI
  if(!store.verifiedAtomicWrites)fail('IMPORT_ATOMIC_WRITES_REQUIRED',503);
  const load=async id=>{
   if(!string(id,100))fail('IMPORT_ID_REQUIRED',400);
-  const batch=await store.get(id);if(!batch||batch.created_by!==user.id)fail('IMPORT_NOT_FOUND',404);
+  const batch=await store.get(id);if(!batch||batch.actor_id!==user.id)fail('IMPORT_NOT_FOUND',404);
   return batch;
  };
  const view=b=>({id:b.id,status:b.status,revision:b.revision,completed:b.created.length,total:b.plan.nodes.length,counts:b.plan.counts,
@@ -98,11 +98,11 @@ export function createCatalogImportService({store,user,uuid=()=>crypto.randomUUI
    if(!string(key,80)||!/^[a-zA-Z0-9-]{16,80}$/.test(key))fail('IMPORT_KEY_REQUIRED',400);
    // Validate before persisting anything; never accepts an existing destination outlet.
    planCatalogImport(articles,'validate');
-   const found=await store.find({start_key:key,created_by:user.id});
+   const found=await store.find({start_key:key,actor_id:user.id});
    if(found.length){if(!same(found[0].plan.articles,articles))fail('IMPORT_START_CHANGED');return view(found[0]);}
    const plan=planCatalogImport(articles,uuid());
-   const b=await store.create({start_key:key,created_by:user.id,status:'ready',revision:0,plan,created:[]});
-   const again=await store.find({start_key:key,created_by:user.id});
+   const b=await store.create({start_key:key,actor_id:user.id,status:'ready',revision:0,plan,created:[]});
+   const again=await store.find({start_key:key,actor_id:user.id});
    if(again.length!==1||again[0].id!==b.id)fail('IMPORT_DUPLICATE_BATCH');return view(b);
   },
   async step({id,revision}){
