@@ -12,7 +12,7 @@
     },
     "unit_abbreviation": {
       "type": "string",
-      "description": "Einheits-Abk\u00fcrzung"
+      "description": "Einheits-Abkürzung"
     },
     "category_id": {
       "type": "string",
@@ -36,9 +36,25 @@
     "unit_abbreviation"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

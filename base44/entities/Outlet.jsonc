@@ -17,7 +17,7 @@
         "AGGREGATOR"
       ],
       "default": "NORMAL",
-      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur \u00dcbersicht"
+      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur Übersicht"
     },
     "address": {
       "type": "string",
@@ -39,7 +39,11 @@
         "role": "admin"
       }
     },
-    "read": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
     "update": {
       "user_condition": {
         "role": "admin"

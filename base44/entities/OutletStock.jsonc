@@ -16,7 +16,7 @@
     },
     "global_item_id": {
       "type": "string",
-      "description": "GlobalItem-ID (f\u00fcr Aggregation)"
+      "description": "GlobalItem-ID (für Aggregation)"
     },
     "display_name": {
       "type": "string",
@@ -25,7 +25,7 @@
     "on_hand_quantity": {
       "type": "number",
       "default": 0,
-      "description": "Aktueller Lagerbestand f\u00fcr dieses Outlet"
+      "description": "Aktueller Lagerbestand für dieses Outlet"
     },
     "unit_abbreviation": {
       "type": "string",
@@ -38,9 +38,25 @@
     "global_item_id"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

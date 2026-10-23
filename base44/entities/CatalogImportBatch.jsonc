@@ -1,0 +1,56 @@
+{
+  "name": "CatalogImportBatch",
+  "type": "object",
+  "properties": {
+    "start_key": {
+      "type": "string"
+    },
+    "actor_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "working",
+        "imported",
+        "verified",
+        "closed",
+        "blocked"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "plan": {
+      "type": "object"
+    },
+    "created": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "report": {
+      "type": "object"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "start_key",
+    "actor_id",
+    "status",
+    "revision",
+    "plan",
+    "created"
+  ],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

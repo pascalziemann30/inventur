@@ -4,11 +4,11 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Vollst\u00e4ndiger Name der Einheit"
+      "description": "Vollständiger Name der Einheit"
     },
     "abbreviation": {
       "type": "string",
-      "description": "Abk\u00fcrzung (z.B. kg, l, pcs)"
+      "description": "Abkürzung (z.B. kg, l, pcs)"
     },
     "type": {
       "type": "string",
@@ -26,9 +26,25 @@
     "abbreviation"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

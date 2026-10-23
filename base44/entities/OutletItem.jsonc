@@ -4,7 +4,7 @@
   "properties": {
     "outlet_id": {
       "type": "string",
-      "description": "Outlet-ID (zu welchem Outlet geh\u00f6rt dieser Artikel)"
+      "description": "Outlet-ID (zu welchem Outlet gehört dieser Artikel)"
     },
     "outlet_name": {
       "type": "string",
@@ -12,7 +12,7 @@
     },
     "global_item_id": {
       "type": "string",
-      "description": "Verkn\u00fcpfung zum GlobalItem"
+      "description": "Verknüpfung zum GlobalItem"
     },
     "display_name": {
       "type": "string",
@@ -32,7 +32,7 @@
     },
     "min_stock": {
       "type": "number",
-      "description": "Mindestbestand f\u00fcr Warnung"
+      "description": "Mindestbestand für Warnung"
     },
     "inventory_intervals": {
       "type": "array",
@@ -81,15 +81,15 @@
         }
       },
       "default": [],
-      "description": "Rezeptur-Rohstoffe (f\u00fcr Fertigprodukte)"
+      "description": "Rezeptur-Rohstoffe (für Fertigprodukte)"
     },
     "selling_price": {
       "type": "number",
-      "description": "Verkaufspreis (f\u00fcr Fertigprodukte)"
+      "description": "Verkaufspreis (für Fertigprodukte)"
     },
     "production_cost": {
       "type": "number",
-      "description": "Wareneinsatz (berechnete Produktionskosten, f\u00fcr Fertigprodukte)"
+      "description": "Wareneinsatz (berechnete Produktionskosten, für Fertigprodukte)"
     }
   },
   "required": [
@@ -99,9 +99,25 @@
     "supplier_id"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }
