@@ -21,7 +21,7 @@ export function assertProductionRuntime(req,{appId=inventoryAppId,origin=invento
  if(req.headers.get('X-Data-Env')!=='prod'||req.headers.get('Origin')!==origin
   ||req.headers.get('Base44-App-Id')!==appId)fail();
  const version=req.headers.get('Base44-Functions-Version');
- if(version&&version!=='published'&&version!=='main')fail();
+ if(version&&version!=='published'&&version!=='main'&&version!=='prod')fail();
  const api=req.headers.get('Base44-Api-Url');
  if(api&&api!=='https://base44.app'&&api!==origin)fail();
 }

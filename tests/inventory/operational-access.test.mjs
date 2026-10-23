@@ -115,3 +115,8 @@ test('fixed own public API origin is canonical; preview and foreign API origins 
  assert.equal(inventoryWorkflowRuntime(f.secrets,f.req({'Base44-Api-Url':inventoryProductionOrigin})).environment,'prod');
  for(const api of ['https://preview.example.invalid','https://shiftcntrl.base44.app','https://foreign.example.invalid'])assert.throws(()=>inventoryWorkflowRuntime(f.secrets,f.req({'Base44-Api-Url':api})),{code:'PRODUCTION_CONTEXT_UNCONFIRMED'});
 });
+
+test('platform published function marker prod is accepted; a branch marker stays rejected',()=>{
+ const f=fixture();assert.equal(inventoryWorkflowRuntime(f.secrets,f.req({'Base44-Functions-Version':'prod'})).environment,'prod');
+ assert.throws(()=>inventoryWorkflowRuntime(f.secrets,f.req({'Base44-Functions-Version':'branch:prod'})),{code:'PRODUCTION_CONTEXT_UNCONFIRMED'});
+});
