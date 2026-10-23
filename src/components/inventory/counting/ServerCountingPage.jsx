@@ -1,8 +1,9 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
-import {employeeMode} from '../entry/entryMode.js';
-import {employeeTestClient,inventoryEnvironment} from './testClient.js';
+import {employeeMode,passwordAdminMode} from '../entry/entryMode.js';
+import {employeeTestClient,inventoryAdminClient,inventoryEnvironment} from './testClient.js';
 import {inventoryTestClient as base44} from './testClient.js';
+import EntryHeader from '../entry/EntryHeader.jsx';
 import CountingWorkspace from './CountingWorkspace.jsx';
 import {inventoryRunApi,runErrorMessage} from './runApi.js';
 import InventoryTestControls from './InventoryTestControls.jsx';
@@ -39,6 +40,7 @@ export default function ServerCountingPage() {
                 if(active){setIsAdmin(false);setOutlets([data.outlet]);setOutletId(data.outlet.id);}
                 return;
             }
+            if(passwordAdminMode()){const {data}=await inventoryAdminClient.functions.invoke('adminSession',{action:'context'});if(!data?.authenticated||!data.outlet?.id)throw Error('Bitte erneut mit dem Admin-Passwort anmelden.');if(active){setIsAdmin(true);setOutlets([data.outlet]);setOutletId(data.outlet.id);}return;}
             const user=await base44.auth.me();
             if (!user?.id) throw new Error('Bitte mit deinem echten App-Konto anmelden.');
             const all=await base44.entities.Outlet.filter({is_active:true},'name',501);
@@ -105,6 +107,7 @@ export default function ServerCountingPage() {
     };
     if (loading) return <div className="counting-workspace"><main className="count-main"><p role="status">Inventur wird geladen …</p></main></div>;
     return <div className="counting-workspace">
+        {!run&&<EntryHeader outlet={outlets.find(o=>o.id===outletId)?.name}/>}
         {inventoryEnvironment==='dev'&&<aside className="count-server-note"><strong>Testbetrieb · Speicherung in getrennten Testdaten</strong></aside>}
         {isAdmin && inventoryEnvironment==='dev' && <InventoryTestControls outletId={run?.outlet_id || outletId} run={run} onPrepared={value=>{setOutletId(value.outlet_id);setOutlets(current=>[...current,{id:value.outlet_id,name:value.outlet_name}]);setError(null);}}/>}
         {error && <p className="count-error" role="alert">{error}</p>}
@@ -123,7 +126,7 @@ export default function ServerCountingPage() {
                     onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy || run.read_only}/>}
         </> : <main className="count-main"><header className="count-title"><div><p className="count-eyebrow">SHIFTCTRL · INVENTUR</p><h1>Inventur starten oder fortsetzen</h1><p>Monatlich als Standard. Der Zählrhythmus filtert die Artikel bereits beim Start.</p></div></header>
             <nav aria-label="Weitere Aufgaben" style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:20}}>{[['scan','Beleg scannen · Foto oder Datei'],['delivery','Lieferübersicht']].map(([workflow,label])=><button key={workflow} className="count-confirm" disabled={busy||!outletId} onClick={()=>{const next=new URLSearchParams(params);next.set('workflow',workflow);next.set('outlet',outletId);for(const key of ['run','scan','delivery'])next.delete(key);setParams(next);}}>{label}</button>)}</nav>
-            <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy||!isAdmin}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
+            <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy||!isAdmin||outlets.length===1}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
                 <label>Zählrhythmus<select value={period} onChange={event=>setPeriod(event.target.value)} disabled={busy}>{Object.entries(periods).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
                 <label>Inventurdatum<input type="date" value={date} onChange={event=>setDate(event.target.value)} required disabled={busy}/></label>
                 <button className="count-primary" type="submit" disabled={busy || !outletId}>{busy ? 'Wird gestartet …' : 'Neue Inventur starten'}</button></form>

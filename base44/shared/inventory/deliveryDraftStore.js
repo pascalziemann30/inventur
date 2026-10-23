@@ -28,7 +28,7 @@ export function base44DeliveryDraftStore(entities,user) {
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED',401);
             if (user.data?.outlet_id && user.outlet_id && user.data.outlet_id !== user.outlet_id) throw new BookingError('OUTLET_ASSIGNMENT_CONFLICT',403);
             const all=await boundedDeliveryRows(entities.Outlet.filter({is_active:true},'name',501));
-            const outlets=all.filter(outlet=>outlet.type !== 'AGGREGATOR' && (user.role === 'admin' || outlet.id === (user.data?.outlet_id || user.outlet_id)));
+            const outlets=all.filter(outlet=>outlet.type !== 'AGGREGATOR' && ((user.role === 'admin'&&user.access_kind!=='password_admin') || outlet.id === (user.data?.outlet_id || user.outlet_id)));
             const suppliers=await boundedDeliveryRows(entities.Supplier.list('name',501));
             const connectedItems=await boundedDeliveryRows(entities.OutletItem.filter({outlet_id:{$in:outlets.map(o=>o.id)},is_active:true},'id',501));
             const connectedSuppliers=new Set(connectedItems.map(i=>i.supplier_id));

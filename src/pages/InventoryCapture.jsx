@@ -24,12 +24,14 @@ import ServerDeliveryPage from '../components/inventory/delivery/ServerDeliveryP
 
 import DataAccessCheckPage from '../components/inventory/entry/DataAccessCheckPage';
 import LocationSetupPage from '../components/inventory/entry/LocationSetupPage';
+import EmployeeHomePage from '../components/inventory/entry/EmployeeHomePage';
 import LocationEntryPage from '../components/inventory/entry/LocationEntryPage';
 
 export default function InventoryCaptureRoute() {
     const [params] = useSearchParams();
     if (params.get('workflow') === 'access-check') return <DataAccessCheckPage />;
     if (params.get('workflow') === 'entry-setup') return <LocationSetupPage />;
+    if (params.get('workflow') === 'home') return <EmployeeHomePage />;
     if (params.get('workflow') === 'entry') return <LocationEntryPage />;
     if (params.get('diagnostics') === 'storage') return <StorageVerificationPanel />;
     if (params.get('workflow') === 'server') return <ServerCountingPage />;

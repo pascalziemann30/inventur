@@ -15,7 +15,7 @@ export function requiresNativeAdmin(page, search = '') {
     if (page === 'OutletLogin') return false;
     if (page === 'InventoryCapture') {
         const params = new URLSearchParams(search);
-        return params.has('diagnostics') || !['entry', 'server', 'scan', 'delivery'].includes(params.get('workflow'));
+        return params.has('diagnostics') || !['entry', 'home', 'server', 'scan', 'delivery'].includes(params.get('workflow'));
     }
     return true;
 }

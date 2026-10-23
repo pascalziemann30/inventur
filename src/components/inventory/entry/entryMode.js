@@ -1,6 +1,8 @@
 // This marker selects transport only. The server checks the signed cookie on every request.
 const modeKey='inventory_entry_transport';
 export const employeeMode=()=>globalThis.sessionStorage?.getItem(modeKey)==='employee';
+export const passwordAdminMode=()=>globalThis.sessionStorage?.getItem(modeKey)==='password_admin';
+export const selectPasswordAdminMode=()=>globalThis.sessionStorage.setItem(modeKey,'password_admin');
 export const selectEmployeeMode=()=>globalThis.sessionStorage.setItem(modeKey,'employee');
 export const selectAdminMode=()=>globalThis.sessionStorage.removeItem(modeKey);
 export function takeLaunch(location,history){
