@@ -1,6 +1,7 @@
 import {BookingError,scaledQuantity,monetaryNumber} from './quantities.js';
 import {unitsFor} from './counting.js';
-import {offerIdentityKey,searchName} from './deliveryReview.js';
+import {offerIdentityKey} from './deliveryReview.js';
+import {similarArticles} from './articleIdentity.js';
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
 export const canonical=v=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v??null);
 const equal=(a,b)=>canonical(a)===canonical(b);
@@ -10,8 +11,9 @@ const text=(v,max=300)=>typeof v==='string'&&v.trim()===v&&v.length>0&&v.length<
 const positive=v=>{if(scaledQuantity(v)===0n)fail('POSITIVE_CONVERSION_REQUIRED',400);return Number(String(v).replace(',','.'));};
 const bounded=async promise=>{const rows=await promise;if(!Array.isArray(rows)||rows.length>=501)fail('CATALOG_PAGING_REQUIRED');return rows;};
 export function normalizeDefinition(input){
- const allowed=['key','id','name','supplier','category','unit','sku','purchase_code','purchase_label','factor','net_price','count_units','receipt_units','inventory_intervals','is_active','notes'];
+ const allowed=['key','id','name','supplier','category','unit','sku','purchase_code','purchase_label','factor','net_price','count_units','receipt_units','inventory_intervals','is_active','notes','distinct_confirmed'];
  if(!input||Object.keys(input).some(k=>!allowed.includes(k)))fail('ARTICLE_INPUT_INVALID',400);
+ if(input.distinct_confirmed!==undefined&&typeof input.distinct_confirmed!=='boolean')fail('ARTICLE_INPUT_INVALID',400);
  const r={...input,sku:input.sku||'',receipt_units:input.receipt_units||[],inventory_intervals:input.inventory_intervals||['monthly','yearly'],notes:input.notes||'',is_active:input.is_active!==false};
  for(const k of ['name','supplier','category','unit','purchase_code','purchase_label'])if(!text(r[k]))fail('ARTICLE_REQUIRED_FIELDS',400);
  if(typeof r.sku!=='string'||r.sku.length>100||typeof r.notes!=='string'||r.notes.length>1000)fail('ARTICLE_INPUT_INVALID',400);
@@ -99,6 +101,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
   if(existing&&(!oldGlobal||oldGlobal.unit_abbreviation!==r.unit))fail('BASE_UNIT_IMMUTABLE');
   const duplicates=catalog.items.filter(i=>i.id!==existing?.id&&name(i.display_name)===name(r.name));
   if(duplicates.length)fail('EXISTING_ARTICLE_REQUIRES_LINK');
+  if(!existing&&!importing&&r.distinct_confirmed!==true&&similarArticles(r.name,catalog.items.map(i=>({id:i.id,name:i.display_name}))).length)fail('POSSIBLE_DUPLICATE_REVIEW_REQUIRED');
   const key=`article:${index}`,globalKey=`${key}:global`,itemKey=`${key}:item`;
   const globalData={canonical_name:r.name,unit_id:unit,unit_abbreviation:r.unit,category_id:category,category_name:r.category,default_net_price:r.net_price/r.factor};
   if(oldGlobal&&catalog.items.filter(i=>i.global_item_id===oldGlobal.id).length!==1)fail('SHARED_ARTICLE_REQUIRES_REVIEW');
@@ -178,7 +181,14 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
  };
  return {
   status:async({outlet_id})=>view(await load(outlet_id)),
-  async list({outlet_id}){const c=await readAdminCatalog(store,outlet_id);return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),suppliers:c.suppliers.filter(s=>s.is_active!==false).map(s=>s.name),categories:c.categories.map(c=>c.name),units:c.units.map(u=>u.abbreviation)};},
+  async list({outlet_id}){
+   const c=await readAdminCatalog(store,outlet_id),scoped=c.items.length>0;
+   const globals=c.globals.filter(g=>c.items.some(i=>i.global_item_id===g.id));
+   return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),
+    suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false&&(!scoped||c.items.some(i=>i.supplier_id===s.id))).map(s=>s.name))],
+    categories:[...new Set(c.categories.filter(c=>!scoped||globals.some(g=>g.category_id===c.id)).map(c=>c.name))],
+    units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
+  },
   async startPrepared({outlet_id,request_id,plan}){
    const o=await load(outlet_id),prior=o.catalog_admin_state;
    if(prior?.request_id===request_id){if(prior.input_fingerprint!==plan.input_fingerprint)fail('REQUEST_CONTENT_CHANGED');return view(o);}

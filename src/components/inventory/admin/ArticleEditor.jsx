@@ -1,21 +1,25 @@
 import {useState,useEffect,useRef} from 'react';
+import {similarArticles} from '../../../../base44/shared/inventory/articleIdentity.js';
 const blank={name:'',supplier:'',category:'',unit:'',sku:'',purchase_code:'KT',purchase_label:'Karton',factor:1,net_price:'',count_units:[{code:'base',label:'Basiseinheit',base_quantity:1,whole_numbers_only:false}],receipt_units:[],inventory_intervals:['monthly','yearly'],is_active:true,notes:''};
-export default function ArticleEditor({article,proposal,suppliers,categories,units,busy,error,onSave,onClose}){
+export default function ArticleEditor({article,proposal,suppliers,categories,units,existingArticles,busy,error,onSave,onClose}){
  const [form,setForm]=useState(()=>article?.definition?structuredClone(article.definition):{...structuredClone(blank),...(proposal?{name:proposal.source.original_name,supplier:proposal.supplier_name,sku:proposal.source.supplier_article_number,purchase_code:proposal.source.purchase_unit_code,purchase_label:proposal.source.purchase_unit_code,net_price:proposal.source.net_purchase_price}: {})});
- const [checked,setChecked]=useState(false),dialog=useRef(null);
+ const [checked,setChecked]=useState(false),[distinct,setDistinct]=useState(false),dialog=useRef(null);
+ const similar=article?[]:similarArticles(form.name,(existingArticles||[]).map(r=>({id:r.definition.id,name:r.definition.name,supplier:r.definition.supplier,active:r.definition.is_active})));
+ useEffect(()=>{setDistinct(false);},[form.name,form.supplier,form.unit,form.sku]);
  useEffect(()=>{dialog.current?.showModal();},[]);
  const change=(key,value)=>setForm(current=>({...current,[key]:value}));
  const updateUnit=(index,key,value)=>change('count_units',form.count_units.map((u,i)=>i===index?{...u,[key]:value}:u));
  const updateReceipt=(index,key,value)=>change('receipt_units',form.receipt_units.map((u,i)=>i===index?{...u,[key]:value}:u));
  const field=(key,label,props={})=><label>{label}<input required value={form[key]} onChange={e=>change(key,e.target.value)} disabled={busy} {...props}/></label>;
  const basePrice=Number(String(form.net_price).replace(',','.'))/Number(String(form.factor).replace(',','.'));
- return <dialog ref={dialog} className="admin-editor" aria-labelledby="article-editor-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><form onSubmit={e=>{e.preventDefault();onSave(form,{expected:article?.fingerprint,proposal});}}>
+ return <dialog ref={dialog} className="admin-editor" aria-labelledby="article-editor-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><form onSubmit={e=>{e.preventDefault();onSave({...form,distinct_confirmed:distinct},{expected:article?.fingerprint,proposal});}}>
   <header><div><p className="count-eyebrow">ARTIKELPFLEGE</p><h2 id="article-editor-title">{article?'Artikel bearbeiten':proposal?'Artikel aus Vorschlag anlegen':'Artikel anlegen'}</h2></div><button type="button" disabled={busy} onClick={onClose} aria-label="Artikel schließen">✕</button></header>
   {error&&<p className="count-error" role="alert">{error}</p>}
   {proposal&&<p className="count-preview">Originalbezeichnung: {proposal.source.original_name}. Produkt, Basiseinheit und Gebinde bitte vor der Anlage prüfen. Die Lieferposition wird anschließend separat zugeordnet und gebucht.</p>}
   <div className="admin-form-grid">{field('name','Artikelbezeichnung',{maxLength:300})}{field('supplier','Lieferant',{list:'article-suppliers'})}{field('category','Kategorie',{list:'article-categories'})}
    <label>Basiseinheit<select required disabled={busy||!!article} value={form.unit} onChange={e=>{const unit=e.target.value;setForm(current=>({...current,unit,count_units:current.count_units.map(u=>u.code==='base'?{...u,label:unit}:u)}));}}><option value="">Bitte wählen</option>{[...new Set(['kg','l','Stk','Packung','Karton','Rolle','Set',...units])].map(u=><option key={u}>{u}</option>)}</select></label>
   </div><datalist id="article-suppliers">{suppliers.map(s=><option key={s} value={s}/>)}</datalist><datalist id="article-categories">{categories.map(c=><option key={c} value={c}/>)}</datalist>
+  {!!similar.length&&<aside className="count-copy"><strong>Ähnliche vorhandene Artikel prüfen</strong><ul>{similar.map(r=><li key={r.id}>{r.name} · {r.supplier}{r.active?'':' · inaktiv'}</li>)}</ul><p>Gleicher Artikel? Bitte den vorhandenen Datensatz bearbeiten oder zuordnen. Unterschiedliche Sorte oder Ausführung? Dann die eigenständige Variante bestätigen.</p><label className="admin-check"><input type="checkbox" checked={distinct} disabled={busy} onChange={e=>setDistinct(e.target.checked)}/>Eigenständiger Artikel trotz ähnlicher vorhandener Bezeichnung</label></aside>}
   <h3>Einkauf</h3><div className="admin-form-grid">{field('purchase_label','Bestellgebinde, z. B. Karton mit 6 × 1 Liter')}{field('purchase_code','Einheit auf dem Beleg, z. B. KT oder ST',{maxLength:100})}{field('factor',`Inhalt eines Bestellgebindes in ${form.unit||'Basiseinheiten'}`,{inputMode:'decimal'})}{field('net_price','Nettopreis je Bestellgebinde (€)',{inputMode:'decimal'})}</div>
   <p className="admin-unit-price">{Number.isFinite(basePrice)&&basePrice>0?`${new Intl.NumberFormat('de-DE',{maximumFractionDigits:6}).format(basePrice)} € netto je ${form.unit||'Basiseinheit'}`:'Gebindeinhalt und Nettopreis eintragen.'} · Anfangsbestand bei neuen Artikeln: 0</p>
   <details open={!article}><summary>Zählweise und Rhythmus</summary><p>Gebinde und lose Ware dürfen kombiniert werden. Bei „nur ganze Mengen“ sind keine Bruchteile erlaubt.</p>
@@ -30,6 +34,6 @@ export default function ArticleEditor({article,proposal,suppliers,categories,uni
    <label className="admin-check"><input type="checkbox" checked={form.is_active} disabled={busy} onChange={e=>change('is_active',e.target.checked)}/>Artikel aktiv · Deaktivierung erhält den Verlauf</label>
   </details>
   <label className="admin-check admin-review"><input type="checkbox" checked={checked} disabled={busy} onChange={e=>setChecked(e.target.checked)}/>Artikelidentität, Gebindeumrechnung, Zählweise und Nettopreis geprüft</label>
-  <footer><button type="button" disabled={busy} onClick={onClose}>Abbrechen</button><button className="count-primary" disabled={busy||!checked||!form.inventory_intervals.length}>{busy?'Wird gespeichert …':article?'Geprüfte Änderung speichern':'Geprüften Artikel anlegen'}</button></footer>
+  <footer><button type="button" disabled={busy} onClick={onClose}>Abbrechen</button><button className="count-primary" disabled={busy||!checked||(!article&&similar.length>0&&!distinct)||!form.inventory_intervals.length}>{busy?'Wird gespeichert …':article?'Geprüfte Änderung speichern':'Geprüften Artikel anlegen'}</button></footer>
  </form></dialog>;
 }

@@ -90,3 +90,14 @@ test('shared metadata follows the unique existing outlet reference instead of a 
  const empty=fixture();empty.db.Unit.push({id:'one',abbreviation:'l'},{id:'two',abbreviation:'l'});
  await assert.rejects(empty.start('synthetic-scope-0003'),{code:'DUPLICATE_REFERENCE_REQUIRES_REVIEW'});
 });
+test('administrative choices show linked references instead of unrelated legacy metadata',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-choices-01'));
+ f.db.Supplier.push({id:'unrelated-supplier',name:'Unused supplier',is_active:true});f.db.Category.push({id:'unrelated-category',name:'Unused category'});f.db.Unit.push({id:'unrelated-unit',abbreviation:'Unused unit'});
+ const list=await f.service.list({outlet_id:'outlet'});assert.deepEqual(list.suppliers,[article.supplier]);assert.deepEqual(list.categories,[article.category]);assert.deepEqual(list.units,['l']);
+});
+test('similar names require an explicit distinction while exact duplicates remain blocked',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-near-00001'));
+ await assert.rejects(f.start('synthetic-near-00002',{...article,name:'Synthetic oat drink unsweetened',sku:'OTHER'}),{code:'POSSIBLE_DUPLICATE_REVIEW_REQUIRED'});
+ await f.complete(await f.start('synthetic-near-00003',{...article,name:'Synthetic oat drink unsweetened',sku:'OTHER',distinct_confirmed:true}));
+ await assert.rejects(f.start('synthetic-near-00004',{...article,distinct_confirmed:true}),{code:'EXISTING_ARTICLE_REQUIRES_LINK'});
+});

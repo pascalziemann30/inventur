@@ -85,6 +85,6 @@ export default function AdminWorkspace({initialSection='articles'}){
      <button className="count-primary" disabled={busy||activeOperation||!importData||!importChecked||!target} onClick={importArticles}>{busy?'Übernahme läuft …':'Geprüfte Artikel übernehmen'}</button>
     </section></>}
    </>}
-  </main>{editor&&<ArticleEditor key={editor.article?.definition.id||editor.proposal?.line_id||'new'} article={editor.article} proposal={editor.proposal} suppliers={catalog?.suppliers||[]} categories={catalog?.categories||[]} units={catalog?.units||[]} busy={busy} error={error} onSave={save} onClose={()=>setEditor(null)}/>}
+  </main>{editor&&<ArticleEditor key={editor.article?.definition.id||editor.proposal?.line_id||'new'} article={editor.article} proposal={editor.proposal} suppliers={catalog?.suppliers||[]} categories={catalog?.categories||[]} units={catalog?.units||[]} existingArticles={catalog?.articles||[]} busy={busy} error={error} onSave={save} onClose={()=>setEditor(null)}/>}
  </div>;
 }
