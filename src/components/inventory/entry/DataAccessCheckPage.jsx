@@ -8,7 +8,7 @@ const productionReadClient=createClient({appId:appParams.appId,token:appParams.t
 const label = state => ({allowed:'erlaubt',denied:'gesperrt',no_sample:'kein Beispieldatensatz',untested:'nicht geprüft',error:'Prüfung fehlgeschlagen'}[state] || 'nicht bestätigt');
 export default function DataAccessCheckPage() {
  const [result,setResult]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const run=async(environment)=>{setBusy(true);setError('');setResult(null);try{const response=await (environment==='prod'?productionReadClient:inventoryAdminTestClient).functions.invoke('verifyInventoryAccess',{action:'check'});setResult(verifiedAccessCheckResult(response.data,environment));}catch{setError('Prüfung oder angeforderter Datenbereich konnten nicht bestätigt werden. Bitte die aktuelle Prüffassung erneut laden.');}finally{setBusy(false);}};
+ const run=async(environment)=>{setBusy(true);setError('');setResult(null);try{const response=await (environment==='prod'?productionReadClient:inventoryAdminTestClient).functions.invoke('verifyInventoryAccessV2',{action:'check'});setResult(verifiedAccessCheckResult(response.data,environment));}catch{setError('Prüfung oder angeforderter Datenbereich konnten nicht bestätigt werden. Bitte die aktuelle Prüffassung erneut laden.');}finally{setBusy(false);}};
  return <main className="max-w-4xl mx-auto p-6 space-y-4">
   <h1 className="text-2xl font-semibold">Datenzugriffe prüfen</h1><p>Admin-Prüfung vorhandener Datensätze. Es werden keine Artikel oder Bestände verändert.</p>
   <button className="border rounded-lg p-3" disabled={busy} onClick={()=>run('dev')}>{busy?'Prüfung läuft …':'Testdaten prüfen'}</button>
