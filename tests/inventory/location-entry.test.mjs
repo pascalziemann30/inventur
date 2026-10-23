@@ -10,7 +10,7 @@ import {assertOutletAccess} from '../../base44/shared/inventory/stock.js';
 const now=1_800_000_000_000;
 const config={issuer:'synthetic-shift-app',launchSecret:'synthetic-launch-key-not-a-real-secret-0001',sessionSecret:'synthetic-session-key-not-a-real-secret-0002',origins:['https://inventory.example.invalid']};
 function fixture(){
- const binding={id:'binding-one',source_app_id:config.issuer,source_location_id:'source-id',environment:'dev',outlet_id:'target-id',is_active:true,revision:0};
+ const binding={id:'binding-one',source_app_id:config.issuer,source_location_id:'source-id',environment:'dev',outlet_id:'target-id',is_active:true,revision:0,expires_at:now+3600000};
  const rows=[binding],outlet={id:'target-id',name:'Kuno 15',is_active:true,type:'NORMAL'};let reads=0;
  const store={find:async query=>{reads++;return structuredClone(rows.filter(r=>Object.entries(query).every(([k,v])=>r[k]===v)));},getOutlet:async()=>{reads++;return structuredClone(outlet);}};
  const req=(cookie='',origin=config.origins[0],mode='employee',env='dev')=>new Request('https://inventory.example.invalid/api/test',{method:'POST',headers:{Origin:origin,'X-Data-Env':env,'X-Inventory-Mode':mode,...(cookie?{Cookie:cookie}:{})}});
@@ -116,4 +116,13 @@ test('even correctly signed foreign audience, environment, issuer or extra role 
   await assert.rejects(exchangeLocationLaunch({req:f.req(),launch:`${body}.${signature}`,config,store:f.store,now}),{code:'ENTRY_CONTEXT_INVALID'});
  }
  assert.equal(f.reads(),0);
+});
+test('the absolute binding deadline limits the cookie and revokes reads without relying on manual cleanup',async()=>{
+ const f=fixture();f.binding.expires_at=now+120000;
+ const result=await f.exchange();assert(result.cookie.includes('Max-Age=120'));
+ const cookie=result.cookie.split(';')[0];
+ assert.equal((await employeeLocationContext({req:f.req(cookie),config,store:f.store,now:now+119000})).outlet.id,'target-id');
+ await assert.rejects(employeeLocationContext({req:f.req(cookie),config,store:f.store,now:now+120000}));
+ f.binding.expires_at=now;await assert.rejects(f.exchange(),{code:'LOCATION_BINDING_EXPIRED'});
+ delete f.binding.expires_at;await assert.rejects(f.exchange(),{code:'LOCATION_BINDING_EXPIRED'});
 });
