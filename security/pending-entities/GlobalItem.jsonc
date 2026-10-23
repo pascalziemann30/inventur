@@ -1,0 +1,60 @@
+{
+  "name": "GlobalItem",
+  "type": "object",
+  "properties": {
+    "canonical_name": {
+      "type": "string",
+      "description": "Einheitlicher Name des Artikels (global)"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Basis-Einheit ID"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheits-Abkürzung"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Kategorie-ID (global)"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Kategoriename (Schnellzugriff)"
+    },
+    "default_net_price": {
+      "type": "number",
+      "description": "Standard-Netto-Einkaufspreis (optional)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Globale Notizen"
+    }
+  },
+  "required": [
+    "canonical_name",
+    "unit_abbreviation"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

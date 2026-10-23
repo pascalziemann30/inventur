@@ -1,0 +1,131 @@
+{
+  "status": "prepared-not-applied-to-base44",
+  "baseline_commit": "6e52a7f94b804ade7938560e1beaa204956544dc",
+  "entities": [
+    {
+      "path": "base44/entities/Article.jsonc",
+      "baseline_blob_sha": "535d778c68eacb0b235723b7ddcb29dfe75feba7",
+      "prepared_path": "security/pending-entities/Article.jsonc"
+    },
+    {
+      "path": "base44/entities/ArticleProposal.jsonc",
+      "baseline_blob_sha": "a478103f8e5cebc067f8c8ed754014e6e54150a0",
+      "prepared_path": "security/pending-entities/ArticleProposal.jsonc"
+    },
+    {
+      "path": "base44/entities/BookingProbeStock.jsonc",
+      "baseline_blob_sha": "b386c533a7c7e9646f14b37a4c92fedd1d4d65c6",
+      "prepared_path": "security/pending-entities/BookingProbeStock.jsonc"
+    },
+    {
+      "path": "base44/entities/CatalogImportBatch.jsonc",
+      "baseline_blob_sha": "e0963c30179a6cc44888df5a50001b4da983baf1",
+      "prepared_path": "security/pending-entities/CatalogImportBatch.jsonc"
+    },
+    {
+      "path": "base44/entities/Category.jsonc",
+      "baseline_blob_sha": "891aa710fa32de36258f9b81eec166d669e8faac",
+      "prepared_path": "security/pending-entities/Category.jsonc"
+    },
+    {
+      "path": "base44/entities/Delivery.jsonc",
+      "baseline_blob_sha": "b3f8dd02e14a1a8c29e921bf5c0e6db7bca27354",
+      "prepared_path": "security/pending-entities/Delivery.jsonc"
+    },
+    {
+      "path": "base44/entities/DeliveryDraft.jsonc",
+      "baseline_blob_sha": "15c177e77c1ea64cfaad29910b8d1a1b2025bc46",
+      "prepared_path": "security/pending-entities/DeliveryDraft.jsonc"
+    },
+    {
+      "path": "base44/entities/DeliveryLine.jsonc",
+      "baseline_blob_sha": "dab9ecc6d0017633ea37b778bfbe01f15cd03230",
+      "prepared_path": "security/pending-entities/DeliveryLine.jsonc"
+    },
+    {
+      "path": "base44/entities/DeliveryScan.jsonc",
+      "baseline_blob_sha": "5f5e4e87e0b91074d17951992c1da83a078106f4",
+      "prepared_path": "security/pending-entities/DeliveryScan.jsonc"
+    },
+    {
+      "path": "base44/entities/GlobalItem.jsonc",
+      "baseline_blob_sha": "b2f6eb0f0fb3699c01d91ef52d4f20b2783b315b",
+      "prepared_path": "security/pending-entities/GlobalItem.jsonc"
+    },
+    {
+      "path": "base44/entities/Inventory.jsonc",
+      "baseline_blob_sha": "35a1ad77d61b3fd374a87d0cabb266fe83976a3a",
+      "prepared_path": "security/pending-entities/Inventory.jsonc"
+    },
+    {
+      "path": "base44/entities/InventoryOutletBinding.jsonc",
+      "baseline_blob_sha": "d2e35c04a8d2d8b642937523130225220fc0126d",
+      "prepared_path": "security/pending-entities/InventoryOutletBinding.jsonc"
+    },
+    {
+      "path": "base44/entities/InventoryRun.jsonc",
+      "baseline_blob_sha": "bf00182e87ccb286fca01d189ac0f2c7483a6339",
+      "prepared_path": "security/pending-entities/InventoryRun.jsonc"
+    },
+    {
+      "path": "base44/entities/InventorySession.jsonc",
+      "baseline_blob_sha": "81982cd234971750a8c3a9d0e7bd85397009145f",
+      "prepared_path": "security/pending-entities/InventorySession.jsonc"
+    },
+    {
+      "path": "base44/entities/Outlet.jsonc",
+      "baseline_blob_sha": "1dd73473a7d44c03f1b4026a9d740848cbd18295",
+      "prepared_path": "security/pending-entities/Outlet.jsonc"
+    },
+    {
+      "path": "base44/entities/OutletItem.jsonc",
+      "baseline_blob_sha": "0ed34ec8ff57caaaf28c31a47909d187a6c23102",
+      "prepared_path": "security/pending-entities/OutletItem.jsonc"
+    },
+    {
+      "path": "base44/entities/OutletStock.jsonc",
+      "baseline_blob_sha": "bfc3c6dafb3ded7ab27479f80f38d570e16736c5",
+      "prepared_path": "security/pending-entities/OutletStock.jsonc"
+    },
+    {
+      "path": "base44/entities/OutletTransfer.jsonc",
+      "baseline_blob_sha": "86404b02373f9eb823092f1cb8d68acb17958d10",
+      "prepared_path": "security/pending-entities/OutletTransfer.jsonc"
+    },
+    {
+      "path": "base44/entities/PriceChangeRequest.jsonc",
+      "baseline_blob_sha": "6270e1715bc305e3d98d5ae0d65e85562dec74cc",
+      "prepared_path": "security/pending-entities/PriceChangeRequest.jsonc"
+    },
+    {
+      "path": "base44/entities/PriceHistory.jsonc",
+      "baseline_blob_sha": "f969d9bb254a8e566819b2034cd4ede95e92e9dc",
+      "prepared_path": "security/pending-entities/PriceHistory.jsonc"
+    },
+    {
+      "path": "base44/entities/StockMovement.jsonc",
+      "baseline_blob_sha": "25723f0fe2f3615e723808128201fc012acbd47a",
+      "prepared_path": "security/pending-entities/StockMovement.jsonc"
+    },
+    {
+      "path": "base44/entities/Supplier.jsonc",
+      "baseline_blob_sha": "8632e8fbd4fd7457704a79279e25a3643381ced9",
+      "prepared_path": "security/pending-entities/Supplier.jsonc"
+    },
+    {
+      "path": "base44/entities/SupplierItem.jsonc",
+      "baseline_blob_sha": "78648a47890baeaf3b5bd06e455297cdfa7f5e4a",
+      "prepared_path": "security/pending-entities/SupplierItem.jsonc"
+    },
+    {
+      "path": "base44/entities/Unit.jsonc",
+      "baseline_blob_sha": "9648de5b25fc15ec6ab794a16bede1bb53e95826",
+      "prepared_path": "security/pending-entities/Unit.jsonc"
+    },
+    {
+      "path": "base44/entities/Waste.jsonc",
+      "baseline_blob_sha": "7d02f80090508d0f0d3cf599dd3207e18db30ed1",
+      "prepared_path": "security/pending-entities/Waste.jsonc"
+    }
+  ]
+}

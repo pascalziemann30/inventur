@@ -17,7 +17,7 @@ function fixture() {
         GlobalItem: {get: async () => ({id: 'global', unit_abbreviation: 'l'})},
         OutletStock: {get: stock.get, filter: async () => [stock.snapshot()], updateMany: async (query, update) => ({success: true, updated: (await stock.compareAndSwap(query, update.$set)) ? 1 : 0, has_more: false})},
     };
-    const config = {actor: user, enabled: true};
+    const config = {actor: {...user, role: 'admin'}, enabled: true};
     const handler = createBookDeliveryLineHandler({createClientFromRequest: () => ({auth: {me: async () => config.actor}, asServiceRole: {entities}}), isEnabled: () => config.enabled, now: () => '2026-01-01T00:00:00.000Z'});
     const request = body => handler(new Request('https://test.invalid/book', {method: 'POST', body: JSON.stringify(body || {delivery_line_id: 'line'})}));
     return {stock, line, offer, counters, entities, config, request};
@@ -47,7 +47,7 @@ test('unresolved article proposals and unconfirmed conversion cannot book', asyn
 test('rollout gate and actual identity are enforced before any stock write', async () => {
     const f = fixture();f.config.enabled = false;assert.equal((await f.request()).status, 503);
     f.config.enabled = true;f.config.actor = null;assert.equal((await f.request()).status, 401);
-    f.config.actor = {...user, data: {outlet_id: 'other'}};assert.equal((await f.request()).status, 403);
+    f.config.actor = {...user, data: {outlet_id: 'outlet'}};assert.equal((await f.request()).status, 403);
     assert.equal(f.stock.writes(), 0);
 });
 

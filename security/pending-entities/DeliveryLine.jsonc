@@ -1,0 +1,125 @@
+{
+  "name": "DeliveryLine",
+  "type": "object",
+  "properties": {
+    "delivery_id": {
+      "type": "string"
+    },
+    "outlet_id": {
+      "type": "string"
+    },
+    "supplier_id": {
+      "type": "string"
+    },
+    "source_line_number": {
+      "type": "string"
+    },
+    "original_name": {
+      "type": "string"
+    },
+    "supplier_article_number": {
+      "type": "string"
+    },
+    "purchase_unit_code": {
+      "type": "string"
+    },
+    "purchase_quantity": {
+      "type": "number",
+      "minimum": 0
+    },
+    "net_purchase_price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Bestätigter Belegpreis je Einkaufseinheit"
+    },
+    "supplier_item_id": {
+      "type": "string"
+    },
+    "outlet_item_id": {
+      "type": "string"
+    },
+    "global_item_id": {
+      "type": "string"
+    },
+    "unit_abbreviation": {
+      "type": "string"
+    },
+    "offer_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confirmed": {
+      "type": "boolean",
+      "default": false
+    },
+    "conversion_snapshot": {
+      "type": "object",
+      "properties": {
+        "supplier_item_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "purchase_unit_code": {
+          "type": "string"
+        },
+        "base_quantity_per_purchase": {
+          "type": "number",
+          "minimum": 1e-06
+        },
+        "unit_abbreviation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "supplier_item_id",
+        "revision",
+        "purchase_unit_code",
+        "base_quantity_per_purchase",
+        "unit_abbreviation"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unresolved",
+        "proposal_pending",
+        "ready",
+        "booked",
+        "excluded"
+      ],
+      "default": "unresolved"
+    },
+    "article_proposal_id": {
+      "type": "string"
+    },
+    "booking_operation_id": {
+      "type": "string"
+    },
+    "booked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "required": [
+    "delivery_id",
+    "outlet_id",
+    "supplier_id",
+    "source_line_number",
+    "original_name",
+    "status"
+  ],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

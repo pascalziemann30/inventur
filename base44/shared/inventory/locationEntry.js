@@ -93,6 +93,7 @@ export async function inventoryRequestActor(req,client,config){
  if(mode!==null&&mode!=='admin')fail('ENTRY_MODE_INVALID');
  let user;try{user=await client.auth.me();}catch{fail('AUTHENTICATION_REQUIRED',401);}
  if(!user?.id)fail('AUTHENTICATION_REQUIRED',401);
- if(mode==='admin'&&user.role!=='admin')fail('ADMIN_REQUIRED');
+ // Native user profile fields are not proof of a location assignment. Staff must use the signed cookie.
+ if(user.role!=='admin')fail('ADMIN_REQUIRED');
  return user;
 }

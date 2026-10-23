@@ -1,0 +1,849 @@
+{
+  "status": "prepared-not-applied-to-base44",
+  "policy": "Native administrators manage legacy data; employee requests use only the verified server location workflows. Server-owned records have no direct client access.",
+  "changed_entities": [
+    {
+      "entity": "Article",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {},
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "ArticleProposal",
+      "before": {
+        "create": false,
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": false,
+        "delete": false
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "BookingProbeStock",
+      "before": {
+        "create": false,
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": false,
+        "delete": false
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "CatalogImportBatch",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "Category",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Delivery",
+      "before": {
+        "create": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "delete": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "DeliveryLine",
+      "before": {
+        "create": false,
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": false,
+        "delete": false
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "GlobalItem",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Inventory",
+      "before": null,
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "InventoryOutletBinding",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "InventorySession",
+      "before": {
+        "create": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "delete": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Outlet",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {},
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "OutletItem",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "OutletStock",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "OutletTransfer",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "PriceChangeRequest",
+      "before": {
+        "create": false,
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": false,
+        "delete": false
+      },
+      "after": {
+        "create": false,
+        "read": false,
+        "update": false,
+        "delete": false
+      }
+    },
+    {
+      "entity": "PriceHistory",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {},
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "StockMovement",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Supplier",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "SupplierItem",
+      "before": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "$or": [
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            },
+            {
+              "user_condition": {
+                "role": "user"
+              }
+            }
+          ]
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Unit",
+      "before": {
+        "create": {},
+        "read": {},
+        "update": {},
+        "delete": {}
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    },
+    {
+      "entity": "Waste",
+      "before": {
+        "create": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "read": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "update": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        },
+        "delete": {
+          "$or": [
+            {
+              "data.outlet_id": "{{user.data.outlet_id}}"
+            },
+            {
+              "user_condition": {
+                "role": "admin"
+              }
+            }
+          ]
+        }
+      },
+      "after": {
+        "create": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "read": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "update": {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        "delete": {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      }
+    }
+  ]
+}

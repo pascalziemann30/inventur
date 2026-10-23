@@ -31,8 +31,7 @@ export default function Settings() {
         queryFn: () => base44.auth.me()
     });
 
-    const userRole = sessionStorage.getItem('user_role');
-    const isAdmin = currentUser?.role === 'admin' || userRole === 'admin';
+    const isAdmin = currentUser?.role === 'admin';
 
     const handleResetAllData = async () => {
         setIsResetting(true);

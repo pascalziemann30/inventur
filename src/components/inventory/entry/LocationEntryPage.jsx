@@ -29,6 +29,6 @@ export default function LocationEntryPage(){
   <p>Dein Standort wird aus Shift Control übernommen.</p>
   {error&&<p className="count-error" role="alert">{error}</p>}
   <section className="count-sessions"><button disabled={busy} onClick={start}><strong>Mitarbeiterbereich</strong><span>{busy?'Standort wird geprüft …':'Inventur am zugeordneten Standort öffnen'}</span></button>
-  <button disabled={busy} onClick={()=>{selectAdminMode();navigate('/OutletLogin');}}><strong>Administratorbereich</strong><span>Geschützten bisherigen Einstieg öffnen</span></button></section>
+  <button disabled={busy} onClick={()=>{selectAdminMode();navigate(`/OutletLogin?${params}`);}}><strong>Administratorbereich</strong><span>Mit Base44-Admin-Anmeldung öffnen</span></button></section>
  </main></div>;
 }

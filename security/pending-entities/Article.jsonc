@@ -1,0 +1,100 @@
+{
+  "name": "Article",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name des Artikels"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Verknüpfte Kategorie-ID"
+    },
+    "category_name": {
+      "type": "string",
+      "description": "Name der Kategorie (für schnelle Anzeige)"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Basis-Einheit ID"
+    },
+    "unit_abbreviation": {
+      "type": "string",
+      "description": "Einheits-Abkürzung (für schnelle Anzeige)"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Lieferanten-ID"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Lieferantenname (für schnelle Anzeige)"
+    },
+    "purchase_price": {
+      "type": "number",
+      "description": "Netto-Einkaufspreis pro Basiseinheit"
+    },
+    "current_stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Aktueller Lagerbestand"
+    },
+    "initial_stock": {
+      "type": "number",
+      "default": 0,
+      "description": "Anfangsbestand"
+    },
+    "min_stock": {
+      "type": "number",
+      "description": "Mindestbestand für Warnung"
+    },
+    "inventory_intervals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "weekly",
+          "monthly",
+          "yearly"
+        ]
+      },
+      "default": [],
+      "description": "Zugeordnete Inventur-Intervalle (Mehrfachauswahl möglich)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Notizen zum Artikel"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Artikel aktiv/inaktiv"
+    }
+  },
+  "required": [
+    "name",
+    "supplier_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

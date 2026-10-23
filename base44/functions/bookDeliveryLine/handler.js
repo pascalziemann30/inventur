@@ -10,6 +10,8 @@ export function createBookDeliveryLineHandler({createClientFromRequest, isEnable
             let user;
             try { user = await client.auth.me(); } catch { throw new BookingError('AUTHENTICATION_REQUIRED', 401); }
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED', 401);
+            // This legacy endpoint has no signed location context; employees use deliveryDrafts.
+            if (user.role !== 'admin') throw new BookingError('ADMIN_REQUIRED', 403);
             // Enable only after staging proves CAS semantics, function packaging AND direct-write restrictions.
             if (!isEnabled()) throw new BookingError('BOOKING_ROLLOUT_NOT_VERIFIED', 503);
             const body = await req.json().catch(() => { throw new BookingError('INVALID_REQUEST'); });

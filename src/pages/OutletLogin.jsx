@@ -1,133 +1,68 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Lock } from 'lucide-react';
-import { useOutlet } from '../components/outlet/OutletContext';
-import { toast } from 'sonner';
+import {useState, useEffect} from 'react';
+import {useNavigate, useSearchParams} from 'react-router-dom';
+import {useQuery} from '@tanstack/react-query';
+import {Users, Lock} from 'lucide-react';
+import {base44} from '@/api/base44Client';
+import {useOutlet} from '../components/outlet/OutletContext';
+import NativeAdminBoundary from '../components/auth/NativeAdminBoundary';
+import {selectAdminMode} from '../components/inventory/entry/entryMode.js';
 
+function AdminOutletSelection() {
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const {setOutlet, currentOutletId} = useOutlet();
+    const [selected, setSelected] = useState('');
+    const {data: outlets = [], isPending, isError} = useQuery({
+        queryKey: ['admin-active-outlets'],
+        queryFn: () => base44.entities.Outlet.filter({is_active: true}),
+    });
+    useEffect(() => {
+        selectAdminMode();
+        sessionStorage.removeItem('user_role');
+    }, []);
+    useEffect(() => {
+        setSelected(previous => outlets.some(o => o.id === previous) ? previous :
+            outlets.some(o => o.id === currentOutletId) ? currentOutletId : outlets.length === 1 ? outlets[0].id : '');
+    }, [outlets, currentOutletId]);
+    return <section className="mt-6 space-y-3">
+        <h2 className="font-semibold">Standort verwalten</h2>
+        {isPending ? <p role="status">Standorte werden geladen …</p> : isError ? <p role="alert">Standorte konnten nicht geladen werden.</p> : <>
+            <label className="block">Standort<select className="block w-full border rounded-lg p-3 mt-1" value={selected} onChange={event => setSelected(event.target.value)}>
+                <option value="">Bitte wählen</option>{outlets.map(outlet => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
+            </select></label>
+            {!outlets.length && <p>Zurzeit ist kein aktiver Standort eingerichtet.</p>}
+            <button className="w-full border rounded-lg p-3" disabled={!selected} onClick={() => {
+                const outlet = outlets.find(o => o.id === selected);
+                if (!outlet) return;
+                setOutlet(outlet.id, outlet.name);
+                navigate(`/Dashboard?${params}`);
+            }}>Verwaltung öffnen</button>
+        </>}
+    </section>;
+}
 export default function OutletLogin() {
     const navigate = useNavigate();
-    const { setOutlet } = useOutlet();
-    const [showAdminPassword, setShowAdminPassword] = useState(false);
-    const [adminPassword, setAdminPassword] = useState('');
-    const [selectedOutletId, setSelectedOutletId] = useState('');
-
-    const { data: outlets = [] } = useQuery({
-        queryKey: ['outlets'],
-        queryFn: () => base44.entities.Outlet.list()
-    });
-
-    useEffect(() => {
-        if (outlets.length > 0 && !selectedOutletId) {
-            const kuno15 = outlets.find(o =>
-                o.name.includes('Kuno 15') || o.name.toLowerCase().includes('kuno15')
-            );
-            setSelectedOutletId(kuno15 ? kuno15.id : outlets[0].id);
-        }
-    }, [outlets]);
-
-    const getSelectedOutlet = () => outlets.find(o => o.id === selectedOutletId);
-
-    const handleEmployeeLogin = () => {
-        const outlet = getSelectedOutlet();
-        if (!outlet) { toast.error('Bitte wähle ein Outlet aus'); return; }
-        sessionStorage.setItem('user_role', 'employee');
-        setOutlet(outlet.id, outlet.name);
-        navigate('/Dashboard');
+    const [params] = useSearchParams();
+    const [showAdmin, setShowAdmin] = useState(false);
+    const enterEmployee = () => {
+        const next = new URLSearchParams(params);
+        next.set('workflow', 'entry');
+        next.delete('outlet');
+        next.delete('run');
+        navigate(`/InventoryCapture?${next}`);
     };
-
-    const handleAdminLogin = () => {
-        if (adminPassword === 'Kuno4488!') {
-            const outlet = getSelectedOutlet();
-            if (!outlet) { toast.error('Bitte wähle ein Outlet aus'); return; }
-            sessionStorage.setItem('user_role', 'admin');
-            setOutlet(outlet.id, outlet.name);
-            navigate('/Dashboard');
-        } else {
-            toast.error('Falsches Passwort');
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-            <div className="w-full max-w-sm">
-                {/* Title */}
-                <div className="text-center">
-                    <h1 className="text-xl font-semibold text-foreground">ShiftCntrl.</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">Inventur</p>
-                </div>
-
-                {/* Outlet Selection */}
-                <div className="mt-8">
-                    <label className="block text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2">
-                        Standort
-                    </label>
-                    <Select value={selectedOutletId} onValueChange={setSelectedOutletId}>
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Outlet wählen..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {outlets.map(outlet => (
-                                <SelectItem key={outlet.id} value={outlet.id}>
-                                    {outlet.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {/* Role Cards */}
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    {/* Mitarbeiter */}
-                    <div
-                        onClick={handleEmployeeLogin}
-                        className="bg-card border border-border rounded-2xl p-5 hover:bg-accent transition-colors cursor-pointer"
-                    >
-                        <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center mb-3">
-                            <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">Mitarbeiter</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Direkt einloggen</p>
-                    </div>
-
-                    {/* Administrator */}
-                    <div>
-                        <div
-                            onClick={() => setShowAdminPassword(!showAdminPassword)}
-                            className="bg-card border border-border rounded-2xl p-5 hover:bg-accent transition-colors cursor-pointer"
-                        >
-                            <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center mb-3">
-                                <Lock className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                            </div>
-                            <p className="text-sm font-semibold text-foreground">Administrator</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Passwort erforderlich</p>
-                        </div>
-
-                        {showAdminPassword && (
-                            <div className="mt-3 space-y-2">
-                                <Input
-                                    type="password"
-                                    placeholder="Passwort"
-                                    value={adminPassword}
-                                    onChange={(e) => setAdminPassword(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                                    autoFocus
-                                />
-                                <Button
-                                    onClick={handleAdminLogin}
-                                    className="w-full rounded-xl text-sm"
-                                >
-                                    Anmelden
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                </div>
+    return <main className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="w-full max-w-lg">
+            <h1 className="text-xl font-semibold text-center">ShiftCntrl · Inventur</h1>
+            <div className="mt-8 grid grid-cols-2 gap-3">
+                <button onClick={enterEmployee} className="text-left bg-card border rounded-2xl p-5 space-y-2">
+                    <Users aria-hidden="true" className="w-5 h-5"/><strong className="block">Mitarbeiterbereich</strong><span className="block text-sm">Standort aus Shift Control übernehmen</span>
+                </button>
+                <button onClick={() => setShowAdmin(value => !value)} aria-expanded={showAdmin} className="text-left bg-card border rounded-2xl p-5 space-y-2">
+                    <Lock aria-hidden="true" className="w-5 h-5"/><strong className="block">Administratorbereich</strong><span className="block text-sm">Mit Base44-Admin-Anmeldung</span>
+                </button>
             </div>
+            {showAdmin && <NativeAdminBoundary><AdminOutletSelection/></NativeAdminBoundary>}
         </div>
-    );
+    </main>;
 }

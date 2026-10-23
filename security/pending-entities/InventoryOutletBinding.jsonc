@@ -1,0 +1,51 @@
+{
+  "name": "InventoryOutletBinding",
+  "type": "object",
+  "properties": {
+    "source_app_id": {
+      "type": "string"
+    },
+    "source_location_id": {
+      "type": "string"
+    },
+    "outlet_id": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "dev"
+      ]
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": false
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expires_at": {
+      "type": "integer",
+      "description": "Mandatory absolute expiry of the development binding in Unix milliseconds"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_app_id",
+    "source_location_id",
+    "outlet_id",
+    "environment",
+    "is_active",
+    "revision",
+    "expires_at"
+  ],
+  "rls": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  }
+}

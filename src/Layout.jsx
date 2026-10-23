@@ -3,11 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Package, History, Settings, Store, BookOpen } from 'lucide-react';
 import { Toaster } from "sonner";
+import {useNativeAdminUser} from './components/auth/NativeAdminBoundary';
 import { OutletProvider } from './components/outlet/OutletContext';
 
 function LayoutContent({ children }) {
     const location = useLocation();
-    const userRole = sessionStorage.getItem('user_role');
+    const userRole = useNativeAdminUser()?.role;
     
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },

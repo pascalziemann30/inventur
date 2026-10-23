@@ -57,6 +57,7 @@ import LowStockOverview from '../components/inventory/LowStockOverview';
 import InventoriesOverview from '../components/inventory/InventoriesOverview';
 import DeliveriesOverview from '../components/inventory/DeliveriesOverview';
 import StockIntelligenceDashboard from '../components/analytics/StockIntelligenceDashboard';
+import {useNativeAdminUser} from '../components/auth/NativeAdminBoundary';
 import EmployeeActivityList from '../components/inventory/EmployeeActivityList';
 import DeliveryScanner from '../components/inventory/DeliveryScanner';
 
@@ -65,7 +66,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const { currentOutletId, currentOutletName } = useOutlet();
     const [searchTerm, setSearchTerm] = useState('');
-    const userRole = sessionStorage.getItem('user_role');
+    const userRole = useNativeAdminUser()?.role;
     const isEmployee = userRole === 'employee';
     const [activeTab, setActiveTab] = useState(isEmployee ? 'consumption' : 'articles');
     const [sortBy, setSortBy] = useState('name');

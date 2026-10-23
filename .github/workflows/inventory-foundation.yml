@@ -23,6 +23,11 @@ on:
       - 'src/components/inventory/scan/**'
       - 'src/pages/InventoryCapture.jsx'
       - 'src/Layout.jsx'
+      - 'src/App.jsx'
+      - 'src/api/base44Client.js'
+      - 'src/components/auth/**'
+      - 'src/pages/OutletLogin.jsx'
+      - 'security/**'
       - 'src/main.jsx'
       - 'src/dev/countingPreview.jsx'
       - 'src/dev/deliveryPreview.jsx'
@@ -50,7 +55,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:counting
       - run: npm run build
-      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/
+      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/ src/components/auth/ src/pages/OutletLogin.jsx src/api/base44Client.js
       - name: Check function entry syntax
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
