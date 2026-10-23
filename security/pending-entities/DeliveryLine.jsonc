@@ -67,7 +67,7 @@
         },
         "base_quantity_per_purchase": {
           "type": "number",
-          "minimum": 1e-06
+          "minimum": 0.000001
         },
         "unit_abbreviation": {
           "type": "string"

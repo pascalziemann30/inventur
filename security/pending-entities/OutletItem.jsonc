@@ -28,7 +28,7 @@
     },
     "net_purchase_price": {
       "type": "number",
-      "description": "Freigegebener Netto-Stammpreis je Basiseinheit; kein Kartonpreis"
+      "description": "Netto-Einkaufspreis (outlet-spezifisch)"
     },
     "min_stock": {
       "type": "number",
@@ -105,7 +105,7 @@
           },
           "base_quantity": {
             "type": "number",
-            "minimum": 1e-06
+            "minimum": 0.000001
           },
           "whole_numbers_only": {
             "type": "boolean",
