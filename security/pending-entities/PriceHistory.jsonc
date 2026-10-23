@@ -30,6 +30,10 @@
     "reason": {
       "type": "string",
       "description": "Grund der Änderung"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
     }
   },
   "required": [

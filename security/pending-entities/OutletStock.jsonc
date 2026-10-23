@@ -99,6 +99,10 @@
           "revision"
         ]
       }
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
     }
   },
   "required": [

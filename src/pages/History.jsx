@@ -1,3 +1,4 @@
+import AdminWorkspace from '../components/inventory/admin/AdminWorkspace.jsx';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -21,7 +22,7 @@ const inventoryTypeLabels = {
     adhoc: 'Einzelzählung'
 };
 
-export default function History() {
+export function LegacyHistory() {
     const [activeTab, setActiveTab] = useState('inventories');
     const [articleFilter, setArticleFilter] = useState('all');
 
@@ -209,3 +210,4 @@ export default function History() {
         </div>
     );
 }
+export default function History(){return <AdminWorkspace initialSection="history"/>;}

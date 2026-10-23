@@ -8,6 +8,7 @@ export const inventoryEnvironment=workflowDataEnvironment({origin:window.locatio
 const options={appId:appParams.appId,functionsVersion:appParams.functionsVersion,
  serverUrl:'',appBaseUrl:appParams.appBaseUrl,requiresAuth:false};
 const admin=createClient({...options,token:appParams.token,headers:{'X-Data-Env':inventoryEnvironment}});
+export const inventoryAdminClient=admin;
 export const inventoryAdminTestClient=createClient({...options,token:appParams.token,headers:{'X-Data-Env':'dev'}});
 export const employeeTestClient=createClient({...options,headers:{'X-Data-Env':inventoryEnvironment,'X-Inventory-Mode':'employee'}});
 export const inventoryTestClient=entryTransport({admin,employee:employeeTestClient});

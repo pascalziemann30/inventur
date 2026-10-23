@@ -119,6 +119,14 @@
         ]
       },
       "description": "Artikelbezogene Zähleinheiten; Einkaufseinheiten bleiben gesondert im SupplierItem"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
+    },
+    "primary_purchase_code": {
+      "type": "string",
+      "description": "Primäres Einkaufsgebinde für die Artikelpflege"
     }
   },
   "required": [

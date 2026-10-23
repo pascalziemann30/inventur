@@ -38,6 +38,14 @@
         "type": "object"
       },
       "description": "Atomar reservierte Belegreferenzen; vor Buchungsstart ausdrücklich initialisieren, niemals stillschweigend leeren"
+    },
+    "catalog_admin_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "catalog_admin_state": {
+      "type": "object",
+      "description": "Serverseitiger Fortsetzungsnachweis und Sperre der Artikelpflege; keine Bestandsbuchung"
     }
   },
   "required": [

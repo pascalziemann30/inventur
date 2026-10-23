@@ -1,20 +1,17 @@
+import AdminWorkspace from '../components/inventory/admin/AdminWorkspace.jsx';
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useOutlet } from '../components/outlet/OutletContext';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
     Plus, 
     Search, 
     ClipboardCheck, 
-    Truck, 
-    BarChart3,
+    Truck,
     BarChart2,
-    Package,
     Box,
     RefreshCw,
     ArrowUpDown,
@@ -43,8 +40,6 @@ import { createPageUrl } from '@/utils';
 import { toast } from "sonner";
 import { format } from 'date-fns';
 
-import StatsCards from '../components/inventory/StatsCards';
-import ArticleTable from '../components/inventory/ArticleTable';
 import CategoryArticleView from '../components/inventory/CategoryArticleView';
 import ArticleForm from '../components/inventory/ArticleForm';
 import DeliveryForm from '../components/inventory/DeliveryForm';
@@ -61,7 +56,7 @@ import {useNativeAdminUser} from '../components/auth/NativeAdminBoundary';
 import EmployeeActivityList from '../components/inventory/EmployeeActivityList';
 import DeliveryScanner from '../components/inventory/DeliveryScanner';
 
-export default function Dashboard() {
+export function LegacyDashboard() {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const { currentOutletId, currentOutletName } = useOutlet();
@@ -1410,3 +1405,4 @@ export default function Dashboard() {
         </div>
     );
 }
+export default function Dashboard(){return <AdminWorkspace/>;}
