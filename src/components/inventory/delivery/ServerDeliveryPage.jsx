@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import DeliveryReviewWorkspace from './DeliveryReviewWorkspace.jsx';
 import {deliveryDraftApi,prepareDeliveryFixture,reviewDraftLines} from './draftApi.js';
+import {inventoryEnvironment} from '../counting/testClient.js';
 import './deliveryReview.css';
 
 const backupKey=id=>`delivery_input_copy:${id}`;
@@ -106,7 +107,7 @@ export default function ServerDeliveryPage() {
             {options?.read_only && <p className="count-preview">Änderungen gesperrt. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
             <p><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button></p>
             <form className="count-start" onSubmit={start}>
-                <label>Standort<select aria-label="Lieferstandort" required disabled={busy} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                <label>Standort<select aria-label="Lieferstandort" required disabled={busy||!options?.is_admin} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label>Lieferant<select aria-label="Lieferant" required disabled={busy} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options?.suppliers.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label>Lieferdatum<input type="date" required disabled={busy} value={date} onChange={e=>setDate(e.target.value)}/></label>
                 <label>Belegreferenz<input aria-label="Belegreferenz" value={reference} maxLength={100} disabled={busy} onChange={e=>setReference(e.target.value)} placeholder="Lieferscheinnummer, falls vorhanden"/></label>
@@ -114,7 +115,7 @@ export default function ServerDeliveryPage() {
                 <button className="count-primary" disabled={busy || options?.read_only || !options}>Lieferentwurf anlegen</button>
             </form>
             <section className="count-sessions"><h2>Gespeicherte Entwürfe</h2>{!drafts.length && <p>Für den ausgewählten Standort ist noch kein Entwurf gespeichert.</p>}{drafts.map(item=><button key={item.id} onClick={()=>open(item)}><strong>{item.document_reference || 'Ohne Belegreferenz'} · {item.supplier_name}</strong><span>{item.delivery_date} · {item.positions} Positionen · {statusLabel[item.status]} · {item.pending_proposals} Vorschläge offen</span></button>)}</section>
-            {options?.is_admin && <details className="count-copy"><summary>Admin-Testwerkzeug</summary><p>Erstellt einen eigenen synthetischen Standort, vier Testartikel mit Einkaufszuordnungen und einen Lieferentwurf mit einer bekannten und einer unbekannten Position.</p><button className="count-confirm" disabled={busy || options.read_only} onClick={fixture}>Synthetische Testlieferung vorbereiten</button></details>}
+            {options?.is_admin && inventoryEnvironment==='dev' && <details className="count-copy"><summary>Admin-Testwerkzeug</summary><p>Erstellt einen eigenen synthetischen Standort, vier Testartikel mit Einkaufszuordnungen und einen Lieferentwurf mit einer bekannten und einer unbekannten Position.</p><button className="count-confirm" disabled={busy || options.read_only} onClick={fixture}>Synthetische Testlieferung vorbereiten</button></details>}
         </main>}
     </div>;
 }
