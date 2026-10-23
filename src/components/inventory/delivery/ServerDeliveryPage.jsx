@@ -105,7 +105,7 @@ export default function ServerDeliveryPage() {
         </> : <main className="count-main">
             <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG</p><h1>Lieferentwürfe</h1><p>Erfassen, prüfen und später weiterbearbeiten.</p></div></div>
             {options?.read_only && <p className="count-preview">Änderungen gesperrt. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
-            <p><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button></p>
+            <nav aria-label="Weitere Aufgaben" style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:20}}><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button><button className="count-link" onClick={()=>navigateWorkflow('server')}>Zur Inventurübersicht</button></nav>
             <form className="count-start" onSubmit={start}>
                 <label>Standort<select aria-label="Lieferstandort" required disabled={busy||!options?.is_admin} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <label>Lieferant<select aria-label="Lieferant" required disabled={busy} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options?.suppliers.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
