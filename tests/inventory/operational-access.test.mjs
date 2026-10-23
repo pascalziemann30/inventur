@@ -95,3 +95,10 @@ test('canonical public workflow binds the SDK request to prod even when gateway 
  assert.deepEqual(seen,{env:'prod',header:'prod'});
  seen=null;assert.equal((await handler(f.req({'X-Data-Env':'dev','Base44-Functions-Version':'branch:old'}))).status,503);assert.equal(seen,null);
 });
+
+test('canonical public request accepts the platform default missing data label without relaxing runtime checks',async()=>{
+ const f=fixture();let seen=false;
+ const handler=serveInventoryWorkflow({secrets:f.secrets,createClientFromRequest:()=>{},createHandler:({runtime})=>async req=>{seen=runtime.environment==='prod'&&req.headers.get('X-Data-Env')==='prod';return Response.json({ok:true});}});
+ const request=f.req(),headers=new Headers(request.headers);headers.delete('X-Data-Env');
+ assert.equal((await handler(new Request(request,{headers}))).status,200);assert.equal(seen,true);
+});
