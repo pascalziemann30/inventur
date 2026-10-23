@@ -14,6 +14,7 @@ on:
       - 'base44/functions/scanDelivery/**'
       - 'base44/functions/catalogImport/**'
       - 'base44/functions/catalogAdmin/**'
+      - 'base44/functions/adminSession/**'
       - 'base44/functions/locationEntry/**'
       - 'base44/functions/locationEntrySetup/**'
       - 'base44/functions/verifyInventoryAccess/**'
@@ -71,6 +72,8 @@ jobs:
           node --check base44/functions/scanDelivery/entry.ts
           node --check base44/functions/catalogAdmin/entry.ts
           node --check base44/functions/catalogAdmin/handler.js
+          node --check base44/functions/adminSession/entry.ts
+          node --check base44/functions/adminSession/handler.js
           node --check base44/functions/catalogImport/entry.ts
           node --check base44/functions/locationEntry/entry.ts
           node --check base44/functions/locationEntrySetup/entry.ts

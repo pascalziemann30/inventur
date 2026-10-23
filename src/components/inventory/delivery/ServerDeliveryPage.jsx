@@ -1,3 +1,4 @@
+import EntryHeader from '../entry/EntryHeader.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import DeliveryReviewWorkspace from './DeliveryReviewWorkspace.jsx';
@@ -85,7 +86,7 @@ export default function ServerDeliveryPage() {
     };
     if(loading)return <div className="counting-workspace"><main className="count-main"><p role="status">Lieferungen werden geladen …</p></main></div>;
     return <div className="counting-workspace">
-        <aside className="count-server-note"><strong>Gespeicherte Lieferentwürfe</strong><span>Bestand ändert sich erst durch ausdrücklich bestätigte Buchungen.</span></aside>
+        <EntryHeader outlet={options?.outlets.find(o=>o.id===outlet)?.name}/>
         {error && <div role="alert" className="count-copy"><p>{error}</p>{draft && <button className="count-confirm" disabled={busy} onClick={reload}>Gespeicherten Stand laden · lokale Eingaben als Vergleich behalten</button>}</div>}
         {pending && <div className="count-copy"><strong>Antwort noch unklar</strong><p>Der exakt gleiche Vorgang bleibt für einen erneuten Versuch erhalten. Weitere Änderungen sind bis zur Klärung gesperrt.</p><button className="count-confirm" disabled={busy} onClick={()=>send(requestRef.current).catch(()=>{})}>Gleichen Vorgang erneut versuchen</button></div>}
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}

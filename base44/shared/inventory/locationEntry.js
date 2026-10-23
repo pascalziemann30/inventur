@@ -1,3 +1,4 @@
+import {adminSessionContext,adminSessionStore} from './adminSession.js';
 import {BookingError} from './quantities.js';
 
 const fail=(code,status=403)=>{throw new BookingError(code,status);};
@@ -103,6 +104,7 @@ export async function employeeLocationContext({req,config,store,now=Date.now()})
 }
 export async function inventoryRequestActor(req,client,config){
  const mode=req.headers.get('X-Inventory-Mode');
+ if(mode==='password_admin')return(await adminSessionContext({req,config,store:adminSessionStore(client.asServiceRole.entities)})).user;
  if(mode==='employee')return(await employeeLocationContext({req,config,store:base44LocationBindingStore(client.asServiceRole.entities,config)})).user;
  if(mode!==null&&mode!=='admin')fail('ENTRY_MODE_INVALID');
  let user;try{user=await client.auth.me();}catch{fail('AUTHENTICATION_REQUIRED',401);}

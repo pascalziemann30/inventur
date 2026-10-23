@@ -6,6 +6,7 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import InventoryAdminBoundary from '@/components/auth/InventoryAdminBoundary';
 import NativeAdminBoundary from '@/components/auth/NativeAdminBoundary';
 import {requiresNativeAdmin} from '@/components/auth/adminAccess.js';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -17,6 +18,7 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 const LayoutWrapper = ({ children, currentPageName }) => {
   const location = useLocation();
   const content = Layout ? <Layout currentPageName={currentPageName}>{children}</Layout> : children;
+  if(['Dashboard','History'].includes(currentPageName))return <InventoryAdminBoundary>{content}</InventoryAdminBoundary>;
   return requiresNativeAdmin(currentPageName, location.search) ? <NativeAdminBoundary>{content}</NativeAdminBoundary> : content;
 };
 

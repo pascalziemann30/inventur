@@ -3,7 +3,7 @@ import {BookingError, addQuantity, scaledQuantity, quantityNumber} from './quant
 export function assertOutletAccess(user, outletId) {
     if (!user || typeof user.id !== 'string' || !user.id) throw new BookingError('AUTHENTICATION_REQUIRED', 401);
     if (typeof outletId !== 'string' || !outletId) throw new BookingError('OUTLET_REQUIRED');
-    if (user.role === 'admin') return;
+    if (user.role === 'admin') {if(user.access_kind==='password_admin'&&user.outlet_id!==outletId)throw new BookingError('OUTLET_FORBIDDEN',403);return;}
     if (user.role !== 'user') throw new BookingError('OUTLET_FORBIDDEN', 403);
     const nested = user.data?.outlet_id;
     const direct = user.outlet_id;

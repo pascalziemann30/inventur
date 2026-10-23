@@ -46,6 +46,15 @@
     "catalog_admin_state": {
       "type": "object",
       "description": "Serverseitiger Fortsetzungsnachweis und Sperre der Artikelpflege; keine Bestandsbuchung"
+    },
+    "admin_auth_revision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Atomare Version der begrenzten Admin-Anmeldeversuche"
+    },
+    "admin_auth_state": {
+      "type": "object",
+      "description": "Serverseitige Anzahl und Zeitfenster der Anmeldeversuche; enthält keine Passwörter oder Sitzungen"
     }
   },
   "required": [

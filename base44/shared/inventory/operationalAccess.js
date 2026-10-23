@@ -40,15 +40,16 @@ export function inventoryWorkflowRuntime(secrets,req){
  // cookie names, origins and binding queries isolate environments even with the same key material.
  return {environment,config,enabled:true};
 }
+export function normalizePublicInventoryRequest(req){
+ if(req.headers.get('Origin')===inventoryProductionOrigin&&[null,'dev','prod'].includes(req.headers.get('X-Data-Env'))){
+  const headers=new Headers(req.headers);headers.set('X-Data-Env','prod');return new Request(req,{headers});
+ }
+ return req;
+}
 export function serveInventoryWorkflow({secrets,createClientFromRequest,createHandler}){
  return async req=>{
   try{
-   // The exact published origin uses only production. The canonical runtime
-   // check below still rejects branch/app/API mismatches before SDK access.
-   if(req.headers.get('Origin')===inventoryProductionOrigin&&[null,'dev','prod'].includes(req.headers.get('X-Data-Env'))){
-    const headers=new Headers(req.headers);headers.set('X-Data-Env','prod');
-    req=new Request(req,{headers});
-   }
+   req=normalizePublicInventoryRequest(req);
    const runtime=inventoryWorkflowRuntime(secrets,req);
    return await createHandler({runtime,createClientFromRequest})(req);
   }catch(error){return Response.json({error:error instanceof BookingError?error.code:'INVENTORY_UNAVAILABLE'},
