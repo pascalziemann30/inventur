@@ -2,7 +2,7 @@ import {useEffect,useState,useCallback} from 'react';
 import {inventoryAdminTestClient} from '../counting/testClient.js';
 import '../counting/counting.css';
 const call=async(action,input={})=>(await inventoryAdminTestClient.functions.invoke('locationEntrySetup',{action,...input})).data;
-const keyLabel=(ready,state)=>ready?'verwendbar':state==='short'?'gespeichert, aber zu kurz':'im Server noch nicht verfügbar';
+const keyLabel=(ready,state)=>ready?'verwendbar':state==='placeholder'?'Server erhält nur einen gekürzten Platzhalter':state==='short'?'gespeichert, aber zu kurz':'im Server noch nicht verfügbar';
 export default function LocationSetupPage(){
  const [state,setState]=useState(null),[outlet,setOutlet]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const refresh=useCallback(async()=>{const data=await call('status');setState(data);setOutlet(current=>current||data.binding?.outlet_id||(data.outlets.length===1?data.outlets[0].id:''));},[]);

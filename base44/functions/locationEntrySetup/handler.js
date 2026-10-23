@@ -1,7 +1,7 @@
 import {BookingError} from '../../shared/inventory/quantities.js';
 const fail=(code,status=403)=>{throw new BookingError(code,status);};
 const id=value=>typeof value==='string'&&/^[a-f0-9]{24}$/.test(value);
-const keyState=value=>typeof value!=='string'||!value.length?'missing':keyReady(value)?'ready':'short';
+const keyState=value=>typeof value!=='string'||!value.length?'missing':keyReady(value)?'ready':/^(?:[*.•●]+)$/.test(value)||value.endsWith('...')||value.endsWith('…')?'placeholder':'short';
 const keyReady=value=>typeof value==='string'&&new TextEncoder().encode(value).length>=32;
 export function createLocationSetupHandler({createClientFromRequest,config,isEnabled,now=Date.now}){
  return async req=>{

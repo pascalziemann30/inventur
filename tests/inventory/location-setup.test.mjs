@@ -45,3 +45,12 @@ test('key diagnostics distinguish missing values from short ones without exposin
  const result=await(await f.call({action:'status'})).json();
  assert.equal(result.launch_key_state,'missing');assert.equal(result.session_key_state,'short');assert(!JSON.stringify(result).includes('short-example'));
 });
+
+test('short redacted placeholders are diagnosed without echoing their content or enabling writes',async()=>{
+ for(const placeholder of ['**********','synthetic-prefix...','synthetic-prefix…','••••••••']){
+  const f=fixture();f.config.launchSecret=placeholder;f.config.sessionSecret=placeholder;
+  const result=await(await f.call({action:'status'})).json();
+  assert.equal(result.launch_key_state,'placeholder');assert.equal(result.session_key_state,'placeholder');assert.equal(result.ready,false);
+  assert(!JSON.stringify(result).includes(placeholder));assert.equal((await f.call({action:'prepare',outlet_id:testId})).status,503);assert.equal(f.writes(),0);
+ }
+});
