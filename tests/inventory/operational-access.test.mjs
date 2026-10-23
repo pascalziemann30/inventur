@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inventoryWorkflowRuntime,serveInventoryWorkflow,inventoryAppId,kunoSourceAppId,kunoOutletId,inventoryProductionOrigin} from '../../base44/shared/inventory/operationalAccess.js';
 import {base44LocationBindingStore,exchangeLocationLaunch,employeeLocationContext,employeeCookie} from '../../base44/shared/inventory/locationEntry.js';
-import {workflowDataEnvironment} from '../../src/components/inventory/entry/dataEnvironment.js';
+import {workflowDataEnvironment,workflowFunctionsVersion} from '../../src/components/inventory/entry/dataEnvironment.js';
 import {createInventoryRunsHandler} from '../../base44/functions/inventoryRuns/handler.js';
 
 const at=1800000000000,launchSecret='synthetic-launch-key-at-least-32-bytes-not-real',sessionSecret='synthetic-session-key-at-least-32-bytes-not-real';
@@ -79,6 +79,11 @@ test('workflow awaits the write gate: a Promise resolving false must never allow
 });
 test('browser cannot choose production through query settings or an unrecognized hosting origin',()=>{
  assert.equal(workflowDataEnvironment({origin:inventoryProductionOrigin}),'prod');
- assert.equal(workflowDataEnvironment({origin:inventoryProductionOrigin,functionsVersion:'branch:synthetic'}),'dev');
+ assert.equal(workflowDataEnvironment({origin:inventoryProductionOrigin,functionsVersion:'branch:synthetic'}),'prod');
  for(const origin of ['http://127.0.0.1:5173','https://preview.example.invalid','https://foreign.example.invalid'])assert.equal(workflowDataEnvironment({origin}),'dev');
+});
+
+test('public transport discards stale branch version while preview keeps its version',()=>{
+ assert.equal(workflowFunctionsVersion({origin:inventoryProductionOrigin,functionsVersion:'branch:old'}),undefined);
+ assert.equal(workflowFunctionsVersion({origin:'https://preview.example.invalid',functionsVersion:'branch:old'}),'branch:old');
 });

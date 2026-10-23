@@ -1,4 +1,7 @@
-// Only the published inventory origin selects production. URL parameters cannot opt into it.
-export function workflowDataEnvironment({origin,functionsVersion}){
- return origin==='https://siftcntrl-bestand.base44.app'&&!(typeof functionsVersion==='string'&&functionsVersion.startsWith('branch:'))?'prod':'dev';
+// Hosting origin selects transport. A stale preview selection cannot change the public entry.
+export function workflowDataEnvironment({origin}){
+ return origin==='https://siftcntrl-bestand.base44.app'?'prod':'dev';
+}
+export function workflowFunctionsVersion({origin,functionsVersion}){
+ return workflowDataEnvironment({origin})==='prod'?undefined:functionsVersion;
 }
