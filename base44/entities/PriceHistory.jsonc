@@ -21,15 +21,15 @@
     "change_date": {
       "type": "string",
       "format": "date",
-      "description": "Datum der \u00c4nderung"
+      "description": "Datum der Änderung"
     },
     "changed_by": {
       "type": "string",
-      "description": "Ge\u00e4ndert von (User Email)"
+      "description": "Geändert von (User Email)"
     },
     "reason": {
       "type": "string",
-      "description": "Grund der \u00c4nderung"
+      "description": "Grund der Änderung"
     }
   },
   "required": [
@@ -43,7 +43,11 @@
         "role": "admin"
       }
     },
-    "read": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
     "update": {
       "user_condition": {
         "role": "admin"

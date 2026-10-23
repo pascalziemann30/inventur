@@ -18,7 +18,7 @@ test('only the two-card start and location workflows bypass the admin UI boundar
  for (const page of ['Dashboard','Settings','AdminOverview','Analytics','Suppliers','Users','History','Produktpass','Unexpected']) assert.equal(requiresNativeAdmin(page),true);
  assert.equal(requiresNativeAdmin('OutletLogin'),false);
  for (const workflow of ['entry','server','scan','delivery']) assert.equal(requiresNativeAdmin('InventoryCapture',`?workflow=${workflow}`),false);
- for (const query of ['', '?workflow=import','?workflow=entry-setup','?workflow=unknown','?diagnostics=storage','?workflow=server&diagnostics=storage','?workflow=entry&diagnostics=storage']) assert.equal(requiresNativeAdmin('InventoryCapture',query),true);
+ for (const query of ['', '?workflow=import','?workflow=access-check','?workflow=entry-setup','?workflow=unknown','?diagnostics=storage','?workflow=server&diagnostics=storage','?workflow=entry&diagnostics=storage']) assert.equal(requiresNativeAdmin('InventoryCapture',query),true);
 });
 test('branch admin requests are explicitly pinned to test data', () => {
  assert.equal(inventoryDataEnvironment('branch:synthetic'),'dev');assert.equal(inventoryDataEnvironment('branch:another'),'dev');
@@ -41,7 +41,8 @@ test('prepared entity rules close public/profile access and preserve every schem
   const change=plan.changed_entities.find(c=>c.entity===schema.name);
   const {rls:actualRules,...actualFields}=actual, {rls:preparedRules,...preparedFields}=schema;
   assert.deepEqual(actualFields,preparedFields,`${file} must preserve data structure`);
-  assert([JSON.stringify(preparedRules),JSON.stringify(change?.before)].includes(JSON.stringify(actualRules ?? null)),`${file} rules must match the reviewed baseline or prepared policy`);
+  if(plan.status==='prepared-not-applied-to-base44') assert([JSON.stringify(preparedRules),JSON.stringify(change?.before)].includes(JSON.stringify(actualRules ?? null)),`${file} rules must match the reviewed baseline or prepared policy`);
+  else assert.deepEqual(actualRules,preparedRules,`${file} activated rule must exactly match the approved policy`);
   assert.deepEqual(Object.keys(schema.rls).sort(),['create','delete','read','update'],file);
   for(const op of ['create','read','update','delete']) assert.deepEqual(schema.rls[op],serverOnly.has(schema.name)?false:{user_condition:{role:'admin'}},`${file} ${op}`);
  }

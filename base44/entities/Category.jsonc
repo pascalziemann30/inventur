@@ -11,24 +11,40 @@
       "items": {
         "type": "string"
       },
-      "description": "Schl\u00fcsselw\u00f6rter zur automatischen Erkennung"
+      "description": "Schlüsselwörter zur automatischen Erkennung"
     },
     "icon": {
       "type": "string",
-      "description": "Icon-Name f\u00fcr die Anzeige"
+      "description": "Icon-Name für die Anzeige"
     },
     "color": {
       "type": "string",
-      "description": "Farbe f\u00fcr die Kategoriekennzeichnung"
+      "description": "Farbe für die Kategoriekennzeichnung"
     }
   },
   "required": [
     "name"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

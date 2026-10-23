@@ -2,26 +2,94 @@
   "name": "SupplierItem",
   "type": "object",
   "properties": {
-    "supplier_id": { "type": "string" },
-    "supplier_article_number": { "type": "string", "description": "Optional: echte Lieferantenartikelnummer als Text; führende Nullen erhalten. Interne IDs sind kein Ersatz." },
-    "global_item_id": { "type": "string" },
-    "original_name": { "type": "string" },
-    "purchase_unit_code": { "type": "string", "description": "Originaleinheit im Kontext dieses Lieferantenartikels" },
-    "purchase_unit_label": { "type": "string", "description": "Eindeutige Bedeutung, etwa ganze Torte statt Kuchenstück" },
-    "base_quantity_per_purchase": { "type": "number", "minimum": 0.000001 },
-    "unit_abbreviation": { "type": "string" },
-    "net_purchase_price": { "type": "number", "minimum": 0, "description": "Preis je Einkaufseinheit, nicht je Basiseinheit" },
-    "revision": { "type": "integer", "minimum": 0 },
-    "status": { "type": "string", "enum": ["draft", "approved", "archived"], "default": "draft" },
-    "source_reference": { "type": "string" },
-    "source_barcode": { "type": "string", "description": "Ungeprüfter Quellwert; nicht allein zur Artikelzuordnung verwenden" },
-    "lookup_key": { "type": "string", "description": "Suchhilfe aus Lieferant, optionaler Artikelnummer oder vollständiger Bezeichnung und Einkaufseinheit; ersetzt keinen serverseitigen Eindeutigkeitsnachweis" }
+    "supplier_id": {
+      "type": "string"
+    },
+    "supplier_article_number": {
+      "type": "string",
+      "description": "Optional: echte Lieferantenartikelnummer als Text; führende Nullen erhalten. Interne IDs sind kein Ersatz."
+    },
+    "global_item_id": {
+      "type": "string"
+    },
+    "original_name": {
+      "type": "string"
+    },
+    "purchase_unit_code": {
+      "type": "string",
+      "description": "Originaleinheit im Kontext dieses Lieferantenartikels"
+    },
+    "purchase_unit_label": {
+      "type": "string",
+      "description": "Eindeutige Bedeutung, etwa ganze Torte statt Kuchenstück"
+    },
+    "base_quantity_per_purchase": {
+      "type": "number",
+      "minimum": 1e-06
+    },
+    "unit_abbreviation": {
+      "type": "string"
+    },
+    "net_purchase_price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Preis je Einkaufseinheit, nicht je Basiseinheit"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "approved",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "source_reference": {
+      "type": "string"
+    },
+    "source_barcode": {
+      "type": "string",
+      "description": "Ungeprüfter Quellwert; nicht allein zur Artikelzuordnung verwenden"
+    },
+    "lookup_key": {
+      "type": "string",
+      "description": "Suchhilfe aus Lieferant, optionaler Artikelnummer oder vollständiger Bezeichnung und Einkaufseinheit; ersetzt keinen serverseitigen Eindeutigkeitsnachweis"
+    }
   },
-  "required": ["supplier_id", "global_item_id", "original_name", "purchase_unit_code", "purchase_unit_label", "base_quantity_per_purchase", "unit_abbreviation", "revision"],
+  "required": [
+    "supplier_id",
+    "global_item_id",
+    "original_name",
+    "purchase_unit_code",
+    "purchase_unit_label",
+    "base_quantity_per_purchase",
+    "unit_abbreviation",
+    "revision"
+  ],
   "rls": {
-    "create": { "user_condition": { "role": "admin" } },
-    "read": { "$or": [{ "user_condition": { "role": "admin" } }, { "user_condition": { "role": "user" } }] },
-    "update": { "user_condition": { "role": "admin" } },
-    "delete": { "user_condition": { "role": "admin" } }
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

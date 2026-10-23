@@ -2,22 +2,58 @@
   "name": "ArticleProposal",
   "type": "object",
   "properties": {
-    "outlet_id": { "type": "string" },
-    "delivery_line_id": { "type": "string" },
-    "supplier_id": { "type": "string" },
-    "supplier_article_number": { "type": "string" },
-    "original_name": { "type": "string" },
-    "proposed_by": { "type": "string" },
-    "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "default": "pending" },
-    "approved_supplier_item_id": { "type": "string" },
-    "reviewed_by": { "type": "string" },
-    "reviewed_at": { "type": "string", "format": "date-time" },
-    "review_note": { "type": "string" }
+    "outlet_id": {
+      "type": "string"
+    },
+    "delivery_line_id": {
+      "type": "string"
+    },
+    "supplier_id": {
+      "type": "string"
+    },
+    "supplier_article_number": {
+      "type": "string"
+    },
+    "original_name": {
+      "type": "string"
+    },
+    "proposed_by": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "approved_supplier_item_id": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "review_note": {
+      "type": "string"
+    }
   },
-  "required": ["outlet_id", "delivery_line_id", "supplier_id", "original_name", "proposed_by", "status"],
+  "required": [
+    "outlet_id",
+    "delivery_line_id",
+    "supplier_id",
+    "original_name",
+    "proposed_by",
+    "status"
+  ],
   "rls": {
     "create": false,
-    "read": { "$or": [{ "data.outlet_id": "{{user.data.outlet_id}}" }, { "user_condition": { "role": "admin" } }] },
+    "read": false,
     "update": false,
     "delete": false
   }

@@ -105,7 +105,7 @@
           },
           "base_quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "whole_numbers_only": {
             "type": "boolean",
@@ -128,9 +128,25 @@
     "supplier_id"
   ],
   "rls": {
-    "create": {},
-    "read": {},
-    "update": {},
-    "delete": {}
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }

@@ -108,11 +108,7 @@
   ],
   "rls": {
     "create": false,
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
+    "read": false,
     "update": false,
     "delete": false
   },
