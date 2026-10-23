@@ -39,3 +39,9 @@ test('duplicates and incomplete keys fail closed without writing',async()=>{
  const f=fixture();f.rows.push({source_app_id:issuer,source_location_id:issuer,environment:'dev'},{source_app_id:issuer,source_location_id:issuer,environment:'dev'});assert.equal((await f.call({action:'status'})).status,403);assert.equal(f.writes(),0);
  const empty=fixture();empty.config.sessionSecret='';assert.equal((await empty.call({action:'prepare',outlet_id:testId})).status,503);assert.equal(empty.writes(),0);
 });
+
+test('key diagnostics distinguish missing values from short ones without exposing either value',async()=>{
+ const f=fixture();f.config.launchSecret=undefined;f.config.sessionSecret='short-example';
+ const result=await(await f.call({action:'status'})).json();
+ assert.equal(result.launch_key_state,'missing');assert.equal(result.session_key_state,'short');assert(!JSON.stringify(result).includes('short-example'));
+});

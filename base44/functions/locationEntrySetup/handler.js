@@ -1,6 +1,7 @@
 import {BookingError} from '../../shared/inventory/quantities.js';
 const fail=(code,status=403)=>{throw new BookingError(code,status);};
 const id=value=>typeof value==='string'&&/^[a-f0-9]{24}$/.test(value);
+const keyState=value=>typeof value!=='string'||!value.length?'missing':keyReady(value)?'ready':'short';
 const keyReady=value=>typeof value==='string'&&new TextEncoder().encode(value).length>=32;
 export function createLocationSetupHandler({createClientFromRequest,config,isEnabled,now=Date.now}){
  return async req=>{
@@ -23,7 +24,7 @@ export function createLocationSetupHandler({createClientFromRequest,config,isEna
    if(body.action==='status'){
     const outlets=(await e.Outlet.filter({type:'NORMAL'},'name',501)).filter(eligible).map(o=>({id:o.id,name:o.name,is_active:o.is_active}));
     return Response.json({ready,source_id_configured:id(config.issuer),launch_key_configured:keyReady(config.launchSecret),session_key_configured:keyReady(config.sessionSecret),
-     write_window_open:(await isEnabled())===true,outlets,binding:publicBinding(bindings[0])},{headers:{'Cache-Control':'no-store'}});
+     launch_key_state:keyState(config.launchSecret),session_key_state:keyState(config.sessionSecret),write_window_open:(await isEnabled())===true,outlets,binding:publicBinding(bindings[0])},{headers:{'Cache-Control':'no-store'}});
    }
    if(!ready)fail('LOCATION_ENTRY_NOT_CONFIGURED',503);
    if(body.action==='prepare'){
