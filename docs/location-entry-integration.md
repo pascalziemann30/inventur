@@ -23,3 +23,7 @@ Ein Browsermarker wählt lediglich den Transport mit `X-Inventory-Mode: employee
 7. Alte direkte Schreibrechte und den bisherigen Adminschutz vor Produktivfreigabe separat absichern. Ein Browser mit echter bestehender Base44-Admin-Anmeldung bleibt mit deren Token Administrator, wenn er die neuen Mitarbeiterwege verlässt. Der Transportmarker ist keine globale Herabstufung dieser Anmeldung.
 
 Keine Produktionsdaten, Mappings oder Schlüssel wurden eingerichtet. Das Testfenster bleibt geschlossen. Bestehende Admin-/Legacyseiten wurden nicht auf das neue Berechtigungsmodell migriert. Daher ist die vollständige Standortanbindung noch offen.
+
+## Gesperrte Testvorbereitung
+
+InventoryCapture?workflow=entry-setup prüft die native Adminrolle. locationEntrySetup stellt nur dev-Status, gesperrte Vorbereitung und befristete Aktivierung/Schließung bereit. Vorbereitung ist ausschließlich bei geschlossenem Schreibfenster möglich und legt eine inaktive Bindung mit expires_at=0 an. Es werden nur ausdrücklich gekennzeichnete CATALOG-TEST-Standorte akzeptiert. Aktivierung benötigt die befristete serverseitige Testfreigabe, prüft die Revision und setzt maximal15Minuten bis zum absoluten Ende. Schließen bleibt nach Ablauf möglich und sperrt zuerst die Bindung. Schlüsselwerte werden nie zurückgegeben. Konfiguration wird pro Anfrage frisch aus der Laufzeit gelesen.

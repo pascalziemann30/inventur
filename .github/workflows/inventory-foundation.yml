@@ -14,6 +14,7 @@ on:
       - 'base44/functions/scanDelivery/**'
       - 'base44/functions/catalogImport/**'
       - 'base44/functions/locationEntry/**'
+      - 'base44/functions/locationEntrySetup/**'
       - 'integration/shift-control-location-entry/**'
       - 'src/components/inventory/entry/**'
       - 'tests/inventory/**'
@@ -61,6 +62,7 @@ jobs:
           node --check base44/functions/scanDelivery/entry.ts
           node --check base44/functions/catalogImport/entry.ts
           node --check base44/functions/locationEntry/entry.ts
+          node --check base44/functions/locationEntrySetup/entry.ts
       - name: Check schema JSON syntax
         run: |
           node --input-type=module - <<'JS'

@@ -6,5 +6,6 @@ import {entryTransport} from '../entry/entryMode.js';
 const options={appId:appParams.appId,functionsVersion:appParams.functionsVersion,
  serverUrl:'',appBaseUrl:appParams.appBaseUrl,requiresAuth:false};
 const admin=createClient({...options,token:appParams.token,headers:{'X-Data-Env':'dev'}});
+export const inventoryAdminTestClient=admin;
 export const employeeTestClient=createClient({...options,headers:{'X-Data-Env':'dev','X-Inventory-Mode':'employee'}});
 export const inventoryTestClient=entryTransport({admin,employee:employeeTestClient});
