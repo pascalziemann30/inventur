@@ -1,4 +1,3 @@
-// Refresh branch deployment after dashboard configuration changes; grants remain bounded at runtime.
 import {inventoryRequestActor} from '../../shared/inventory/locationEntry.js';
 import {locationEntryConfig} from '../../shared/inventory/locationEntryConfig.js';
 import {createClientFromRequest} from 'npm:@base44/sdk@0.8.56';
