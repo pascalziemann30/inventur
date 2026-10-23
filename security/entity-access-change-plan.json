@@ -1,5 +1,5 @@
 {
-  "status": "activation-authorized-platform-verification-pending",
+  "status": "app-wide-active-native-read-verified",
   "policy": "Native administrators manage legacy data; employee requests use only the verified server location workflows. Server-owned records have no direct client access.",
   "changed_entities": [
     {
@@ -845,5 +845,12 @@
         }
       }
     }
-  ]
+  ],
+  "approved_main_policy_commit": "bdb82a47d369d3b7e890724ccc8e01052e70f57e",
+  "native_read_checks_verified": [
+    "dev",
+    "prod"
+  ],
+  "write_probe_performed": false,
+  "empty_tables_need_representative_data": true
 }

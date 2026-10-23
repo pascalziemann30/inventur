@@ -1,5 +1,5 @@
 {
-  "status": "activation-authorized-platform-verification-pending",
+  "status": "app-wide-active-native-read-verified",
   "baseline_commit": "6e52a7f94b804ade7938560e1beaa204956544dc",
   "entities": [
     {
@@ -127,5 +127,12 @@
       "baseline_blob_sha": "7d02f80090508d0f0d3cf599dd3207e18db30ed1",
       "prepared_path": "security/pending-entities/Waste.jsonc"
     }
-  ]
+  ],
+  "approved_main_policy_commit": "bdb82a47d369d3b7e890724ccc8e01052e70f57e",
+  "native_read_checks_verified": [
+    "dev",
+    "prod"
+  ],
+  "write_probe_performed": false,
+  "empty_tables_need_representative_data": true
 }

@@ -1,4 +1,4 @@
-# Administrator access and prepared data rules
+# Administrator access and active data rules
 
 The two-card entry remains. Employee access uses the verified Shift Control location session. Administrative pages mount only after a fresh native Base44 identity with an exact `admin` role is confirmed. Stored browser role labels and the old shared-password comparison no longer grant access. The backend likewise requires a native administrator on legacy native-identity routes; employees use the signed location endpoints.
 
@@ -14,10 +14,14 @@ A branch client explicitly sends `X-Data-Env: dev`, including legacy administrat
 
 Base44 describes data/settings as shared between branches and data-structure editing as a main-level operation: https://base44.com/blog/introducing-branches . Treat entity permission activation as an app-wide rollout, distinct from a preview. The prepared schemas must be reviewed/applied deliberately; the activation commit must be checked against the live platform before declaring it effective.
 
-Before declaring the access-control step complete: apply the prepared rules in the intended app; verify anonymous/native non-admin denial against real existing test records; verify native admin access and service-backed employee workflows still work; check that internal server-only records cannot be edited directly. A new employee connection test still needs an explicit bounded grant. Do not merge or publish merely to test a UI change.
+Activation is complete in both the development schema and main's app-wide policy configuration. The main-only policy commit is `bdb82a47d369d3b7e890724ccc8e01052e70f57e`: it preserves all non-RLS fields of the 15 existing main schemas and registers the 10 approved additional models. No frontend merge/publish or record write was performed for this activation.
+
+Native read checks passed on existing test and production records. Empty tables remain schema-verified rather than record-probed. No destructive write probe or extra normal employee account was created. The operational employee launch grants remain closed; the production employee cutover is a separate next step.
 
 Legacy export endpoints now check native administrator identity before reading input/data. Two pre-existing packaging blockers were corrected in the guarded exports: duplicate Excel output variable declarations and missing PDF helper paths. Actual export content/layout acceptance remains a separate functional check.
 
 Tests cover role spoofing, failed identity checks, all route exceptions (including diagnostic query combinations), branch data isolation, prepared schema policy completeness and unchanged fields, native staff profile bypass, signed employee context regression, and denial before input/data access in legacy export/maintenance entrypoints.
 
 `verifyInventoryAccess` is a native-admin-only, exact-origin read check for explicitly selected dev or prod data. It never forwards the caller token/cookie to its anonymous SDK client, creates no fixtures, and returns only permission outcomes. Tables without existing test records are explicitly untested. It does not claim a write-operation probe or a separate native non-admin account test.
+
+The current admin check UI uses `verifyInventoryAccessV2` for dev reads and `verifyInventoryProductionReadAccess` for production reads. The latter uses the fixed global Base44 API, explicit prod headers, and the already validated caller JWT (never a branch service token). It first verifies that the global API resolves the same native admin identity. No input may change the target app, tables, record identifiers or URL; no cookie/service credential is forwarded to the anonymous client. Both checks return only outcomes, not business record values or ids. A result for a missing/different environment cannot be shown as the requested check.
