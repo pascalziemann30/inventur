@@ -38,7 +38,7 @@ export function createCatalogAdminHandler({createClientFromRequest,productionCli
     result=context.completed?await service.status(input):await service.startPrepared({outlet_id:input.outlet_id,request_id:input.request_id,plan:await priceReviewPlan(context,{store,requestId:input.request_id})});
    }else result=await service[action](input);
    return Response.json({...result,data_environment:environment},{headers:{'Cache-Control':'no-store'}});
-  }catch(error){return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':'CATALOG_REQUEST_UNCERTAIN_RELOAD'},
+  }catch(error){const transportStatus=error?.status??error?.response?.status;return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':transportStatus===429?'CATALOG_RATE_LIMITED':'CATALOG_REQUEST_UNCERTAIN_RELOAD',...(Number.isInteger(transportStatus)?{transport_status:transportStatus}:{})},
    {status:error instanceof BookingError?error.status:error instanceof SyntaxError?400:503,headers:{'Cache-Control':'no-store'}});}
  };
 }

@@ -7,14 +7,16 @@ import {createDeliveryDraftService} from '../../base44/shared/inventory/delivery
 import {base44DeliveryDraftStore} from '../../base44/shared/inventory/deliveryDraftStore.js';
 import {createInventoryRunService} from '../../base44/shared/inventory/runs.js';
 import {base44RunStore} from '../../base44/shared/inventory/runStore.js';
+import {adminStore,createCatalogAdminService} from '../../base44/shared/inventory/catalogAdmin.js';
+import {readAdminHistory,historyCsv} from '../../base44/shared/inventory/adminHistory.js';
 
 const copy=v=>structuredClone(v);
 /** Real persistence adapters against an in-memory entity API. This does not emulate Base44 login or OCR. */
 function entities(){
  let id=0;const tables=new Map();
- const match=(r,q)=>Object.entries(q).every(([k,v])=>v&&typeof v==='object'&&v.$in?v.$in.includes(r[k]):r[k]===v);
+ const match=(r,q)=>Object.entries(q).every(([k,v])=>k==='$or'?v.some(x=>match(r,x)):v&&typeof v==='object'&&'$in'in v?v.$in.includes(r[k]):v&&typeof v==='object'&&'$exists'in v?Object.hasOwn(r,k)===v.$exists:JSON.stringify(r[k])===JSON.stringify(v));
  const e={};
- for(const name of [...importTables,'CatalogImportBatch','DeliveryDraft','DeliveryScan','InventoryRun']){
+ for(const name of [...importTables,'CatalogImportBatch','DeliveryDraft','DeliveryScan','InventoryRun','PriceHistory']){
   const rows=new Map();tables.set(name,rows);
   e[name]={get:async key=>copy(rows.get(key)),filter:async(q,sort,limit=501)=>copy([...rows.values()].filter(r=>match(r,q)).slice(0,limit)),
    list:async(sort,limit=501)=>copy([...rows.values()].slice(0,limit)),
@@ -94,4 +96,28 @@ test('the same shared actor cannot use another location during scan, delivery or
  await assert.rejects(scans.get(f.scan.id),{code:'OUTLET_FORBIDDEN'});
  await assert.rejects(runs.start({outlet_id:f.outlet,period_type:'monthly',session_date:'2026-10-22',start_key:'foreign-count-key-01'}),{code:'OUTLET_FORBIDDEN'});
  assert([...f.tables.get('OutletStock').values()].every(r=>r.on_hand_quantity===0));
+});
+
+
+test('admin creates a proposed article through the real graph adapter; employee books it and its inventory reaches persisted CSV history',async()=>{
+ const f=await fixture(),transferred=await f.scans.commit({id:f.scan.id,revision:f.scan.revision,review:f.review});
+ let draft=await f.drafts.get(transferred.draft_id);const unknown=draft.review.lines.find(r=>r.match==='unknown');
+ draft=(await f.drafts.propose({id:draft.id,revision:draft.revision,request_id:'new-article-proposal-001',line_id:unknown.line_id,note:'Synthetic article proposal'})).draft;
+ const catalog=createCatalogAdminService({store:adminStore(f.e),user:f.admin});
+ let op=await catalog.start({outlet_id:f.outlet,request_id:'new-article-create-0001',articles:[{name:'Entirely unknown product',supplier:'Test supplier',category:'Synthetic groceries',unit:'kg',sku:'NEW',purchase_code:'PK',purchase_label:'1 kg pack',factor:1,net_price:5,count_units:[{code:'kg',label:'kg',base_quantity:1,whole_numbers_only:false}],receipt_units:[],inventory_intervals:['monthly','yearly'],is_active:true}]});
+ for(let i=0;i<50&&op.operation.status!=='completed';i++)op=await catalog.step({outlet_id:f.outlet,request_id:op.operation.request_id,revision:op.revision});
+ assert.equal(op.operation.status,'completed');
+ const offer=op.operation.results.find(r=>r.key==='article:0:offer:0');
+ const adminDrafts=createDeliveryDraftService({store:base44DeliveryDraftStore(f.e,f.admin),user:f.admin});
+ draft=(await adminDrafts.resolve({id:draft.id,revision:draft.revision,request_id:'new-article-resolve-001',line_id:unknown.line_id,resolution:'link',note:'Product, unit and conversion explicitly reviewed',supplier_item_id:offer.id,identity_confirmed:true})).draft;
+ const selected={id:draft.id,revision:draft.revision,line_ids:[unknown.line_id]};draft=await f.drafts.book(selected);
+ assert.equal(draft.status,'partially_booked');await f.drafts.book(selected);
+ const stock=[...f.tables.get('OutletStock').values()].find(s=>s.outlet_item_id===draft.line_states.find(s=>s.line_id===unknown.line_id).confirmation.outlet_item_id);
+ assert.equal(stock.on_hand_quantity,1);assert.equal(stock.booking_journal.length,1);
+ const runs=createInventoryRunService({store:base44RunStore(f.e),user:f.employee});
+ let run=await runs.start({outlet_id:f.outlet,period_type:'monthly',session_date:'2026-10-23',start_key:'new-article-inventory-001'});
+ run=(await runs.save({id:run.id,revision:run.revision,request_id:'new-article-count-save-01',entries:run.entries.map(r=>({article_id:r.article_id,status:r.article_id===stock.outlet_item_id?'counted':'skipped',values:r.article_id===stock.outlet_item_id?{kg:'0.75'}:{}}))})).run;
+ run=await runs.finalize({id:run.id,revision:run.revision});assert.equal(run.status,'completed');
+ const history=await readAdminHistory(f.e,f.outlet),csv=historyCsv(history,run.id);
+ assert(csv.includes('Entirely unknown product'));assert(csv.includes('0,75'));assert(csv.includes('3,75'));assert.equal(f.tables.get('OutletStock').get(stock.id).on_hand_quantity,0.75);
 });
