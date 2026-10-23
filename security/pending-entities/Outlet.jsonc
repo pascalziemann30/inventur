@@ -1,0 +1,77 @@
+{
+  "name": "Outlet",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name des Outlets/Standorts"
+    },
+    "code": {
+      "type": "string",
+      "description": "Kurzcode (z.B. HQ, B1, B2)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "AGGREGATOR"
+      ],
+      "default": "NORMAL",
+      "description": "NORMAL = normales Outlet mit eigenen Artikeln, AGGREGATOR = nur Übersicht"
+    },
+    "address": {
+      "type": "string",
+      "description": "Adresse"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Outlet aktiv/inaktiv"
+    },
+    "delivery_registry_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "delivery_registry": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Atomar reservierte Belegreferenzen; vor Buchungsstart ausdrücklich initialisieren, niemals stillschweigend leeren"
+    },
+    "catalog_admin_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "catalog_admin_state": {
+      "type": "object",
+      "description": "Serverseitiger Fortsetzungsnachweis und Sperre der Artikelpflege; keine Bestandsbuchung"
+    }
+  },
+  "required": [
+    "name",
+    "code"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

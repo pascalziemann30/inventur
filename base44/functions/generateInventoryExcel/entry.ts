@@ -6,8 +6,8 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const user = await base44.auth.me();
 
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        if (!user?.id || user.role !== 'admin') {
+            return Response.json({ error: 'ADMIN_REQUIRED' }, { status: 403 });
         }
 
         const { sessionId } = await req.json();
@@ -89,10 +89,10 @@ Deno.serve(async (req) => {
         XLSX.utils.book_append_sheet(wb, ws, 'Inventur');
 
         // Generate Excel file as base64
-        const excelData = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+        const encodedData = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
 
         return Response.json({
-            data: excelData,
+            data: encodedData,
             filename: `Inventur_${session.session_date}.xlsx`
         });
     } catch (error) {

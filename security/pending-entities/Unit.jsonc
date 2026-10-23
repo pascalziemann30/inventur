@@ -1,0 +1,54 @@
+{
+  "name": "Unit",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Vollständiger Name der Einheit"
+    },
+    "abbreviation": {
+      "type": "string",
+      "description": "Abkürzung (z.B. kg, l, pcs)"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "weight",
+        "volume",
+        "count",
+        "package"
+      ],
+      "description": "Art der Einheit"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
+    }
+  },
+  "required": [
+    "name",
+    "abbreviation"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

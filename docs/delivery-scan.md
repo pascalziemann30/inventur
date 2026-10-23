@@ -1,0 +1,62 @@
+# Receipt scanning – dev-only connected workflow
+
+`/InventoryCapture?workflow=scan` adds photo/file intake before the existing delivery review and booking stages. It uses the actual signed-in account and outlet assignment for both employee and admin users. The existing production scanner is not switched over yet; its unsafe name-based auto-accept and same-name row deduplication remain reasons to keep production rollout blocked until the coordinated replacement.
+
+## Intake and reading
+
+One JPEG, PNG, WebP or PDF, at most 10 MiB, 20 model-reported pages and 100 positions. File signature and MIME must agree. SVG, HEIC, URL-only sources and arbitrary remote URLs are rejected. The mobile camera input requests the environment camera; browser/device behavior still needs a genuine iPad check. Further private photos/PDFs of the same receipt can be appended before handoff; every append invalidates both readings.
+
+The backend checks authentication, dev data header, the bounded test-write grant, outlet and supplier before calling any integration. UploadPrivateFile stores the original privately; only short-lived signed URLs are issued after authorization. Employees can read/edit only their own scans in their assigned outlet; actual admins may inspect originals from another owner but cannot overwrite that owner’s scan review. DeliveryScan denies every direct client entity operation. Files are hashed server-side; identical files within an outlet/supplier are resumed by the same owner or blocked for another owner. Race-created duplicate records stop rather than auto-select. This hash is a replay aid, not canonical document identity: a changed photograph has a different hash. The existing supplier/reference registry protects later bookings. Private upload followed by a failed record write may leave an orphan file; automatic deletion is not implemented.
+
+Two separate InvokeLLM calls read the same original without receiving the catalog or the previous result, with internet context disabled. They are correlated AI reads, not independent OCR engines or a statistical accuracy guarantee. Raw fields remain literal strings. Missing values stay blank, not zero or a guessed unit. No master prices, conversion factors, products, confirmations or stock writes are generated. Repeated product rows remain separate with stable row ids; nothing is deduplicated by name. Quality flags are model diagnostics, not a measured image-quality certificate. An unreadable result is rejected; limited quality and disagreements require visible review.
+
+Both raw reads are retained. Comparison flags different headers, page counts, row counts and row fields. Extra second-read rows remain visible in the complete control reading. Two reads can still omit or misread the same information. The human must compare every original page and can add missing rows. No claimed percentage or reliability promise is made before testing representative real photos.
+
+## Human review and handoff
+
+The original appears beside editable extracted fields; each row requires a check. Changing a row clears its check. Reference, valid date, chosen supplier, all pages, completeness and net price basis need explicit review. Gross/unknown price basis never silently converts to net. The first read's rows cannot be dropped during handoff; added rows also require review. Edited fields hide the now-stale matching suggestions until the delivery stage recomputes them. The checked payload is frozen with actual actor/time before an unconfirmed DeliveryDraft is created using a stable start key. The draft retains server-bound scan id, file hash and human-review actor/time, with a link back to the original. A lost acknowledgment resumes this exact payload rather than creating another draft. Matching and actual stock booking remain separate explicit steps. No genuinely new master article is created.
+
+The new approximate word matching helps suggestions with limited spelling/abbreviation differences, but numbers, supplier identity and package identity are not inferred from fuzzy similarity. Exact supplier SKU and purchase unit can identify a candidate; changed descriptions still need acknowledgment. Name-only suggestions require the existing admin proposal/link review. No learned alias auto-approval is introduced.
+
+## Validation and remaining acceptance
+
+148 automated tests cover file signatures, missing values, repeated lines, dual-read differences, private uploads/hash recovery, unreadable documents, mandatory review, immutable retries, actual-user scope, approximate suggestions and API rejection of URLs/production/closed test grants. Local app build and targeted lint pass. These fixture tests do not prove the actual hosted integration or iPad camera; runtime results are recorded separately after execution.
+
+Before rollout: representative digital PDFs and genuine iPad photos (sharp, rotated, shadowed, crumpled, cropped, multiple pages); field-by-field comparison against manually transcribed truth; no false automatic approvals; safe rejection/recapture and full employee-login/outlet acceptance. A readable synthetic screenshot is not a photograph and cannot establish camera accuracy. Retention/export and recovery of orphan private files remain operational work. No production catalog import, merge or publication is part of this package.
+
+References: Base44 SDK integration documentation https://docs.base44.com/developers/references/sdk/docs/type-aliases/integrations ; mobile capture behavior https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/capture .
+
+
+## Observed hosted admin exercise on 2026-10-22
+
+A deliberately synthetic two-line receipt was rendered as a JPEG and uploaded through the actual browser file chooser. A first attempt with JPEG bytes under a PNG filename/MIME was correctly rejected. The correctly labeled JPEG was privately stored and displayed through a short-lived signed link. Both hosted model calls read the two positions, date, reference, literal quantities and net unit prices correctly against the manually constructed truth. The changed description “H-Milch, 10 x 1 l” found the existing synthetic milk offer by its supplier number and purchase unit; the second line remained unknown. No rows were auto-confirmed or merged.
+
+The import button remained disabled until both rows, the document and net price basis were explicitly checked. Handoff created an unbooked delivery draft at revision 0. Its independent article confirmation stage still flagged the changed milk description, while the unknown product could only become an admin proposal. The original scan link survived a full reload and reopened the preserved reads and review evidence. Reuploading the same bytes in a separate actual browser window reopened exactly the same committed scan instead of creating another draft. These were actual Base44 administrator actions; they do not replace employee-account or iPad-camera acceptance. The synthetic image has no blur/perspective test coverage and supplies no percentage estimate for real photographs.
+
+
+## Confirmed receipt policy revision
+
+Transport equipment, delivery fees and overall discounts remain individually visible in the raw reads and require explicit row review. Their proposed exclusion can be corrected by the operator; checked exclusions are stored with the frozen review but are omitted from the delivery's goods positions. Overall discounts and shipping do not alter line prices for this inventory. Only recognized supplier transport is excluded; purchased packaging remains goods. Empty or unchecked excluded rows cannot silently disappear.
+
+Declared printed pages are separate from pages actually supplied. Missing pages block handoff until additional goods pages are uploaded or the actual operator explicitly confirms that missing pages contain no further goods. Coverage, actor, timestamp, excluded line ids and policy version are retained with the original scan evidence. Further photos/PDFs may be appended before handoff; adding a source invalidates both reads and requires a fresh full analysis. Each call is limited to10MiB and each document to20files.
+
+Colli, content quantity/unit, unit-price quantity and row total are retained separately. No general rule chooses the oldest date. Other date notes remain visible for human date confirmation. Distinct complete receipts in the same scan are rejected; unrelated edge fragments must be ignored. These are extraction instructions and checks, not a guarantee that a model will segment every image correctly.
+
+Money accepts up to16decimal places independently of six-decimal stock quantities, preserving calculated net prices without rounding them to cents before conversion. Actual article-specific counting configuration and receipt unit mappings remain private catalog preparation until import. Whole-number bag policies, individual carton counts, mixed full cartons/loose packs, weighed goods and fractional buckets use the existing server-validated count-unit model. No business catalog or original receipt image is added to the public repository.
+
+
+
+## Readiness and latency controls
+
+A read-only status action checks authentication, the development data header and the actual scanner runtime grant before opening the upload path. The frontend loads outlet/supplier choices from delivery options, but uses the scanner status alone for scan readiness and checks it again before sending a file. The delivery runtime retains its own gate for the later handoff. A closed scanner window therefore does not upload an original merely because another function still reports writable options. This is a preflight, not an atomic lease: expiry between status and upload is still rejected by the server. No grant lifetime or user scope is expanded.
+
+The scan store reuses the catalog only within its single authorized request. Different requests always reload it; no cross-user cache is introduced. Outlet and supplier reads run together, and the two model reads run concurrently with no cross-result input. Both must settle before the attempt is released, including on failure. This removes redundant waiting without weakening required human review or committing partial model output.
+
+A complete application tree must be preserved on every source update. Before moving the branch ref, compare the proposed tree against the last complete baseline: no missing baseline files and no unexpected changes outside the intended paths. The app manifest, frontend entry and workflow must exist. A synchronized editor message alone does not establish successful deployment; verify the actual preview and the current commit's CI.
+
+
+File selection and transmission are separate. A selected file remains in browser memory while the write window is closed; it is not posted to the scan endpoint until the explicit upload action passes preflight. Rechecking access preserves that selection. The transfer timer starts after successful preflight and reports private upload plus server processing, excluding file-chooser/automation delays. The completion notice lives above route-dependent scan state so opening the stored scan cannot immediately erase it. Selecting a file through a remote browser automation bridge is not a measurement of actual iPad upload latency.
+
+## Line-amount reconciliation
+
+For net goods with a printed line total and a supplied quantity/unit price, the reviewed quantity times net purchase price must agree with the reviewed line total within one cent of monetary rounding. A mismatch blocks handoff in the UI and independently on the server, even if every checkbox is checked. Colli/content fields remain literal evidence; the checker never derives or silently replaces a quantity. A misread total can be explicitly corrected in its own field; the original total stays in the raw reading and the corrected total stays in the frozen review. Clearing a printed total cannot remove the check. Excluded charge/transport rows are not valued as goods. Missing quantity/price can remain open in the unbooked draft; the total must not manufacture a guessed price or quantity. Gross/unknown-basis totals are not silently treated as net. This detects inconsistencies in available extracted data; it cannot prove correctness when the amount is absent or all source fields are misread consistently.

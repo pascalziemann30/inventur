@@ -9,7 +9,10 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:inventory": "node --test tests/inventory/*.test.mjs",
+    "build:counting": "vite build --config vite.counting.config.js",
+    "dev:counting": "vite --config vite.counting.config.js --host 127.0.0.1"
   },
   "dependencies": {
     "@base44/sdk": "^0.8.57",

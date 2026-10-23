@@ -1,0 +1,54 @@
+{
+  "name": "Category",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name der Kategorie"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Schlüsselwörter zur automatischen Erkennung"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon-Name für die Anzeige"
+    },
+    "color": {
+      "type": "string",
+      "description": "Farbe für die Kategoriekennzeichnung"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

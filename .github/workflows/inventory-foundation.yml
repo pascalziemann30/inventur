@@ -1,0 +1,87 @@
+name: Inventory foundation
+
+on:
+  pull_request:
+    paths:
+      - 'base44/entities/**'
+      - 'base44/shared/inventory/**'
+      - 'base44/functions/bookDeliveryLine/**'
+      - 'base44/functions/verifyBookingStorage/**'
+      - 'base44/functions/inventoryRuns/**'
+      - 'base44/functions/inventoryTestSetup/**'
+      - 'base44/functions/reviewDelivery/**'
+      - 'base44/functions/deliveryDrafts/**'
+      - 'base44/functions/scanDelivery/**'
+      - 'base44/functions/catalogImport/**'
+      - 'base44/functions/catalogAdmin/**'
+      - 'base44/functions/locationEntry/**'
+      - 'base44/functions/locationEntrySetup/**'
+      - 'base44/functions/verifyInventoryAccess/**'
+      - 'base44/functions/verifyInventoryAccessV2/**'
+      - 'base44/functions/verifyInventoryProductionReadAccess/**'
+      - 'integration/shift-control-location-entry/**'
+      - 'src/components/inventory/entry/**'
+      - 'tests/inventory/**'
+      - 'src/components/inventory/counting/**'
+      - 'src/components/inventory/delivery/**'
+      - 'src/components/inventory/scan/**'
+      - 'src/pages/InventoryCapture.jsx'
+      - 'src/Layout.jsx'
+      - 'src/App.jsx'
+      - 'src/api/base44Client.js'
+      - 'src/components/auth/**'
+      - 'src/pages/OutletLogin.jsx'
+      - 'security/**'
+      - 'src/main.jsx'
+      - 'src/dev/countingPreview.jsx'
+      - 'src/dev/deliveryPreview.jsx'
+      - 'counting-preview.html'
+      - 'delivery-preview.html'
+      - 'vite.counting.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/inventory-foundation.yml'
+  push:
+    branches: ['codex/inventory-foundation']
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: npm run test:inventory
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run build:counting
+      - run: npm run build
+      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/ src/components/auth/ src/pages/OutletLogin.jsx src/api/base44Client.js
+      - name: Check function entry syntax
+        run: |
+          node --check base44/functions/bookDeliveryLine/entry.ts
+          node --check base44/functions/verifyBookingStorage/entry.ts
+          node --check base44/functions/inventoryRuns/entry.ts
+          node --check base44/functions/inventoryTestSetup/entry.ts
+          node --check base44/functions/reviewDelivery/entry.ts
+          node --check base44/functions/deliveryDrafts/entry.ts
+          node --check base44/functions/scanDelivery/entry.ts
+          node --check base44/functions/catalogAdmin/entry.ts
+          node --check base44/functions/catalogAdmin/handler.js
+          node --check base44/functions/catalogImport/entry.ts
+          node --check base44/functions/locationEntry/entry.ts
+          node --check base44/functions/locationEntrySetup/entry.ts
+          node --check base44/functions/verifyInventoryAccess/entry.ts
+          node --check base44/functions/verifyInventoryAccessV2/entry.ts
+          node --check base44/functions/verifyInventoryProductionReadAccess/entry.ts
+      - name: Check schema JSON syntax
+        run: |
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          for (const file of fs.readdirSync('base44/entities')) {
+            if (file.endsWith('.jsonc')) JSON.parse(fs.readFileSync(`base44/entities/${file}`, 'utf8'));
+          }
+          JS

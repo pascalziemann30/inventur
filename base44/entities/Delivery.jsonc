@@ -60,6 +60,20 @@
       "type": "boolean",
       "default": true,
       "description": "Wurde der Bestand aktualisiert?"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "partially_booked",
+        "completed",
+        "cancelled"
+      ],
+      "description": "Neuer positionsbasierter Ablauf; nicht aus is_processed ableiten"
+    },
+    "source_identity": {
+      "type": "string",
+      "description": "Bestätigte Belegidentität aus Standort, Lieferant und Belegreferenz; kein Namensvergleich"
     }
   },
   "required": [

@@ -1,4 +1,5 @@
 import { createClient } from '@base44/sdk';
+import {inventoryDataEnvironment} from '@/components/auth/adminAccess.js';
 import { appParams } from '@/lib/app-params';
 
 const { appId, token, functionsVersion, appBaseUrl } = appParams;
@@ -9,6 +10,7 @@ export const base44 = createClient({
   token,
   functionsVersion,
   serverUrl: '',
+  headers: {'X-Data-Env': inventoryDataEnvironment(functionsVersion)},
   requiresAuth: false,
   appBaseUrl
 });

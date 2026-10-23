@@ -3,11 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Package, History, Settings, Store, BookOpen } from 'lucide-react';
 import { Toaster } from "sonner";
+import {useNativeAdminUser} from './components/auth/NativeAdminBoundary';
 import { OutletProvider } from './components/outlet/OutletContext';
 
 function LayoutContent({ children }) {
     const location = useLocation();
-    const userRole = sessionStorage.getItem('user_role');
+    const userRole = useNativeAdminUser()?.role;
     
     const navigation = [
         { name: 'Übersicht', page: 'Dashboard', icon: Package },
@@ -24,6 +25,12 @@ function LayoutContent({ children }) {
         const pageUrl = createPageUrl(page);
         return location.pathname === pageUrl || location.pathname === pageUrl + '/';
     };
+
+    // The dedicated test workflow has its own fixed action bar on small screens.
+    if (['/Dashboard','/History'].includes(location.pathname)) return <>{children}<Toaster position="top-center" richColors /></>;
+    if (location.pathname === createPageUrl('InventoryCapture') && ['server','delivery','scan','entry','entry-setup','access-check'].includes(new URLSearchParams(location.search).get('workflow'))) {
+        return <>{children}<Toaster position="top-center" richColors /></>;
+    }
 
     // Don't show layout on login page
     if (location.pathname === createPageUrl('OutletLogin') || location.pathname === createPageUrl('AdminOverview')) {
