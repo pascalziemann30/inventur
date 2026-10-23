@@ -1,3 +1,4 @@
+// Read-only access-check protocol v2: response environment must match the explicit requested environment.
 import {createClient,createClientFromRequest} from 'npm:@base44/sdk@0.8.56';
 import {secrets} from 'base44:runtime';
 import {createVerifyInventoryAccessHandler} from './handler.js';

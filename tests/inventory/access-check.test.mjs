@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {verifiedAccessCheckResult} from '../../src/components/inventory/entry/accessCheckResult.js';
 import {createVerifyInventoryAccessHandler} from '../../base44/functions/verifyInventoryAccess/handler.js';
 import {adminManagedEntities,serverOwnedEntities} from '../../base44/shared/inventory/entityAccessPolicy.js';
 const appId='aaaaaaaaaaaaaaaaaaaaaaaa',origin='https://inventory.example.invalid';
@@ -40,3 +41,5 @@ test('caller cannot supply table names, sample ids or a different target app',as
 });
 
 test('explicit production read check still returns only outcomes and performs no writes',async()=>{const f=fixture();const data=await(await f.call({'X-Data-Env':'prod'})).json();assert.equal(data.data_environment,'prod');assert.equal(data.passed,true);assert.equal(data.write_probe_performed,false);});
+
+test('stale or wrong-environment responses never count as the requested native check',()=>{for(const value of [null,{}, {passed:true},{passed:true,data_environment:'dev'}])assert.throws(()=>verifiedAccessCheckResult(value,'prod'));assert.equal(verifiedAccessCheckResult({passed:true,data_environment:'prod'},'prod').passed,true);});
