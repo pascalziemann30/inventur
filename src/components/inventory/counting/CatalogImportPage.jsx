@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
-import {inventoryTestClient} from './testClient.js';
+import {inventoryAdminTestClient as inventoryTestClient} from './testClient.js';
 import './counting.css';
 import './catalogImport.css';
 

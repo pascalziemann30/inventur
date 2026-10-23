@@ -84,7 +84,7 @@ export default function ServerDeliveryPage() {
     };
     if(loading)return <div className="counting-workspace"><main className="count-main"><p role="status">Lieferungen werden geladen …</p></main></div>;
     return <div className="counting-workspace">
-        <aside className="count-server-note"><strong>Testbetrieb · gespeicherte Lieferentwürfe</strong><span>Bestandsbuchungen ausschließlich im Testdatenbereich · kein Produktivimport.</span></aside>
+        <aside className="count-server-note"><strong>Gespeicherte Lieferentwürfe</strong><span>Bestand ändert sich erst durch ausdrücklich bestätigte Buchungen.</span></aside>
         {error && <div role="alert" className="count-copy"><p>{error}</p>{draft && <button className="count-confirm" disabled={busy} onClick={reload}>Gespeicherten Stand laden · lokale Eingaben als Vergleich behalten</button>}</div>}
         {pending && <div className="count-copy"><strong>Antwort noch unklar</strong><p>Der exakt gleiche Vorgang bleibt für einen erneuten Versuch erhalten. Weitere Änderungen sind bis zur Klärung gesperrt.</p><button className="count-confirm" disabled={busy} onClick={()=>send(requestRef.current).catch(()=>{})}>Gleichen Vorgang erneut versuchen</button></div>}
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}
@@ -103,7 +103,7 @@ export default function ServerDeliveryPage() {
                 onResolve={(line_id,input)=>mutate('resolve',{line_id,...input})}/>
         </> : <main className="count-main">
             <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG</p><h1>Lieferentwürfe</h1><p>Erfassen, prüfen und später weiterbearbeiten.</p></div></div>
-            {options?.read_only && <p className="count-preview">Testfenster geschlossen. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
+            {options?.read_only && <p className="count-preview">Änderungen gesperrt. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
             <p><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button></p>
             <form className="count-start" onSubmit={start}>
                 <label>Standort<select aria-label="Lieferstandort" required disabled={busy} value={outlet} onChange={e=>setOutlet(e.target.value)}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

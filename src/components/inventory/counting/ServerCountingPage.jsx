@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import {employeeMode} from '../entry/entryMode.js';
-import {employeeTestClient} from './testClient.js';
+import {employeeTestClient,inventoryEnvironment} from './testClient.js';
 import {inventoryTestClient as base44} from './testClient.js';
 import CountingWorkspace from './CountingWorkspace.jsx';
 import {inventoryRunApi,runErrorMessage} from './runApi.js';
@@ -105,10 +105,10 @@ export default function ServerCountingPage() {
     };
     if (loading) return <div className="counting-workspace"><main className="count-main"><p role="status">Inventur wird geladen …</p></main></div>;
     return <div className="counting-workspace">
-        <aside className="count-server-note"><strong>Testbetrieb · echte Speicherung in Base44-Testdaten</strong><span>Die Produktions-App bleibt unverändert.</span></aside>
-        {isAdmin && <InventoryTestControls outletId={run?.outlet_id || outletId} run={run} onPrepared={value=>{setOutletId(value.outlet_id);setOutlets(current=>[...current,{id:value.outlet_id,name:value.outlet_name}]);setError(null);}}/>}
+        {inventoryEnvironment==='dev'&&<aside className="count-server-note"><strong>Testbetrieb · Speicherung in getrennten Testdaten</strong></aside>}
+        {isAdmin && inventoryEnvironment==='dev' && <InventoryTestControls outletId={run?.outlet_id || outletId} run={run} onPrepared={value=>{setOutletId(value.outlet_id);setOutlets(current=>[...current,{id:value.outlet_id,name:value.outlet_name}]);setError(null);}}/>}
         {error && <p className="count-error" role="alert">{error}</p>}
-        {run?.read_only && <aside className="count-server-note">Testfenster geschlossen · gespeicherter Stand nur lesbar.</aside>}
+        {run?.read_only && <aside className="count-server-note">Änderungen gesperrt · gespeicherter Stand nur lesbar.</aside>}
         {backup && <details className="count-copy"><summary>Eigene Eingaben als Vergleichskopie erhalten</summary><p>Diese Kopie wird nicht automatisch über den aktuellen Stand geschrieben.</p>
             <ul>{backup.map(entry=><li key={entry.article_id}><strong>{entry.article_name}</strong>: {entry.status === 'skipped' ? 'ausdrücklich übersprungen' : Object.entries(entry.values || {}).map(([code,value])=>`${code}: ${value || 'leer'}`).join(' · ') || 'offen'}</li>)}</ul></details>}
         {run ? <>
@@ -122,7 +122,7 @@ export default function ServerCountingPage() {
                     title={periods[run.period_type]} saveDraft={saveDraft} completeSession={complete} completionLabel={run.status === 'posting' ? 'Abschluss fortsetzen' : undefined}
                     onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy || run.read_only}/>}
         </> : <main className="count-main"><header className="count-title"><div><p className="count-eyebrow">SHIFTCTRL · INVENTUR</p><h1>Inventur starten oder fortsetzen</h1><p>Monatlich als Standard. Der Zählrhythmus filtert die Artikel bereits beim Start.</p></div></header>
-            <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
+            <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy||!isAdmin}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
                 <label>Zählrhythmus<select value={period} onChange={event=>setPeriod(event.target.value)} disabled={busy}>{Object.entries(periods).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
                 <label>Inventurdatum<input type="date" value={date} onChange={event=>setDate(event.target.value)} required disabled={busy}/></label>
                 <button className="count-primary" type="submit" disabled={busy || !outletId}>{busy ? 'Wird gestartet …' : 'Neue Inventur starten'}</button></form>

@@ -4,14 +4,14 @@ import {base44DeliveryScanStore} from '../../shared/inventory/deliveryScanStore.
 import {base44DeliveryDraftStore} from '../../shared/inventory/deliveryDraftStore.js';
 import {createDeliveryDraftService} from '../../shared/inventory/deliveryDrafts.js';
 export const scanRuntimeVersion='scan-readiness-v5';
-export function createScanDeliveryHandler({createClientFromRequest,isEnabled,serviceFor,now,resolveActor=(_req,client)=>client.auth.me()}){
+export function createScanDeliveryHandler({createClientFromRequest,environment='dev',isEnabled,serviceFor,now,resolveActor=(_req,client)=>client.auth.me()}){
     return async req=>{
         try{
             if(req.method!=='POST')throw new BookingError('METHOD_NOT_ALLOWED',405);
             const client=createClientFromRequest(req);
             let user;try{user=await resolveActor(req,client);}catch(error){if(error instanceof BookingError)throw error;throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if(!user?.id)throw new BookingError('AUTHENTICATION_REQUIRED',401);
-            if(req.headers.get('X-Data-Env')!=='dev')throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
+            if(req.headers.get('X-Data-Env')!==environment)throw new BookingError('TEST_DATA_ENV_REQUIRED',503);
             const writable=(await isEnabled(req))===true,multipart=req.headers.get('content-type')?.startsWith('multipart/form-data');
             const limit=multipart?10*1024*1024+100000:150000;
             if(Number(req.headers.get('content-length'))>limit)throw new BookingError('REQUEST_TOO_LARGE',413);

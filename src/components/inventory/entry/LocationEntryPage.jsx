@@ -25,7 +25,7 @@ export default function LocationEntryPage(){
   finally{setBusy(false);}
  };
  return <div className="counting-workspace"><main className="count-main">
-  <p>Standortanbindung · Vorbereitung im Testbereich</p><h1>Inventur</h1>
+  <h1>Inventur</h1>
   <p>Dein Standort wird aus Shift Control übernommen.</p>
   {error&&<p className="count-error" role="alert">{error}</p>}
   <section className="count-sessions"><button disabled={busy} onClick={start}><strong>Mitarbeiterbereich</strong><span>{busy?'Standort wird geprüft …':'Inventur am zugeordneten Standort öffnen'}</span></button>

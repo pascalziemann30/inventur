@@ -26,7 +26,7 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
     const uploadSelected=()=>run(async()=>{
         if(!selected || selected.scanId!==(scan?.id || null) || (selected.append && selected.revision!==scan.revision))throw new Error('Der Belegstand hat sich geändert. Bitte die Datei erneut auswählen.');
         setUploadPhase('Zugriff vor der Übertragung prüfen …');
-        const status=await api('status');if(status.read_only){setUploadPhase('');throw new Error('Das Testfenster ist geschlossen. Es wurde keine Datei übertragen. Die ausgewählte Datei bleibt für einen neuen Versuch bereit.');}
+        const status=await api('status');if(status.read_only){setUploadPhase('');throw new Error('Der Zugriff für Änderungen ist geschlossen. Es wurde keine Datei übertragen. Die ausgewählte Datei bleibt für einen neuen Versuch bereit.');}
         setUploadPhase('Datei wird privat übertragen und gespeichert …');const started=Date.now();
         const {file,append}=selected;
         const result=await api(append?'append':'upload',append?{file,id:scan.id,revision:scan.revision}:{file,outlet_id:outletId,supplier_id:supplierId});

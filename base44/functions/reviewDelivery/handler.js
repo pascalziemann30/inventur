@@ -2,7 +2,7 @@ import {BookingError} from '../../shared/inventory/quantities.js';
 import {reviewDeliveryLines} from '../../shared/inventory/deliveryReview.js';
 import {loadDeliveryCatalog} from '../../shared/inventory/deliveryCatalog.js';
 
-export function createReviewDeliveryHandler({createClientFromRequest,resolveActor=(_req,client)=>client.auth.me()}) {
+export function createReviewDeliveryHandler({createClientFromRequest,environment='dev',resolveActor=(_req,client)=>client.auth.me()}) {
     return async req => {
         try {
             if (req.method !== 'POST') throw new BookingError('METHOD_NOT_ALLOWED',405);
@@ -10,7 +10,7 @@ export function createReviewDeliveryHandler({createClientFromRequest,resolveActo
             let user;
             try {user = await resolveActor(req,client);} catch(error) {if(error instanceof BookingError)throw error;throw new BookingError('AUTHENTICATION_REQUIRED',401);}
             if (!user?.id) throw new BookingError('AUTHENTICATION_REQUIRED',401);
-            if (req.headers.get('X-Data-Env') !== 'dev') throw new BookingError('DELIVERY_REVIEW_TEST_ONLY',503);
+            if (req.headers.get('X-Data-Env') !== environment) throw new BookingError('DELIVERY_REVIEW_TEST_ONLY',503);
             const raw = await req.text();
             if (raw.length > 100_000) throw new BookingError('REVIEW_REQUEST_TOO_LARGE',413);
             let body;
