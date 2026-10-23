@@ -87,3 +87,11 @@ test('public transport discards stale branch version while preview keeps its ver
  assert.equal(workflowFunctionsVersion({origin:inventoryProductionOrigin,functionsVersion:'branch:old'}),undefined);
  assert.equal(workflowFunctionsVersion({origin:'https://preview.example.invalid',functionsVersion:'branch:old'}),'branch:old');
 });
+
+test('canonical public workflow binds the SDK request to prod even when gateway labels it dev',async()=>{
+ const f=fixture();let seen;
+ const handler=serveInventoryWorkflow({secrets:f.secrets,createClientFromRequest:()=>{},createHandler:({runtime})=>async req=>{seen={env:runtime.environment,header:req.headers.get('X-Data-Env')};return Response.json({ok:true});}});
+ assert.equal((await handler(f.req({'X-Data-Env':'dev'}))).status,200);
+ assert.deepEqual(seen,{env:'prod',header:'prod'});
+ seen=null;assert.equal((await handler(f.req({'X-Data-Env':'dev','Base44-Functions-Version':'branch:old'}))).status,503);assert.equal(seen,null);
+});

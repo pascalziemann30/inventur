@@ -42,6 +42,12 @@ export function inventoryWorkflowRuntime(secrets,req){
 export function serveInventoryWorkflow({secrets,createClientFromRequest,createHandler}){
  return async req=>{
   try{
+   // The exact published origin uses only production. The canonical runtime
+   // check below still rejects branch/app/API mismatches before SDK access.
+   if(req.headers.get('Origin')===inventoryProductionOrigin&&['dev','prod'].includes(req.headers.get('X-Data-Env'))){
+    const headers=new Headers(req.headers);headers.set('X-Data-Env','prod');
+    req=new Request(req,{headers});
+   }
    const runtime=inventoryWorkflowRuntime(secrets,req);
    return await createHandler({runtime,createClientFromRequest})(req);
   }catch(error){return Response.json({error:error instanceof BookingError?error.code:'INVENTORY_UNAVAILABLE'},
