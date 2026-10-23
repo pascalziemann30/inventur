@@ -30,6 +30,10 @@
       "type": "boolean",
       "default": true,
       "description": "Lieferant aktiv/inaktiv"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
     }
   },
   "required": [

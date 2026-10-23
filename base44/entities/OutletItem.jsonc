@@ -90,6 +90,43 @@
     "production_cost": {
       "type": "number",
       "description": "Wareneinsatz (berechnete Produktionskosten, für Fertigprodukte)"
+    },
+    "count_units": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "base_quantity": {
+            "type": "number",
+            "minimum": 0.000001
+          },
+          "whole_numbers_only": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "base_quantity"
+        ]
+      },
+      "description": "Artikelbezogene Zähleinheiten; Einkaufseinheiten bleiben gesondert im SupplierItem"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
+    },
+    "primary_purchase_code": {
+      "type": "string",
+      "description": "Primäres Einkaufsgebinde für die Artikelpflege"
     }
   },
   "required": [

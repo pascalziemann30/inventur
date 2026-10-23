@@ -30,6 +30,79 @@
     "unit_abbreviation": {
       "type": "string",
       "description": "Einheit"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Versionsstand für bedingte Bestandsänderungen"
+    },
+    "booking_journal": {
+      "type": "array",
+      "default": [],
+      "description": "Autoritative Buchungsnachweise werden atomar mit dem Bestand gespeichert. Niemals ohne dauerhaften Ersatz entfernen.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "delivery",
+              "inventory",
+              "inventory_fence"
+            ]
+          },
+          "source_document_id": {
+            "type": "string"
+          },
+          "source_line_id": {
+            "type": "string"
+          },
+          "before_quantity": {
+            "type": "number"
+          },
+          "after_quantity": {
+            "type": "number"
+          },
+          "delta_quantity": {
+            "type": "number"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "booked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "operation_id",
+          "fingerprint",
+          "kind",
+          "source_document_id",
+          "source_line_id",
+          "before_quantity",
+          "after_quantity",
+          "delta_quantity",
+          "actor_id",
+          "booked_at",
+          "revision"
+        ]
+      }
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
     }
   },
   "required": [

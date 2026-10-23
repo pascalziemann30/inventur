@@ -58,6 +58,10 @@
     "lookup_key": {
       "type": "string",
       "description": "Suchhilfe aus Lieferant, optionaler Artikelnummer oder vollständiger Bezeichnung und Einkaufseinheit; ersetzt keinen serverseitigen Eindeutigkeitsnachweis"
+    },
+    "catalog_key": {
+      "type": "string",
+      "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
     }
   },
   "required": [
