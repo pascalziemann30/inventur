@@ -102,3 +102,9 @@ test('canonical public request accepts the platform default missing data label w
  const request=f.req(),headers=new Headers(request.headers);headers.delete('X-Data-Env');
  assert.equal((await handler(new Request(request,{headers}))).status,200);assert.equal(seen,true);
 });
+
+test('missing optional platform API override retains the SDK fixed canonical default',()=>{
+ const f=fixture(),request=f.req(),headers=new Headers(request.headers);headers.delete('Base44-Api-Url');
+ assert.equal(inventoryWorkflowRuntime(f.secrets,new Request(request,{headers})).environment,'prod');
+ assert.throws(()=>inventoryWorkflowRuntime(f.secrets,f.req({'Base44-Api-Url':'https://foreign.example.invalid'})),{code:'PRODUCTION_CONTEXT_UNCONFIRMED'});
+});

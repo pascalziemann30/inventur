@@ -22,7 +22,8 @@ export function assertProductionRuntime(req,{appId=inventoryAppId,origin=invento
   ||req.headers.get('Base44-App-Id')!==appId)fail();
  const version=req.headers.get('Base44-Functions-Version');
  if(version&&version!=='published'&&version!=='main')fail();
- if(req.headers.get('Base44-Api-Url')!=='https://base44.app')fail();
+ const api=req.headers.get('Base44-Api-Url');
+ if(api!==null&&api!=='https://base44.app')fail();
 }
 export function inventoryWorkflowRuntime(secrets,req){
  const environment=req.headers.get('X-Data-Env');
