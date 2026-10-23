@@ -72,8 +72,14 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
  const shared=(entity,label,field='name')=>{
   const key=`${entity}:${name(label)}`;
   if(results.some(r=>r.key===key)||nodes.some(n=>n.key===key))return ref(key);
-  const records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>name(row[field])===name(label));
-  if(records.length>1)fail('DUPLICATE_REFERENCE_REQUIRES_REVIEW');
+  let records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>name(row[field])===name(label));
+  if(records.length>1){
+   const globals=catalog.globals.filter(g=>catalog.items.some(i=>i.global_item_id===g.id));
+   const usedIds=new Set(entity==='Supplier'?catalog.items.map(i=>i.supplier_id):globals.map(g=>entity==='Unit'?g.unit_id:g.category_id));
+   const scoped=records.filter(r=>usedIds.has(r.id));
+   if(scoped.length!==1)fail('DUPLICATE_REFERENCE_REQUIRES_REVIEW');
+   records=scoped;
+  }
   if(records.length){if(entity==='Supplier'&&records[0].is_active===false)fail('SUPPLIER_INACTIVE');results.push({key,entity,id:records[0].id});}
   else add(key,entity,entity==='Unit'?{name:label,abbreviation:label,type:label==='kg'?'weight':label==='l'?'volume':'count'}:entity==='Supplier'?{name:label,is_active:true}:{name:label});
   return ref(key);
@@ -99,14 +105,15 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
   add(globalKey,'GlobalItem',globalData,oldGlobal);
   const globalId=oldGlobal?oldGlobal.id:ref(globalKey);
   // New items remain inactive until their full graph is verified; activation is the last step.
-  const itemData={outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,global_item_id:globalId,display_name:r.name,supplier_id:supplier,supplier_name:r.supplier,net_purchase_price:r.net_price/r.factor,count_units:r.count_units,primary_purchase_code:r.purchase_code,inventory_intervals:r.inventory_intervals,is_active:false,is_finished_product:false,notes:r.notes};
+  const itemData={outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,global_item_id:globalId,display_name:r.name,supplier_id:supplier,supplier_name:r.supplier,net_purchase_price:r.net_price/r.factor,count_units:r.count_units,primary_purchase_code:r.purchase_code,inventory_intervals:r.inventory_intervals,is_active:false,is_finished_product:existing?.is_finished_product===true,notes:r.notes};
   add(itemKey,'OutletItem',itemData,existing);
   const itemId=existing?existing.id:ref(itemKey);
   if(!existing)add(`${key}:stock`,'OutletStock',{outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,outlet_item_id:itemId,global_item_id:globalId,display_name:r.name,unit_abbreviation:r.unit,on_hand_quantity:0,revision:0,booking_journal:[]});
   else{const stocks=catalog.stocks.filter(s=>s.outlet_item_id===existing.id);if(stocks.length!==1)fail('UNIQUE_STOCK_REQUIRED');add(`${key}:stock-name`,'OutletStock',{display_name:r.name},stocks[0]);}
   for(const [i,u]of[{code:r.purchase_code,factor:r.factor},...r.receipt_units].entries()){
    const offer={supplier_id:supplier,global_item_id:globalId,supplier_article_number:r.sku,original_name:r.name,purchase_unit_code:u.code,purchase_unit_label:i===0?r.purchase_label:`${u.code} = ${u.factor} ${r.unit}`,base_quantity_per_purchase:u.factor,unit_abbreviation:r.unit,net_purchase_price:r.net_price/r.factor*u.factor,status:'approved',source_reference:'Admin-Freigabe'};
-   const knownSupplier=catalog.suppliers.find(s=>name(s.name)===name(r.supplier));
+   const supplierId=results.find(x=>x.key===supplier.catalog_ref)?.id;
+   const knownSupplier=catalog.suppliers.find(s=>s.id===supplierId);
    const identityOffer=offerIdentityKey({...offer,supplier_id:knownSupplier?.id||name(r.supplier)});
    if(seenOffers.has(identityOffer))fail('DUPLICATE_OFFER');seenOffers.add(identityOffer);
    const matches=catalog.offers.filter(o=>offerIdentityKey(o)===identityOffer);
@@ -117,7 +124,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
   }
   if(oldGlobal){
    const retained=new Set([r.purchase_code,...r.receipt_units.map(u=>u.code)]);
-   for(const old of catalog.offers.filter(o=>o.global_item_id===oldGlobal.id&&o.status!=='archived'&&(!retained.has(o.purchase_unit_code)||o.supplier_id!==catalog.suppliers.find(s=>name(s.name)===name(r.supplier))?.id)))add(`${key}:archive:${old.id}`,'SupplierItem',{status:'archived',revision:old.revision+1},old);
+   for(const old of catalog.offers.filter(o=>o.global_item_id===oldGlobal.id&&o.status!=='archived'&&(!retained.has(o.purchase_unit_code)||o.supplier_id!==results.find(x=>x.key===supplier.catalog_ref)?.id)))add(`${key}:archive:${old.id}`,'SupplierItem',{status:'archived',revision:old.revision+1},old);
    if(existing.net_purchase_price!==itemData.net_purchase_price)add(`${key}:price-history`,'PriceHistory',{article_id:existing.id,article_name:r.name,old_price:existing.net_purchase_price,new_price:itemData.net_purchase_price,change_date:now.slice(0,10),changed_by:userId,reason:'Ausdrücklich in der Artikelverwaltung freigegeben'});
   }
   nodes.push({key:`${key}:activate`,entity:'OutletItem',kind:'activate',item_key:itemKey,id:existing?.id||null,data:{is_active:r.is_active}});

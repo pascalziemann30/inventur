@@ -81,3 +81,12 @@ test('rejecting a price suggestion preserves all master prices and records the d
  const context=await reviewPrice({e:f.e,store:f.store,user:f.user,outletId:'outlet',draftId:'draft',lineId:'line',decision:'reject',requestId:'synthetic-reject-002'}),plan=await priceReviewPlan(context,{store:f.store,requestId:'synthetic-reject-002'});
  await f.complete(await f.service.startPrepared({outlet_id:'outlet',request_id:'synthetic-reject-002',plan}));assert.equal(item.net_purchase_price,1.5);assert.equal(f.db.PriceHistory.length,0);assert.equal(f.db.DeliveryDraft[0].lines[0].price_review.decision,'reject');assert.equal((await readAdminQueue(f.e,'outlet')).prices.length,0);
 });
+test('shared metadata follows the unique existing outlet reference instead of a foreign test duplicate',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-scope-0001'));const original=f.db.Unit[0].id;
+ f.db.Unit.push({id:'foreign-unit',name:'Foreign duplicate',abbreviation:'l',type:'volume'});
+ f.db.Supplier.push({id:'foreign-supplier',name:article.supplier,is_active:true});
+ await f.complete(await f.start('synthetic-scope-0002',{...article,name:'Second scoped drink'}));
+ assert(f.db.GlobalItem.every(g=>g.unit_id===original));assert(f.db.OutletItem.every(i=>i.supplier_id!=='foreign-supplier'));
+ const empty=fixture();empty.db.Unit.push({id:'one',abbreviation:'l'},{id:'two',abbreviation:'l'});
+ await assert.rejects(empty.start('synthetic-scope-0003'),{code:'DUPLICATE_REFERENCE_REQUIRES_REVIEW'});
+});
