@@ -20,4 +20,4 @@ Legacy export endpoints now check native administrator identity before reading i
 
 Tests cover role spoofing, failed identity checks, all route exceptions (including diagnostic query combinations), branch data isolation, prepared schema policy completeness and unchanged fields, native staff profile bypass, signed employee context regression, and denial before input/data access in legacy export/maintenance entrypoints.
 
-`verifyInventoryAccess` is a native-admin-only, exact-origin, dev-only read check. It never forwards the caller token/cookie to its anonymous SDK client, creates no fixtures, and returns only permission outcomes. Tables without existing test records are explicitly untested. It does not claim a write-operation probe or a separate native non-admin account test.
+`verifyInventoryAccess` is a native-admin-only, exact-origin read check for explicitly selected dev or prod data. It never forwards the caller token/cookie to its anonymous SDK client, creates no fixtures, and returns only permission outcomes. Tables without existing test records are explicitly untested. It does not claim a write-operation probe or a separate native non-admin account test.

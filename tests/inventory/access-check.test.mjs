@@ -11,13 +11,13 @@ function fixture(){
   entities[name]={filter:async()=>adminManagedEntities.includes(name)?[{id:'private-sample-id'}]:[]};
   anonymous.entities[name]={filter:async()=>leak?[{id:'private-sample-id'}]:[]};
  }
- const handler=createVerifyInventoryAccessHandler({createClientFromRequest:()=>({auth:{me:async()=>user},entities,asServiceRole:{entities:service}}),createAnonymousClient:(...args)=>{anonymousCreated++;assert.deepEqual(args,[appId]);return anonymous;},appId,origin});
+ const handler=createVerifyInventoryAccessHandler({createClientFromRequest:()=>({auth:{me:async()=>user},entities,asServiceRole:{entities:service}}),createAnonymousClient:(...args)=>{anonymousCreated++;assert.equal(args[0],appId);assert(['dev','prod'].includes(args[1]));assert.equal(args.length,2);return anonymous;},appId,origin});
  const call=(headers={},body='{"action":"check"}',method='POST')=>handler(new Request(origin+'/check',{method,headers:{'X-Data-Env':'dev',Origin:origin,...headers},...(method==='POST'?{body}:{})}));
  return {call,entities,service,setUser:v=>user=v,setLeak:v=>leak=v,setEmpty:v=>empty=v,anonymousCreated:()=>anonymousCreated,reads:()=>reads};
 }
-test('access check is read-only, native-admin-only, dev-only and origin-bound',async()=>{
+test('access check is read-only, native-admin-only, explicit-data-environment-only and origin-bound',async()=>{
  const f=fixture();assert.equal((await f.call({},undefined,'GET')).status,405);
- for(const headers of [{'X-Data-Env':'prod'},{Origin:'https://other.example.invalid'}])assert.equal((await f.call(headers)).status,403);
+ for(const headers of [{'X-Data-Env':'unexpected'},{Origin:'https://other.example.invalid'}])assert.equal((await f.call(headers)).status,403);
  for(const user of [null,{id:'staff',role:'user',data:{role:'admin'}}]){f.setUser(user);assert.equal((await f.call()).status,403);}
  assert.equal(f.anonymousCreated(),0);assert.equal(f.reads(),0);
 });
@@ -38,3 +38,5 @@ test('empty tables are explicitly untested; an all-empty database never passes',
 test('caller cannot supply table names, sample ids or a different target app',async()=>{
  const f=fixture();assert.equal((await f.call({},'{"action":"check","table":"User"}')).status,400);assert.equal(f.anonymousCreated(),0);assert.equal(f.reads(),0);
 });
+
+test('explicit production read check still returns only outcomes and performs no writes',async()=>{const f=fixture();const data=await(await f.call({'X-Data-Env':'prod'})).json();assert.equal(data.data_environment,'prod');assert.equal(data.passed,true);assert.equal(data.write_probe_performed,false);});
