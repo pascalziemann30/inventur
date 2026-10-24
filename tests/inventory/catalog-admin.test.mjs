@@ -274,3 +274,14 @@ test('approved equipment structure is seeded once, never in read-only mode or re
  for(const child of list.subcategories)await f.complete(await f.service.subcategory({outlet_id:'outlet',request_id:`synthetic-remove-${child.id}`,mode:'remove',parent:'Betriebsausstattung',id:child.id,expected:child.fingerprint}));
  assert.equal((await f.service.list({outlet_id:'outlet'})).subcategories.length,0);assert.equal(f.db.Category.filter(r=>r.parent_id).length,8);
 });
+
+test('batch classification creates scoped groups and only changes classification metadata',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-class-base1'));const before=copy(f.db),row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ const input={outlet_id:'outlet',request_id:'synthetic-class-apply1',groups:[{parent:'Drinks',name:'Plant drinks',keywords:['oat']}],assignments:[{id:row.definition.id,parent:'Drinks',subcategory:'Plant drinks',expected:row.classification_fingerprint}]};
+ await f.complete(await f.service.classify(input));assert.equal((await f.service.classify(input)).operation.status,'completed');
+ const list=await f.service.list({outlet_id:'outlet'});assert.equal(list.articles[0].subcategory_name,'Plant drinks');assert.equal(list.subcategories.length,1);
+ assert.deepEqual(f.db.OutletStock,before.OutletStock);assert.deepEqual(f.db.SupplierItem,before.SupplierItem);assert.deepEqual(f.db.GlobalItem,before.GlobalItem);assert.equal(f.db.OutletItem[0].net_purchase_price,before.OutletItem[0].net_purchase_price);
+ await assert.rejects(f.service.classify({...input,request_id:'synthetic-class-stale'}),{code:'ARTICLE_CHANGED_RELOAD'});
+ const fresh=list.articles[0];await assert.rejects(f.service.classify({...input,request_id:'synthetic-class-dupe1',assignments:[{...input.assignments[0],expected:fresh.classification_fingerprint},{...input.assignments[0],expected:fresh.classification_fingerprint}]}),{code:'CLASSIFICATION_INVALID'});
+ await assert.rejects(f.service.classify({...input,request_id:'synthetic-class-wrong',assignments:[{...input.assignments[0],expected:fresh.classification_fingerprint,parent:'Wrong'}]}),{code:'ARTICLE_CHANGED_RELOAD'});
+});
