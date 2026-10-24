@@ -49,3 +49,5 @@
 @media(max-width:650px){.product-count-start.product-count-start{grid-template-columns:1fr}.product-count-start>label:first-child{grid-column:auto}}
 @media(pointer:coarse){:is(.inventory-shell,.counting-workspace) button,:is(.inventory-shell,.counting-workspace) select{min-height:44px}:is(.inventory-shell,.counting-workspace) input:not([type=checkbox]),:is(.inventory-shell,.counting-workspace) select,:is(.inventory-shell,.counting-workspace) textarea{font-size:16px}}
 .inventory-header a.inventory-brand{color:var(--pc-foreground);text-decoration:none}.inventory-header a.inventory-brand:focus-visible{outline:3px solid var(--pc-focus);outline-offset:4px;border-radius:4px}.inventory-theme-toggle:focus-visible{outline:3px solid var(--pc-focus);outline-offset:3px}
+/* Contain the header margin so the page edge uses the selected appearance too. */
+.inventory-shell,.counting-workspace{display:flow-root}
