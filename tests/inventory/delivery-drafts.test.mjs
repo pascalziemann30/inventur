@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createDeliveryDraftService} from '../../base44/shared/inventory/deliveryDrafts.js';
 import {base44DeliveryDraftStore} from '../../base44/shared/inventory/deliveryDraftStore.js';
 import {createDeliveryDraftHandler} from '../../base44/functions/deliveryDrafts/handler.js';
+import {initialManualEntries,manualDeliveryLines} from '../../src/components/inventory/delivery/manualDelivery.js';
 import {deliveryExamples} from '../../src/components/inventory/delivery/reviewExamples.js';
 
 const clone=value=>structuredClone(value);
@@ -172,4 +173,71 @@ test('endpoint enforces dev environment, fresh write grant, strict input and act
     const readonly=await call({action:'get',id:draft.id});assert.equal(readonly.status,200);assert.equal((await readonly.json()).read_only,true);
     assert.equal((await call({action:'save',...f.request(draft,{lines:draft.lines})})).status,503);
     config.user=null;assert.equal((await call({action:'get',id:draft.id})).status,401);
+});
+
+
+test('manual supplier catalog returns only active linked articles and approved distinct usable purchase units',async()=>{
+ const f=fixture();f.catalog.items[1].is_active=false;f.catalog.items[2].supplier_id='foreign';
+ f.catalog.offers[3].status='archived';f.catalog.offers[4].base_quantity_per_purchase=0;
+ f.catalog.offers.push({...f.catalog.offers[0],id:'offer-single',purchase_unit_code:'ST',purchase_unit_label:'Einzelpackung',base_quantity_per_purchase:1,net_purchase_price:1.5});
+ const rows=await f.service(f.employee).articles({outlet_id:f.input.outlet_id,supplier_id:f.input.supplier_id});
+ assert(!rows.some(a=>['item-002','item-003'].includes(a.id)));
+ assert.equal(rows.find(a=>a.id==='item-004').offers.length,0);
+ assert.equal(rows.find(a=>a.id==='item-005').offers[0].available,false);
+ assert.equal(rows.find(a=>a.id==='item-001').offers.length,2);
+ assert.equal(rows.find(a=>a.id==='item-001').offers[1].net_purchase_price,1.5);
+ await assert.rejects(f.service(f.employee).articles({outlet_id:'foreign',supplier_id:f.input.supplier_id}),{code:'OUTLET_FORBIDDEN'});
+ assert.equal(f.writes(),0);assert.equal(f.records.size,0);
+});
+test('manual quantities preserve exact stored identities and selected packaging; blank and zero rows never produce delivery positions',async()=>{
+ const f=fixture(),rows=await f.service(f.employee).articles({outlet_id:f.input.outlet_id,supplier_id:f.input.supplier_id}),entries=initialManualEntries(rows);
+ entries['item-001'].quantity='2,5';entries['item-002'].quantity='0';
+ const lines=manualDeliveryLines(rows,entries,()=> 'manual-line-1');
+ assert.deepEqual(lines,[{...f.example.lines[0],id:'manual-line-1'}]);
+ const draft=await f.service(f.employee).start({...f.input,lines});
+ assert.equal(draft.review.lines[0].base_quantity,25);assert.equal(draft.line_states[0].status,'open');assert.equal(draft.lines.length,1);
+ for(const quantity of ['-1','1e2','1,2345678','NaN']){entries['item-001'].quantity=quantity;assert.throws(()=>manualDeliveryLines(rows,entries),/gültige Liefermenge/);}
+ entries['item-001'].quantity='1';entries['item-001'].price='';assert.throws(()=>manualDeliveryLines(rows,entries),/Nettopreis/);
+ entries['item-001'].price='15';entries['item-001'].offer_id='foreign';assert.throws(()=>manualDeliveryLines(rows,entries),/gültiges Gebinde/);
+ assert.throws(()=>manualDeliveryLines(rows,{}),/mindestens einem Artikel/);
+});
+test('only admin may reversibly discard an entirely unbooked draft, preserving evidence and blocking old links and bookings',async()=>{
+ const f=fixture(),draft=await f.start(),req=f.request(draft),admin=f.service(f.admin);
+ await assert.rejects(async()=>f.service(f.employee).discard(req),{code:'ADMIN_REQUIRED'});
+ const reply=await admin.discard(req);
+ assert(reply.draft.discarded_at);assert.equal(reply.draft.read_only,true);assert.equal(reply.draft.can_discard,false);
+ assert.deepEqual(f.records.get(draft.id).lines.map(l=>l.source),draft.lines);
+ assert.equal((await admin.list(f.input.outlet_id)).length,0);
+ assert.equal((await admin.list(f.input.outlet_id,true)).length,1);
+ await assert.rejects(f.service(f.employee).list(f.input.outlet_id,true),{code:'ADMIN_REQUIRED'});
+ await assert.rejects(f.service(f.employee).get(draft.id),{code:'DRAFT_DISCARDED'});
+ await assert.rejects(admin.book({id:draft.id,revision:1,line_ids:['line-1']}),{code:'DRAFT_DISCARDED'});
+ await assert.rejects(admin.save({...req,revision:1,request_id:'changed-request-0001',lines:draft.lines}),{code:'DRAFT_DISCARDED'});
+ assert.equal((await admin.discard(req)).revision,1);assert.equal(f.writes(),1);
+ const restored=await admin.restore({...req,request_id:'restore-request-0001',revision:1});
+ assert.equal(restored.draft.discarded_at,'');assert.equal(restored.draft.read_only,false);
+ assert.equal((await admin.list(f.input.outlet_id)).length,1);
+ assert.equal((await f.service(f.employee).get(draft.id)).revision,2);
+});
+test('discard CAS survives lost response and concurrent save or frozen booking prevents discard',async()=>{
+ const f=fixture(),draft=await f.start(),admin=f.service(f.admin);f.config.failAfterWrite=true;
+ assert.equal((await admin.discard(f.request(draft))).revision,1);assert.equal(f.writes(),1);
+ for(const state of ['posting','partially_booked','completed']){
+  f.records.get(draft.id).discarded_at='';f.records.get(draft.id).status=state;
+  await assert.rejects(admin.discard({...f.request(draft),revision:1,request_id:'other-request-000001'}));
+ }
+ f.records.get(draft.id).status='draft';f.records.get(draft.id).lines[0].booking_receipt={id:'already-booked'};
+ await assert.rejects(admin.discard({...f.request(draft),revision:1,request_id:'other-request-000001'}),{code:'BOOKED_DRAFT_CANNOT_DISCARD'});
+ assert.equal(f.writes(),1);
+ const g=fixture(),d=await g.start(),s=g.service(g.admin);
+ const results=await Promise.allSettled([s.discard(g.request(d)),s.save({...g.request(d),request_id:'racing-save-0000001',lines:d.lines})]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(g.writes(),1);
+});
+test('discard frees an unbooked reference, but restore cannot collide with its replacement or resurrect an old start',async()=>{
+ const f=fixture(),draft=await f.start(),admin=f.service(f.admin);await admin.discard(f.request(draft));
+ await assert.rejects(f.start(),{code:'DRAFT_DISCARDED'});
+ const replacement=await admin.start({...f.input,start_key:'replacement-key-00001'});
+ assert.notEqual(replacement.id,draft.id);
+ await assert.rejects(admin.restore({...f.request(draft),revision:1,request_id:'restore-request-0001'}),{code:'DOCUMENT_REFERENCE_ALREADY_EXISTS'});
+ assert.equal(f.records.get(draft.id).revision,1);assert(f.records.get(draft.id).discarded_at);
 });

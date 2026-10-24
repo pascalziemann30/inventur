@@ -5,12 +5,12 @@ export async function readAdminHistory(e,outletId){
  const [runs,drafts,prices]=await Promise.all([bounded(e.InventoryRun.filter({outlet_id:outletId},'-created_date',501)),bounded(e.DeliveryDraft.filter({outlet_id:outletId},'-created_date',501)),bounded(e.PriceHistory.list('-created_date',501))]);
  const ids=new Set((await bounded(e.OutletItem.filter({outlet_id:outletId},'id',501))).map(r=>r.id));
  return {inventories:runs.map(r=>({id:r.id,date:r.session_date,period:r.period_type,status:r.status,completed_at:r.completed_at,entries:r.entries.map(x=>({article_id:x.article_id,name:x.article_name,category:x.category_name,unit:x.unit_abbreviation,status:x.status,counted_quantity:x.counted_quantity??null,previous_quantity:x.last_stock,base_price:x.net_base_unit_price,booked:x.booked===true}))})),
- deliveries:drafts.map(d=>({id:d.id,date:d.delivery_date,supplier:d.supplier_name,reference:d.document_reference,status:d.status,lines:d.lines.map(l=>({name:l.source.original_name,quantity:l.source.purchase_quantity,purchase_unit:l.source.purchase_unit_code,receipt_price:l.source.net_purchase_price,booked:!!l.booking_receipt,base_quantity:l.confirmation?.base_quantity??null,unit:l.confirmation?.unit_abbreviation||'',price_review:l.price_review||null}))})),prices:prices.filter(p=>ids.has(p.article_id))};
+ deliveries:drafts.filter(d=>!d.discarded_at).map(d=>({id:d.id,date:d.delivery_date,supplier:d.supplier_name,reference:d.document_reference,status:d.status,lines:d.lines.map(l=>({name:l.source.original_name,quantity:l.source.purchase_quantity,purchase_unit:l.source.purchase_unit_code,receipt_price:l.source.net_purchase_price,booked:!!l.booking_receipt,base_quantity:l.confirmation?.base_quantity??null,unit:l.confirmation?.unit_abbreviation||'',price_review:l.price_review||null}))})),prices:prices.filter(p=>ids.has(p.article_id))};
 }
 export async function readAdminQueue(e,outletId){
  const [drafts,items]=await Promise.all([bounded(e.DeliveryDraft.filter({outlet_id:outletId},'-created_date',501)),bounded(e.OutletItem.filter({outlet_id:outletId},'id',501))]);
  const proposals=[],prices=[];
- for(const draft of drafts)for(const line of draft.lines){
+ for(const draft of drafts.filter(d=>!d.discarded_at))for(const line of draft.lines){
   if(line.proposal?.status==='pending')proposals.push({draft_id:draft.id,revision:draft.revision,line_id:line.source.id,supplier_id:draft.supplier_id,supplier_name:draft.supplier_name,date:draft.delivery_date,reference:draft.document_reference,source:line.source,note:line.proposal.note});
   if(line.booking_receipt&&line.confirmation&&!line.price_review){
    const item=items.find(i=>i.id===line.confirmation.outlet_item_id);
