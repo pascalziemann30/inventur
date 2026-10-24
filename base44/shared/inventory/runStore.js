@@ -1,4 +1,5 @@
 import {BookingError, scaledQuantity, quantityNumber} from './quantities.js';
+import {canonicalCategory} from './categories.js';
 import {base44StockStore} from './base44Store.js';
 import {unitsFor, selectCountItems} from './counting.js';
 
@@ -52,7 +53,7 @@ export function base44RunStore(entities) {
                     || item.net_purchase_price < 0 || item.net_purchase_price > 1_000_000_000) reject('APPROVED_BASE_PRICE_REQUIRED');
                 const entry={article_id:item.id,article_name:item.display_name,global_item_id:global.id,
                     stock_id:stock.id,supplier_id:item.supplier_id,unit_id:global.unit_id,category_id:global.category_id,
-                    category_name:category.name,unit_abbreviation:global.unit_abbreviation,
+                    category_name:canonicalCategory(category.name),unit_abbreviation:global.unit_abbreviation,
                     last_stock:quantityNumber(scaledQuantity(stock.on_hand_quantity)),stock_revision:stock.revision,
                     net_base_unit_price:item.net_purchase_price,count_units:canonicalUnits(item.count_units || [])};
                 unitsFor(entry);

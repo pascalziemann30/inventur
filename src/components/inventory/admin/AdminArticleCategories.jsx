@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {canonicalCategory} from '../../../../base44/shared/inventory/categories.js';
 import {Pencil,Trash2,Undo2} from 'lucide-react';
 
 const money=n=>new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:6}).format(n||0);
@@ -7,7 +8,7 @@ const periods={weekly:'wöchentlich',monthly:'monatlich',yearly:'jährlich'};
 export default function AdminArticleCategories({articles,searching=false,disabled=false,onEdit,onDelete,onRestore,trashMode=false}){
  const grouped=new Map();
  for(const row of articles){
-  const name=row.definition.category?.trim()||'Ohne Kategorie';
+  const name=canonicalCategory(row.definition.category)||'Ohne Kategorie';
   if(!grouped.has(name))grouped.set(name,[]);
   grouped.get(name).push(row);
  }

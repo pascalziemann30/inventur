@@ -224,3 +224,18 @@ test('changing to a selectable existing supplier/category keeps stock and histor
  await f.complete(await f.start('synthetic-picker-edit-02',{...current.definition,supplier:'Other active supplier',category:'Other category'},{expected:current.fingerprint}));
  const updated=(await f.service.list({outlet_id:'outlet'})).articles[0];assert.equal(updated.definition.supplier,'Other active supplier');assert.equal(updated.definition.category,'Other category');assert.equal(updated.links_valid,true);assert.equal(f.db.OutletItem[0].supplier_id,'new-supplier');assert.equal(f.db.GlobalItem[0].category_id,'new-category');assert.deepEqual(f.db.OutletStock,stock);assert(f.db.SupplierItem.filter(o=>originalOffers.includes(o.id)).every(o=>o.status==='archived'));assert.equal(f.db.Supplier.length,2);assert.equal(f.db.Category.length,2);
 });
+test('category alias selection reuses the canonical existing reference without creating another category or changing stock',async()=>{
+ const f=fixture();f.db.Category.push({id:'legacy-hygiene',name:'Reinigung / Hygiene'},{id:'master-hygiene',name:'Reinigung und Hygiene'});
+ await f.complete(await f.start('synthetic-category-alias-01',{...article,category:'Reinigung / Hygiene'}));
+ assert.equal(f.db.Category.length,2);assert.equal(f.db.GlobalItem[0].category_id,'master-hygiene');assert.equal(f.db.GlobalItem[0].category_name,'Reinigung und Hygiene');
+ const list=await f.service.list({outlet_id:'outlet'});assert.deepEqual(list.categories,['Reinigung und Hygiene']);const row=list.articles[0],stock=copy(f.db.OutletStock);
+ await f.complete(await f.start('synthetic-category-alias-02',{...row.definition,category:'Reinigung & Hygiene'},{expected:row.fingerprint}));
+ assert.equal(f.db.Category.length,2);assert.equal(f.db.GlobalItem[0].category_id,'master-hygiene');assert.deepEqual(f.db.OutletStock,stock);
+});
+test('a lone legacy category is reused and shown canonically, while old article fingerprints remain valid',async()=>{
+ const f=fixture();f.db.Category.push({id:'only-legacy',name:'Milch / Käse'});
+ await f.complete(await f.start('synthetic-category-legacy-01',{...article,category:'Milchprodukte und Pflanzendrinks'}));assert.equal(f.db.Category.length,1);assert.equal(f.db.GlobalItem[0].category_id,'only-legacy');
+ f.db.GlobalItem[0].category_name='Milch / Käse';
+ const row=(await f.service.list({outlet_id:'outlet'})).articles[0];assert.equal(row.definition.category,'Milchprodukte und Pflanzendrinks');
+ await f.complete(await f.start('synthetic-category-legacy-02',row.definition,{expected:row.fingerprint}));assert.equal(f.db.Category.length,1);assert.equal(f.db.GlobalItem[0].category_id,'only-legacy');
+});
