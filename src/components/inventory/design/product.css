@@ -51,3 +51,24 @@
 .inventory-header a.inventory-brand{color:var(--pc-foreground);text-decoration:none}.inventory-header a.inventory-brand:focus-visible{outline:3px solid var(--pc-focus);outline-offset:4px;border-radius:4px}.inventory-theme-toggle:focus-visible{outline:3px solid var(--pc-focus);outline-offset:3px}
 /* Contain the header margin so the page edge uses the selected appearance too. */
 .inventory-shell,.counting-workspace{display:flow-root}
+/* Match Shift Control's short color/surface transitions without animating layout. */
+:root[data-inventory-theme] :is(.inventory-shell,.counting-workspace),
+:root[data-inventory-theme] :is(.inventory-shell,.counting-workspace) :where(*):not(.count-progress-track > span){
+ transition-property:background-color,color,border-color,box-shadow,fill,stroke;
+ transition-duration:180ms;
+ transition-timing-function:ease;
+}
+.inventory-header .inventory-theme-toggle{position:relative}
+:root[data-inventory-theme] .inventory-header .inventory-theme-toggle>span{
+ position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ transition:opacity 180ms ease,transform 180ms ease;pointer-events:none;
+}
+.inventory-theme-toggle .inventory-theme-sun{opacity:0;transform:scale(.8)}
+.inventory-theme-toggle .inventory-theme-moon{opacity:1;transform:scale(1)}
+.inventory-theme-toggle[data-theme=dark] .inventory-theme-sun{opacity:1;transform:scale(1)}
+.inventory-theme-toggle[data-theme=dark] .inventory-theme-moon{opacity:0;transform:scale(.8)}
+@media(prefers-reduced-motion:reduce){
+ :root[data-inventory-theme] :is(.inventory-shell,.counting-workspace),
+ :root[data-inventory-theme] :is(.inventory-shell,.counting-workspace) :where(*),
+ :root[data-inventory-theme] .inventory-header .inventory-theme-toggle>span{transition:none!important}
+}
