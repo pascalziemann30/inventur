@@ -105,7 +105,7 @@
           },
           "base_quantity": {
             "type": "number",
-            "minimum": 0.000001
+            "minimum": 1e-06
           },
           "whole_numbers_only": {
             "type": "boolean",
@@ -127,6 +127,26 @@
     "primary_purchase_code": {
       "type": "string",
       "description": "Primäres Einkaufsgebinde für die Artikelpflege"
+    },
+    "deleted_at": {
+      "type": "string",
+      "description": "Zeitpunkt der Entfernung in den 30-Tage-Papierkorb; leer bei normalen Artikeln"
+    },
+    "delete_after": {
+      "type": "string",
+      "description": "Frühester Zeitpunkt der endgültigen Bereinigung"
+    },
+    "deleted_by": {
+      "type": "string",
+      "description": "Geprüfter Administrator, der den Artikel entfernt hat"
+    },
+    "deleted_was_active": {
+      "type": "boolean",
+      "description": "Aktivstatus für Wiederherstellung"
+    },
+    "purge_started_at": {
+      "type": "string",
+      "description": "Bereinigung begonnen; keine Wiederherstellung während Teilbereinigung"
     }
   },
   "required": [

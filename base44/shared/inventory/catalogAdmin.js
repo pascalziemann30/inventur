@@ -3,6 +3,8 @@ import {unitsFor} from './counting.js';
 import {offerIdentityKey} from './deliveryReview.js';
 import {similarArticles} from './articleIdentity.js';
 import {convertUnitQuantity,validateUnitDimensions} from './unitConversion.js';
+import {isDeleted,lifecyclePlan,purgePlan,purgeArticle} from './articleTrash.js';
+import {assertOutletAccess} from './stock.js';
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
 export const canonical=v=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v??null);
 const equal=(a,b)=>canonical(a)===canonical(b);
@@ -39,6 +41,7 @@ export function adminStore(e){
  const expectedQuery=values=>Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v===undefined?{$exists:false}:v]));
  return {get:(entity,id)=>e[entity].get(id),find:(entity,query={})=>bounded(e[entity].filter(query,'id',501)),
   bulkCreate:(entity,data)=>e[entity].bulkCreate(data),
+  remove:(entity,id)=>e[entity].delete(id),
   cas:async(entity,id,expected,patch)=>check(await e[entity].updateMany({id,...expectedQuery(expected)},{$set:patch})),
   async activateMany(nodes,results){
    const ids=nodes.map(n=>n.id||results.find(r=>r.key===n.item_key)?.id),active=nodes[0].data.is_active;
@@ -69,7 +72,7 @@ export function definitionFor(item,catalog){
  const primary=offers[0],stock=catalog.stocks.filter(s=>s.outlet_item_id===item.id);
  const definition={id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||'',unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
  let countValid=true;try{unitsFor(item);}catch{countValid=false;}
- return {definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
+ return {deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
 }
 export function makeCatalogPlan({catalog,articles,requestId,importing=false,expected,userId,now}){
  const inputs=articles.map(normalizeDefinition),nodes=[],results=[];
@@ -103,6 +106,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
   const supplier=shared('Supplier',r.supplier),category=shared('Category',r.category),unit=shared('Unit',r.unit,'abbreviation');
   const existing=r.id?catalog.items.find(i=>i.id===r.id):null;
   if(r.id&&!existing)fail('ARTICLE_NOT_FOUND',404);
+  if(existing&&isDeleted(existing))fail('ARTICLE_ALREADY_DELETED');
   if(existing&&definitionFor(existing,catalog).fingerprint!==expected)fail('ARTICLE_CHANGED_RELOAD');
   const oldGlobal=existing&&catalog.globals.find(g=>g.id===existing.global_item_id);
   if(existing&&!oldGlobal)fail('ARTICLE_GRAPH_INCOMPLETE');
@@ -172,6 +176,7 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
   return nodes.map((node,i)=>{const matches=rows.filter(r=>r.catalog_key===data[i].catalog_key&&Object.entries(data[i]).every(([k,v])=>equal(r[k],v)));if(matches.length!==1)fail('CATALOG_WRITE_UNCERTAIN');return {key:node.key,entity:node.entity,id:matches[0].id};});
  };
  const applyUpdate=async(node,results)=>{
+  if(node.kind==='article-purge')return purgeArticle(store,node,now());
   if(node.kind==='unit-conversion'){
    for(let attempt=0;attempt<8;attempt++){
     const stock=await store.get('OutletStock',node.id);
@@ -206,19 +211,44 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
  const verifyGraph=async(o)=>{
   const c=await readAdminCatalog(store,o.id),s=o.catalog_admin_state;
   for(const r of s.results.filter(r=>r.entity==='OutletItem')){
-   const item=c.items.find(i=>i.id===r.id);if(!item||!definitionFor(item,c).links_valid)fail('ARTICLE_GRAPH_INCOMPLETE');
+   const item=c.items.find(i=>i.id===r.id);if(!item||(!isDeleted(item)&&!definitionFor(item,c).links_valid))fail('ARTICLE_GRAPH_INCOMPLETE');
    if(s.kind==='catalog-import'){const stock=c.stocks.find(x=>x.outlet_item_id===r.id);if(stock.on_hand_quantity!==0||stock.revision!==0||stock.booking_journal.length)fail('IMPORT_ZERO_STOCK_CHANGED');}
   }
  };
- return {
+ const service={
   status:async({outlet_id})=>view(await load(outlet_id)),
-  async list({outlet_id}){
-   const c=await readAdminCatalog(store,outlet_id),scoped=c.items.length>0;
+  async list({outlet_id,cleanup=true}){
+   assertOutletAccess(user,outlet_id);
+   let c=await readAdminCatalog(store,outlet_id);
+   if(cleanup&&(!c.outlet.catalog_admin_state||c.outlet.catalog_admin_state.status==='completed')){
+    const expired=c.items.filter(i=>isDeleted(i)&&Number.isFinite(Date.parse(i.delete_after))&&Date.parse(i.delete_after)<=Date.parse(now()));
+    if(expired.length){
+     const request_id=`purge-${crypto.randomUUID()}`;
+     let state=await service.startPrepared({outlet_id,request_id,plan:purgePlan(expired,{outletId:outlet_id,requestId:request_id,userId:user.id,now:now()})});
+     try{for(let n=0;n<10&&state.operation.status!=='completed';n++)state=await service.step({outlet_id,request_id,revision:state.revision});}catch{/* Preserve the durable operation; admin can resume. */}
+     c=await readAdminCatalog(store,outlet_id);
+    }
+   }
+   const scoped=c.items.length>0;
    const globals=c.globals.filter(g=>c.items.some(i=>i.global_item_id===g.id));
    return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),
     suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false&&(!scoped||c.items.some(i=>i.supplier_id===s.id))).map(s=>s.name))],
     categories:[...new Set(c.categories.filter(c=>!scoped||globals.some(g=>g.category_id===c.id)).map(c=>c.name))],
     units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
+  },
+  async lifecycle({outlet_id,id,action,request_id,expected}){
+   assertOutletAccess(user,outlet_id);
+   if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id)||!text(id,100)||!['discard','restore'].includes(action))fail('ARTICLE_LIFECYCLE_INVALID',400);
+   const c=await readAdminCatalog(store,outlet_id),item=c.items.find(i=>i.id===id),prior=c.outlet.catalog_admin_state;
+   if(prior?.request_id===request_id){if(prior.input_fingerprint!==JSON.stringify({action,id}))fail('REQUEST_CONTENT_CHANGED');return view(c.outlet);}
+   if(prior&&prior.status!=='completed')fail('CATALOG_OPERATION_PENDING');
+   if(!item)fail('ARTICLE_NOT_FOUND',404);
+   if(definitionFor(item,c).fingerprint!==expected)fail('ARTICLE_CHANGED_RELOAD');
+   if(action==='discard'){
+    const recipes=await store.find('OutletItem');
+    if(recipes.some(i=>i.id!==id&&!isDeleted(i)&&i.recipe_items?.some(r=>r.article_id===id)))fail('ARTICLE_USED_IN_RECIPE');
+   }
+   return service.startPrepared({outlet_id,request_id,plan:lifecyclePlan({item,action,requestId:request_id,userId:user.id,now:now()})});
   },
   async startPrepared({outlet_id,request_id,plan}){
    const o=await load(outlet_id),prior=o.catalog_admin_state;
@@ -277,4 +307,5 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
    }
   },
  };
+ return service;
 }
