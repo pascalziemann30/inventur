@@ -4,6 +4,7 @@ import {offerIdentityKey} from './deliveryReview.js';
 import {similarArticles} from './articleIdentity.js';
 import {convertUnitQuantity,validateUnitDimensions} from './unitConversion.js';
 import {isDeleted,lifecyclePlan,purgePlan,purgeArticle} from './articleTrash.js';
+import {canonicalCategory,categoryChoices} from './categories.js';
 import {assertOutletAccess} from './stock.js';
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
 export const canonical=v=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v??null);
@@ -19,6 +20,7 @@ export function normalizeDefinition(input){
  if(input.distinct_confirmed!==undefined&&typeof input.distinct_confirmed!=='boolean')fail('ARTICLE_INPUT_INVALID',400);
  const r={...input,sku:input.sku||'',receipt_units:input.receipt_units||[],inventory_intervals:input.inventory_intervals||['monthly','yearly'],notes:input.notes||'',is_active:input.is_active!==false};
  for(const k of ['name','supplier','category','unit','purchase_code','purchase_label'])if(!text(r[k]))fail('ARTICLE_REQUIRED_FIELDS',400);
+ r.category=canonicalCategory(r.category);
  if(typeof r.sku!=='string'||r.sku.length>100||typeof r.notes!=='string'||r.notes.length>1000)fail('ARTICLE_INPUT_INVALID',400);
  r.factor=positive(r.factor);r.net_price=monetaryNumber(r.net_price);if(r.net_price<=0)fail('POSITIVE_PRICE_REQUIRED',400);
  if(!Array.isArray(r.count_units)||!r.count_units.length||r.count_units.length>8)fail('COUNT_UNITS_REQUIRED',400);
@@ -70,7 +72,7 @@ export function definitionFor(item,catalog){
  const offers=catalog.offers.filter(o=>o.global_item_id===global?.id&&o.supplier_id===item.supplier_id&&o.status==='approved');
  offers.sort((a,b)=>Number(b.purchase_unit_code===item.primary_purchase_code)-Number(a.purchase_unit_code===item.primary_purchase_code));
  const primary=offers[0],stock=catalog.stocks.filter(s=>s.outlet_item_id===item.id);
- const definition={id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||'',unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
+ const definition={id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:canonicalCategory(global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||''),unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
  let countValid=true;try{unitsFor(item);}catch{countValid=false;}
  return {deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
 }
@@ -84,7 +86,11 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
  const shared=(entity,label,field='name')=>{
   const key=`${entity}:${name(label)}`;
   if(results.some(r=>r.key===key)||nodes.some(n=>n.key===key))return ref(key);
-  let records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>name(row[field])===name(label));
+  let records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>name(entity==='Category'?canonicalCategory(row[field]):row[field])===name(label));
+  if(entity==='Category'&&records.length>1){
+   // Reuse one deterministic master, preferring the canonical spelling; never create another alias row.
+   records.sort((a,b)=>Number(name(b.name)===name(label))-Number(name(a.name)===name(label))||a.id.localeCompare(b.id));records=records.slice(0,1);
+  }
   if(records.length>1){
    const globals=catalog.globals.filter(g=>catalog.items.some(i=>i.global_item_id===g.id));
    const usedIds=new Set(entity==='Supplier'?catalog.items.map(i=>i.supplier_id):globals.map(g=>entity==='Unit'?g.unit_id:g.category_id));
@@ -233,7 +239,7 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
    const globals=c.globals.filter(g=>c.items.some(i=>i.global_item_id===g.id));
    return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),
     suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false).map(s=>s.name))].sort((a,b)=>a.localeCompare(b,'de')),
-    categories:[...new Set(c.categories.map(c=>c.name))].sort((a,b)=>a.localeCompare(b,'de')),
+    categories:categoryChoices(c.categories.map(c=>c.name)),
     units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
   },
   async lifecycle({outlet_id,id,action,request_id,expected}){
