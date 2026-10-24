@@ -72,3 +72,6 @@
  :root[data-inventory-theme] :is(.inventory-shell,.counting-workspace) :where(*),
  :root[data-inventory-theme] .inventory-header .inventory-theme-toggle>span{transition:none!important}
 }
+/* Same typeface, semibold weight and tracking as the Shift Control wordmark. */
+.inventory-header .inventory-brand,.count-top .count-brand{font-family:'IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:-.5px}
+.inventory-header .inventory-brand small,.count-top .count-brand small{font-weight:500}
