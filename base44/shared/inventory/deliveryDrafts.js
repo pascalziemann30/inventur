@@ -60,12 +60,13 @@ function confirmationCurrent(draft,line,catalog) {
 
 export function createDeliveryDraftService({store,user,now=()=>new Date().toISOString()}) {
     if (!store.verifiedAtomicWrites) fail('ATOMIC_WRITES_NOT_VERIFIED',503);
-    const load=async id=>{
+    const load=async(id,{includeDiscarded=false}={})=>{
         if (typeof id !== 'string' || !id || id.length > 100) fail('DRAFT_ID_REQUIRED',400);
         const draft=await store.get(id);
         if (!draft) fail('DRAFT_NOT_FOUND',404);
         assertOutletAccess(user,draft.outlet_id);
         if (!Number.isSafeInteger(draft.revision) || draft.revision < 0 || !Array.isArray(draft.lines) || !Array.isArray(draft.request_receipts)) fail('DRAFT_NOT_INITIALIZED');
+        if(draft.discarded_at && !includeDiscarded)fail('DRAFT_DISCARDED',409);
         return draft;
     };
     const project=async draft=>{
@@ -89,24 +90,24 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         }
         return {id:draft.id,outlet_id:draft.outlet_id,outlet_name:catalog.outlet.name,supplier_id:draft.supplier_id,
             supplier_name:catalog.supplier.name,delivery_date:draft.delivery_date,document_reference:draft.document_reference,
-            status:draft.status,revision:draft.revision,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,
+            status:draft.status,revision:draft.revision,discarded_at:draft.discarded_at || '',read_only:!!draft.discarded_at,can_discard:user.role==='admin' && draft.status==='draft' && !draft.lines.some(line=>line.booking_receipt) && !draft.discarded_at,lines:copy(sourceLines(draft)),review:diagnosis,line_states:states,
             is_admin:user.role === 'admin',booking_enabled:true,posting:draft.status==='posting',
             source_scan_id:draft.scan_evidence?.scan_id || null,
             batch_line_ids:draft.booking_batch?.entries.map(entry=>entry.line_id) || [],
             offers:catalog.offers.filter(offer=>offer.status === 'approved').map(offer=>({id:offer.id,name:offer.original_name,sku:offer.supplier_article_number,purchase_unit_code:offer.purchase_unit_code,purchase_unit_label:offer.purchase_unit_label}))};
     };
     const unique=async draft=>{
-        const starts=await store.find({outlet_id:draft.outlet_id,actor_id:draft.actor_id,start_key:draft.start_key});
+        const starts=(await store.find({outlet_id:draft.outlet_id,actor_id:draft.actor_id,start_key:draft.start_key})).filter(row=>!row.discarded_at || row.id===draft.id);
         if (starts.length !== 1 || starts[0].id !== draft.id) fail('DUPLICATE_DRAFT_REQUIRES_REVIEW');
         if (draft.reference_key) {
-            const refs=await store.find({outlet_id:draft.outlet_id,supplier_id:draft.supplier_id,reference_key:draft.reference_key});
+            const refs=(await store.find({outlet_id:draft.outlet_id,supplier_id:draft.supplier_id,reference_key:draft.reference_key})).filter(row=>!row.discarded_at || row.id===draft.id);
             if (refs.length !== 1 || refs[0].id !== draft.id) fail('DOCUMENT_REFERENCE_ALREADY_EXISTS');
         }
     };
     const ack=async(draft,receipt)=>({request_id:receipt.request_id,revision:receipt.revision,draft:await project(draft)});
     const mutate=async(action,input,change)=>{
         if (!token(input.request_id) || !Number.isSafeInteger(input.revision) || input.revision < 0) fail('INVALID_DRAFT_REQUEST',400);
-        const draft=await load(input.id);
+        const draft=await load(input.id,{includeDiscarded:true});
         const fingerprint=JSON.stringify(stable({action,...input}));
         const prior=record=>{
             const found=record.request_receipts.filter(item=>item.request_id === input.request_id);
@@ -116,8 +117,9 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         };
         const previous=prior(draft);
         if (previous) return ack(draft,previous);
+        if(draft.discarded_at && action!=='restore')fail('DRAFT_DISCARDED');
         if(['posting','completed'].includes(draft.status))fail('DRAFT_FROZEN_FOR_BOOKING');
-        await unique(draft);
+        if(action!=='discard')await unique(draft);
         if (draft.revision !== input.revision) fail('DRAFT_CHANGED_RELOAD');
         if (draft.request_receipts.length >= 1000 || draft.revision >= Number.MAX_SAFE_INTEGER) fail('DRAFT_REQUEST_LIMIT');
         const catalog=await store.catalog(draft.outlet_id,draft.supplier_id);
@@ -127,11 +129,11 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         try {
             if (await store.cas(draft,next)) return ack({...draft,...next},receipt);
         } catch(error) {
-            const observed=await load(draft.id),recovered=prior(observed);
+            const observed=await load(draft.id,{includeDiscarded:true}),recovered=prior(observed);
             if (recovered) return ack(observed,recovered);
             throw error;
         }
-        const observed=await load(draft.id),recovered=prior(observed);
+        const observed=await load(draft.id,{includeDiscarded:true}),recovered=prior(observed);
         if (recovered) return ack(observed,recovered);
         fail('DRAFT_CHANGED_RELOAD');
     };
@@ -154,12 +156,25 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
     };
     return {
         options:()=>store.options(),
-        async get(id) {return project(await load(id));},
-        async list(outletId) {
+        async get(id) {const draft=await load(id,{includeDiscarded:true});if(draft.discarded_at && user.role!=='admin')fail('DRAFT_DISCARDED');return project(draft);},
+        async articles({outlet_id,supplier_id}) {
+            assertOutletAccess(user,outlet_id);
+            const catalog=await store.catalog(outlet_id,supplier_id);
+            return catalog.items.filter(item=>item.is_active===true && item.outlet_id===outlet_id && item.supplier_id===supplier_id).map(item=>({
+                id:item.id,name:item.display_name || catalog.globals.find(g=>g.id===item.global_item_id)?.canonical_name || 'Artikel ohne Bezeichnung',
+                offers:catalog.offers.filter(o=>o.global_item_id===item.global_item_id && o.supplier_id===supplier_id && o.status==='approved').map(offer=>{
+                    const line={id:'catalog-check',original_name:offer.original_name,supplier_article_number:offer.supplier_article_number || '',purchase_unit_code:offer.purchase_unit_code,purchase_quantity:'1',net_purchase_price:'1'};
+                    const diagnosis=reviewDeliveryLines({lines:[line],catalog,outletId:outlet_id,supplierId:supplier_id}).lines[0];
+                    return {id:offer.id,original_name:offer.original_name,supplier_article_number:offer.supplier_article_number || '',purchase_unit_code:offer.purchase_unit_code,purchase_unit_label:offer.purchase_unit_label,base_quantity_per_purchase:offer.base_quantity_per_purchase,unit_abbreviation:offer.unit_abbreviation,net_purchase_price:offer.net_purchase_price,available:diagnosis.match==='matched' && !diagnosis.issues.some(issue=>!acknowledgeable.includes(issue))};
+                }),
+            })).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+        },
+        async list(outletId,includeDiscarded=false) {
             assertOutletAccess(user,outletId);
-            return (await store.find({outlet_id:outletId})).map(draft=>({id:draft.id,delivery_date:draft.delivery_date,
+            if(includeDiscarded && user.role!=='admin')fail('ADMIN_REQUIRED',403);
+            return (await store.find({outlet_id:outletId})).filter(draft=>includeDiscarded || !draft.discarded_at).map(draft=>({id:draft.id,delivery_date:draft.delivery_date,
                 document_reference:draft.document_reference,supplier_name:draft.supplier_name,revision:draft.revision,
-                status:draft.status,
+                status:draft.status,discarded_at:draft.discarded_at || '',can_discard:user.role==='admin' && draft.status==='draft' && !draft.lines.some(line=>line.booking_receipt) && !draft.discarded_at,
                 positions:draft.lines.length,pending_proposals:draft.lines.filter(line=>line.proposal?.status === 'pending').length}));
         },
         async start({outlet_id,supplier_id,delivery_date,document_reference='',start_key,lines,scan_evidence}) {
@@ -173,11 +188,12 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             const existing=await store.find({outlet_id,actor_id:user.id,start_key});
             if (existing.length > 1) fail('DUPLICATE_DRAFT_REQUIRES_REVIEW');
             if (existing.length) {
+                if(existing[0].discarded_at)fail('DRAFT_DISCARDED');
                 if (existing[0].start_fingerprint !== fingerprint) fail('START_CONTENT_CHANGED');
                 return project(existing[0]);
             }
             const reference_key=document_reference.trim().normalize('NFKC').toUpperCase();
-            if (reference_key && (await store.find({outlet_id,supplier_id,reference_key})).length) fail('DOCUMENT_REFERENCE_ALREADY_EXISTS');
+            if (reference_key && (await store.find({outlet_id,supplier_id,reference_key})).some(row=>!row.discarded_at)) fail('DOCUMENT_REFERENCE_ALREADY_EXISTS');
             const catalog=await store.catalog(outlet_id,supplier_id);
             reviewDeliveryLines({lines:sources,catalog,outletId:outlet_id,supplierId:supplier_id});
             const draft=await store.create({outlet_id,outlet_name:catalog.outlet.name,supplier_id,supplier_name:catalog.supplier.name,
@@ -185,6 +201,20 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
                 ...(scan_evidence?{scan_evidence:copy(scan_evidence)}:{}),revision:0,status:'draft',request_receipts:[],lines:sources.map(source=>({source,proposal_history:[]}))});
             await unique(draft);
             return project(draft);
+        },
+        discard:input=>{
+            if(user?.role!=='admin')fail('ADMIN_REQUIRED',403);
+            return mutate('discard',input,draft=>{
+                if(draft.status!=='draft' || draft.lines.some(line=>line.booking_receipt))fail('BOOKED_DRAFT_CANNOT_DISCARD');
+                return {discarded_at:now(),discarded_by:user.id};
+            });
+        },
+        restore:input=>{
+            if(user?.role!=='admin')fail('ADMIN_REQUIRED',403);
+            return mutate('restore',input,draft=>{
+                if(!draft.discarded_at)fail('DRAFT_NOT_DISCARDED');
+                return {discarded_at:'',discarded_by:''};
+            });
         },
         save:input=>mutate('save',input,(draft,catalog)=>{
             const sources=cleanLines(input.lines);

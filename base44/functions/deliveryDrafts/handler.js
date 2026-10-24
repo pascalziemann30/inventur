@@ -3,7 +3,7 @@ import {base44DeliveryDraftStore} from '../../shared/inventory/deliveryDraftStor
 import {createDeliveryDraftService} from '../../shared/inventory/deliveryDrafts.js';
 
 export const deliveryRuntimeVersion='delivery-runtime-v1';
-const fields={options:[],list:['outlet_id'],get:['id'],start:['outlet_id','supplier_id','delivery_date','document_reference','start_key','lines'],
+const fields={options:[],list:['outlet_id','include_discarded'],articles:['outlet_id','supplier_id'],discard:['id','request_id','revision'],restore:['id','request_id','revision'],get:['id'],start:['outlet_id','supplier_id','delivery_date','document_reference','start_key','lines'],
     save:['id','request_id','revision','lines'],confirm:['id','request_id','revision','line_id','supplier_item_id','acknowledged_issues'],
     propose:['id','request_id','revision','line_id','note'],resolve:['id','request_id','revision','line_id','resolution','note','supplier_item_id','identity_confirmed'],
     book:['id','revision','line_ids']};
@@ -23,13 +23,14 @@ export function createDeliveryDraftHandler({createClientFromRequest,environment=
             try {body=JSON.parse(raw);} catch {throw new BookingError('INVALID_REQUEST',400);}
             if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.hasOwn(fields,body.action)
                 || Object.keys(body).some(key=>key !== 'action' && !fields[body.action].includes(key))) throw new BookingError('INVALID_REQUEST',400);
+            if(body.include_discarded!==undefined && typeof body.include_discarded!=='boolean')throw new BookingError('INVALID_REQUEST',400);
             const writable=(await isEnabled(req))===true;
-            if (!writable && !['options','list','get'].includes(body.action)) throw new BookingError('DELIVERY_DRAFT_TEST_DISABLED',503);
+            if (!writable && !['options','list','get','articles'].includes(body.action)) throw new BookingError('DELIVERY_DRAFT_TEST_DISABLED',503);
             const service=createDeliveryDraftService({store:storeFor(client.asServiceRole.entities,user),user,now});
             const {action,...input}=body;
-            const value=action === 'options' ? await service.options() : action === 'list' ? await service.list(input.outlet_id)
+            const value=action === 'options' ? await service.options() : action === 'list' ? await service.list(input.outlet_id,input.include_discarded)
                 : action === 'get' ? await service.get(input.id) : await service[action](input);
-            return Response.json(action === 'book' ? {draft:value} : ['get','options'].includes(action) ? {...value,read_only:!writable,runtime_version:deliveryRuntimeVersion} : value);
+            return Response.json(action === 'book' ? {draft:value} : ['get','options'].includes(action) ? {...value,read_only:!writable || !!value.read_only,runtime_version:deliveryRuntimeVersion} : value);
         } catch(error) {
             if (error instanceof BookingError) return Response.json({error:error.code},{status:error.status});
             return Response.json({error:'DELIVERY_DRAFT_REQUEST_UNCERTAIN_RETRY_SAME_OPERATION'},{status:500});

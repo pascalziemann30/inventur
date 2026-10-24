@@ -66,6 +66,14 @@
     "scan_evidence": {
       "type": "object",
       "description": "Serverseitig gebundener Originalscan und menschliche Gegenprüfung"
+    },
+    "discarded_at": {
+      "type": "string",
+      "description": "Leer oder Zeitpunkt der reversiblen Entfernung eines ungebuchten Entwurfs"
+    },
+    "discarded_by": {
+      "type": "string",
+      "description": "Serverseitig geprüfter Administrator der Entfernung; Verlauf in request_receipts"
     }
   },
   "required": [
