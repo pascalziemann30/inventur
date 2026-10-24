@@ -61,3 +61,30 @@ export function subcategoryPlan({catalog,input,requestId,userId,now}){
  }else create(name,keywords||[],0);
  return {kind:mode==='setup'?'subcategory-setup':'subcategory-change',request_id:requestId,input_fingerprint:JSON.stringify(input),nodes,results:[],cursor:0,in_flight:null,status:'ready',created_by:userId,created_at:now,articles:0};
 }
+export function classificationPlan({catalog,groups,assignments,requestId,userId,now}){
+ if(!Array.isArray(groups)||groups.length>40||!Array.isArray(assignments)||!assignments.length||assignments.length>250)fail('CLASSIFICATION_INVALID');
+ const nodes=[],results=[],seen=new Set(),references=new Map();
+ for(const [index,g] of groups.entries()){
+  if(!g||Object.keys(g).some(k=>!['parent','name','keywords'].includes(k)))fail('CLASSIFICATION_INVALID');
+  const existing=availableSubcategories(catalog.categories,catalog.outlet.id).filter(r=>r.parent_name===canonicalCategory(g.parent)&&key(r.name)===key(g.name));
+  if(existing.length>1)fail('SUBCATEGORY_DUPLICATE');
+  const identity=`${canonicalCategory(g.parent)}:${key(g.name)}`;if(references.has(identity))fail('SUBCATEGORY_DUPLICATE');
+  if(existing.length)references.set(identity,existing[0].id);
+  else{
+   const plan=subcategoryPlan({catalog,input:{mode:'create',parent:g.parent,name:g.name,keywords:g.keywords||[]},requestId,userId,now});
+   const node={...plan.nodes[0],key:`classification:group:${index}`};node.data={...node.data,catalog_key:`${requestId}:${node.key}`};nodes.push(node);references.set(identity,{catalog_ref:node.key});
+  }
+ }
+ for(const [index,input]of assignments.entries()){
+  if(!input||Object.keys(input).some(k=>!['id','expected','parent','subcategory'].includes(k))||seen.has(input.id))fail('CLASSIFICATION_INVALID');seen.add(input.id);
+  const item=catalog.items.find(r=>r.id===input.id&&!r.deleted_at&&r.is_active!==false),global=item&&catalog.globals.find(r=>r.id===item.global_item_id);
+  if(!item||!global||canonicalCategory(global.category_name||catalog.categories.find(r=>r.id===global.category_id)?.name)!==canonicalCategory(input.parent))fail('ARTICLE_CHANGED_RELOAD');
+  // Fingerprint supplied by the authenticated catalog view: metadata changes never touch prices or stock.
+  if(input.expected!==JSON.stringify([item.id,item.subcategory_id||'',global.category_id,item.display_name]))fail('ARTICLE_CHANGED_RELOAD');
+  let id='';if(input.subcategory){id=references.get(`${canonicalCategory(input.parent)}:${key(input.subcategory)}`)||availableSubcategories(catalog.categories,catalog.outlet.id).find(r=>r.parent_name===canonicalCategory(input.parent)&&key(r.name)===key(input.subcategory))?.id;if(!id)fail('SUBCATEGORY_PARENT_MISMATCH');}
+  if(id===item.subcategory_id||(!id&&!item.subcategory_id))continue;
+  nodes.push({key:`classification:item:${index}`,entity:'OutletItem',kind:'update',id:item.id,expected:{subcategory_id:item.subcategory_id,display_name:item.display_name,global_item_id:item.global_item_id,is_active:item.is_active,deleted_at:item.deleted_at},data:{subcategory_id:id}});
+ }
+ nodes.sort((a,b)=>a.entity===b.entity?JSON.stringify(a.data).localeCompare(JSON.stringify(b.data)):a.entity==='Category'?-1:1);
+ return {kind:'article-classification',request_id:requestId,input_fingerprint:JSON.stringify({groups,assignments}),nodes,results,cursor:0,in_flight:null,status:'ready',created_by:userId,created_at:now,articles:assignments.length};
+}

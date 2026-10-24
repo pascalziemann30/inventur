@@ -5,7 +5,7 @@ import {similarArticles} from './articleIdentity.js';
 import {convertUnitQuantity,validateUnitDimensions} from './unitConversion.js';
 import {isDeleted,lifecyclePlan,purgePlan,purgeArticle} from './articleTrash.js';
 import {canonicalCategory,categoryChoices} from './categories.js';
-import {availableSubcategories,isMainCategory,selectedSubcategory,subcategoryPlan} from './subcategories.js';
+import {availableSubcategories,isMainCategory,selectedSubcategory,subcategoryPlan,classificationPlan} from './subcategories.js';
 import {assertOutletAccess} from './stock.js';
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
 export const canonical=v=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v??null);
@@ -48,6 +48,19 @@ export function adminStore(e){
   bulkCreate:(entity,data)=>e[entity].bulkCreate(data),
   remove:(entity,id)=>e[entity].delete(id),
   cas:async(entity,id,expected,patch)=>check(await e[entity].updateMany({id,...expectedQuery(expected)},{$set:patch})),
+  async classifyMany(nodes,results){
+   const patch=resolveCatalogData(nodes[0].data,results),ids=nodes.map(n=>n.id);
+   const before=await bounded(e.OutletItem.filter({id:{$in:ids}},'id',501));
+   const pending=nodes.filter(node=>{const row=before.find(r=>r.id===node.id);if(!row)fail('ARTICLE_CHANGED_RELOAD');if(Object.entries(patch).every(([k,v])=>equal(row[k],v)))return false;if(!Object.entries(node.expected).every(([k,v])=>equal(row[k],v)))fail('ARTICLE_CHANGED_RELOAD');return true;});
+   if(pending.length){
+    const query={$or:pending.map(node=>({id:node.id,...expectedQuery(node.expected)}))};
+    const result=await e.OutletItem.updateMany(query,{$set:patch});
+    if(result?.success!==true||result.has_more!==false||!Number.isInteger(result.updated)||result.updated<0||result.updated>pending.length)fail('CONDITIONAL_WRITE_UNCONFIRMED',503);
+   }
+   const observed=await bounded(e.OutletItem.filter({id:{$in:ids}},'id',501));
+   if(observed.length!==ids.length||observed.some(row=>!Object.entries(patch).every(([k,v])=>equal(row[k],v))))fail('CATALOG_WRITE_UNCERTAIN');
+   return nodes.map(n=>({key:n.key,entity:n.entity,id:n.id}));
+  },
   async activateMany(nodes,results){
    const ids=nodes.map(n=>n.id||results.find(r=>r.key===n.item_key)?.id),active=nodes[0].data.is_active;
    if(ids.some(id=>!id)||new Set(ids).size!==ids.length)fail('CATALOG_REFERENCE_MISSING');
@@ -77,7 +90,7 @@ export function definitionFor(item,catalog){
  const primary=offers[0],stock=catalog.stocks.filter(s=>s.outlet_item_id===item.id);
  const definition={subcategory_id:item.subcategory_id||'',id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:canonicalCategory(global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||''),unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
  let countValid=true;try{unitsFor(item);}catch{countValid=false;}
- return {subcategory_name:availableSubcategories(catalog.categories,item.outlet_id).find(r=>r.id===item.subcategory_id)?.name||'',deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
+ return {classification_fingerprint:JSON.stringify([item.id,item.subcategory_id||'',global?.category_id,item.display_name]),subcategory_name:availableSubcategories(catalog.categories,item.outlet_id).find(r=>r.id===item.subcategory_id)?.name||'',deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
 }
 export function makeCatalogPlan({catalog,articles,requestId,importing=false,expected,userId,now}){
  const inputs=articles.map(normalizeDefinition),nodes=[],results=[];
@@ -256,6 +269,14 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
     subcategories:availableSubcategories(c.categories,outlet_id),
     units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
   },
+  async classify({outlet_id,request_id,groups,assignments}){
+   assertOutletAccess(user,outlet_id);
+   if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id))fail('CLASSIFICATION_INVALID',400);
+   const c=await readAdminCatalog(store,outlet_id),prior=c.outlet.catalog_admin_state,fingerprint=JSON.stringify({groups,assignments});
+   if(prior?.request_id===request_id){if(prior.input_fingerprint!==fingerprint)fail('REQUEST_CONTENT_CHANGED');return view(c.outlet);}
+   if(prior&&prior.status!=='completed')fail('CATALOG_OPERATION_PENDING');
+   return service.startPrepared({outlet_id,request_id,plan:classificationPlan({catalog:c,groups,assignments,requestId:request_id,userId:user.id,now:now()})});
+  },
   async subcategory({outlet_id,request_id,...input}){
    assertOutletAccess(user,outlet_id);
    if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id))fail('SUBCATEGORY_INPUT_INVALID',400);
@@ -311,21 +332,24 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
     const nodes=s.nodes.slice(s.cursor,s.cursor+s.in_flight.count);
     let rows;
     if(nodes[0].kind==='create')rows=await verifiedRows(s,nodes);
+    else if(s.kind==='article-classification'&&nodes[0].entity==='OutletItem'&&store.classifyMany)rows=await store.classifyMany(nodes,s.results);
     else if(nodes[0].kind==='activate'&&store.activateMany){await store.activateMany(nodes,s.results);rows=[];}
     else rows=await applyUpdate(nodes[0],s.results);
     return view(await checkpoint(o,{...s,results:[...s.results,...rows],cursor:s.cursor+nodes.length,in_flight:null,status:'ready',error:null}));
    }
    if(s.cursor===s.nodes.length){await verifyGraph(o);return view(await checkpoint(o,{...s,status:'completed',completed_operations:s.cursor,total_operations:s.nodes.length,nodes:[],results:s.results.filter(r=>['OutletItem','SupplierItem'].includes(r.entity)),verification:{all_links_valid:true,zero_stocks_verified:s.kind==='catalog-import',articles:s.articles}}));}
    const node=s.nodes[s.cursor];
-   const batchable=node.kind==='create'||(node.kind==='activate'&&store.activateMany);
-   const group=batchable?s.nodes.slice(s.cursor,s.cursor+20).filter((n,i,a)=>n.kind===node.kind&&n.entity===node.entity&&(node.kind!=='activate'||n.data.is_active===node.data.is_active)&&a.slice(0,i).every(x=>x.kind===node.kind&&x.entity===node.entity&&(node.kind!=='activate'||x.data.is_active===node.data.is_active))):[node];
+   const classifying=s.kind==='article-classification'&&node.entity==='OutletItem'&&store.classifyMany;
+   const batchable=node.kind==='create'||(node.kind==='activate'&&store.activateMany)||classifying;
+   const group=batchable?s.nodes.slice(s.cursor,s.cursor+20).filter((n,i,a)=>n.kind===node.kind&&n.entity===node.entity&&(node.kind!=='activate'||n.data.is_active===node.data.is_active)&&(!classifying||equal(n.data,node.data))&&a.slice(0,i).every(x=>x.kind===node.kind&&x.entity===node.entity&&(node.kind!=='activate'||x.data.is_active===node.data.is_active)&&(!classifying||equal(x.data,node.data)))):[node];
    o=await checkpoint(o,{...s,status:'working',in_flight:{count:group.length}});s=o.catalog_admin_state;
    try{
     let results=[];
     if(node.kind==='create'){
      await store.bulkCreate(node.entity,group.map(n=>resolveCatalogData(n.data,s.results)));
      results=await verifiedRows(s,group);
-    }else if(node.kind==='activate'&&store.activateMany)await store.activateMany(group,s.results);
+    }else if(classifying)results=await store.classifyMany(group,s.results);
+    else if(node.kind==='activate'&&store.activateMany)await store.activateMany(group,s.results);
     else results=await applyUpdate(node,s.results);
     return view(await checkpoint(o,{...s,results:[...s.results,...results],cursor:s.cursor+group.length,in_flight:null,status:'ready',error:null}));
    }catch(error){
