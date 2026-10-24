@@ -34,10 +34,10 @@ test('a lost create response is recovered by exact marker without another create
  const n=f.db.Supplier.length;const next=await f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision});assert.equal(f.db.Supplier.length,n);
  await assert.rejects(f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision}),{code:'CATALOG_CHANGED_RELOAD'});await f.complete(next);assert.equal(f.db.GlobalItem.length,1);
 });
-test('edits preserve stock journals and supplier IDs, forbid base-unit changes and allow historical deactivation',async()=>{
+test('edits preserve stock journals and supplier IDs, require explicit base-unit conversions and allow historical deactivation',async()=>{
  const f=fixture();await f.complete(await f.start('synthetic-edit-00001'));f.db.OutletStock[0].on_hand_quantity=9;f.db.OutletStock[0].revision=2;f.db.OutletStock[0].booking_journal=[{operation_id:'historical'}];
  const current=(await f.service.list({outlet_id:'outlet'})).articles[0],ids=f.db.SupplierItem.map(o=>o.id);
- await assert.rejects(f.start('synthetic-edit-00002',{...current.definition,unit:'kg'},{expected:current.fingerprint}),{code:'BASE_UNIT_IMMUTABLE'});
+ await assert.rejects(f.start('synthetic-edit-00002',{...current.definition,unit:'kg'},{expected:current.fingerprint}),{code:'UNIT_CONVERSION_REQUIRED'});
  await f.complete(await f.start('synthetic-edit-00003',{...current.definition,name:'Renamed',is_active:false,net_price:12},{expected:current.fingerprint}));
  assert.equal(f.db.OutletItem[0].is_active,false);assert.equal(f.db.OutletStock[0].on_hand_quantity,9);assert.equal(f.db.OutletStock[0].revision,2);assert.equal(f.db.OutletStock[0].booking_journal.length,1);assert.deepEqual(f.db.SupplierItem.map(o=>o.id),ids);assert.equal(f.db.PriceHistory.length,1);
 });
@@ -100,4 +100,56 @@ test('similar names require an explicit distinction while exact duplicates remai
  await assert.rejects(f.start('synthetic-near-00002',{...article,name:'Synthetic oat drink unsweetened',sku:'OTHER'}),{code:'POSSIBLE_DUPLICATE_REVIEW_REQUIRED'});
  await f.complete(await f.start('synthetic-near-00003',{...article,name:'Synthetic oat drink unsweetened',sku:'OTHER',distinct_confirmed:true}));
  await assert.rejects(f.start('synthetic-near-00004',{...article,distinct_confirmed:true}),{code:'EXISTING_ARTICLE_REQUIRES_LINK'});
+});
+
+test('explicit unit conversion preserves value, journals and historical snapshots and scales every offer',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-unit-00001'));
+ const stock=f.db.OutletStock[0];stock.on_hand_quantity=12;stock.revision=2;stock.booking_journal=[{operation_id:'historical',fingerprint:'old-unit-l'}];
+ f.db.InventoryRun.push({id:'historical-run',entries:[{article_id:f.db.OutletItem[0].id,unit_abbreviation:'l',net_base_unit_price:1.5,counted_quantity:12}]});
+ const history=copy(f.db.InventoryRun),journal=copy(stock.booking_journal),current=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ const definition={...current.definition,unit:'ml',factor:6000,count_units:current.definition.count_units.map(u=>({...u,base_quantity:u.base_quantity*1000})),receipt_units:[{code:'ST',factor:1000}],base_unit_change:{from:'l',old_quantity:1,new_quantity:1000}};
+ await f.complete(await f.start('synthetic-unit-00002',definition,{expected:current.fingerprint}));
+ const result=(await f.service.list({outlet_id:'outlet'})).articles[0];assert.equal(result.links_valid,true);assert.equal(stock.on_hand_quantity,12000);assert.equal(stock.revision,3);assert.equal(stock.unit_abbreviation,'ml');assert.equal(result.base_price*stock.on_hand_quantity,18);assert.deepEqual(stock.booking_journal,journal);assert.deepEqual(f.db.InventoryRun,history);assert.equal(f.db.SupplierItem[0].net_purchase_price,9);assert.equal(f.db.SupplierItem[1].net_purchase_price,1.5);assert.match(f.db.PriceHistory[0].reason,/1 l = 1000 ml/);
+ assert.equal((await f.start('synthetic-unit-00002',definition,{expected:current.fingerprint})).operation.status,'completed');assert.equal(stock.revision,3);
+});
+test('pack conversion uses exact rational quantities and refuses silent rounding or mismatched content',async()=>{
+ const f=fixture(),input={...article,unit:'Stk',factor:136,net_price:13.97,purchase_label:'4 × 34 Stück',count_units:[{code:'pack',label:'Packung',base_quantity:34,whole_numbers_only:false}],receipt_units:[]};
+ await f.complete(await f.start('synthetic-pack-00001',input));f.db.OutletStock[0].on_hand_quantity=51;
+ const current=(await f.service.list({outlet_id:'outlet'})).articles[0],definition={...current.definition,unit:'Packung',factor:4,count_units:[{code:'base',label:'Packung',base_quantity:1,whole_numbers_only:false}],base_unit_change:{from:'Stk',old_quantity:34,new_quantity:1}};
+ await assert.rejects(f.start('synthetic-pack-00002',{...definition,factor:136},{expected:current.fingerprint}),{code:'UNIT_CONVERSION_CONTENT_CHANGED'});
+ f.db.OutletStock[0].on_hand_quantity=1;await assert.rejects(f.start('synthetic-pack-00003',definition,{expected:current.fingerprint}),{code:'UNIT_CONVERSION_PRECISION'});
+ f.db.OutletStock[0].on_hand_quantity=51;await f.complete(await f.start('synthetic-pack-00004',definition,{expected:current.fingerprint}));assert.equal(f.db.OutletStock[0].on_hand_quantity,1.5);assert.equal(f.db.OutletItem[0].net_purchase_price,13.97/4);
+});
+test('conversion retries a concurrent stock update without losing it, and recovers a lost acknowledgment once',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-race-unit-01'));f.db.OutletStock[0].on_hand_quantity=6;
+ const current=(await f.service.list({outlet_id:'outlet'})).articles[0];let race=true,lost=true;const cas=f.store.cas;
+ f.store.cas=async(entity,id,expected,patch)=>{
+  if(entity==='OutletStock'&&patch.unit_abbreviation==='ml'){
+   if(race){race=false;f.db.OutletStock[0].on_hand_quantity+=3;f.db.OutletStock[0].revision++;return false;}
+   const result=await cas(entity,id,expected,patch);if(lost){lost=false;throw Error('lost response');}return result;
+  }return cas(entity,id,expected,patch);
+ };
+ const definition={...current.definition,unit:'ml',factor:6000,count_units:[{code:'base',label:'ml',base_quantity:1,whole_numbers_only:false}],receipt_units:[{code:'ST',factor:1000}],base_unit_change:{from:'l',old_quantity:1,new_quantity:1000}};
+ let state=await f.start('synthetic-race-unit-02',definition,{expected:current.fingerprint});
+ for(let i=0;i<100&&state.operation.status!=='completed';i++){try{state=await f.service.step({outlet_id:'outlet',request_id:state.operation.request_id,revision:state.revision});}catch(e){assert.equal(e.message,'lost response');state=await f.service.status({outlet_id:'outlet'});}}
+ assert.equal(state.operation.status,'completed');assert.equal(f.db.OutletStock[0].on_hand_quantity,9000);assert.equal(f.db.OutletStock[0].revision,2);
+});
+test('weight and volume conversions reject physically inconsistent ratios',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-dimension-01'));const current=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ await assert.rejects(f.start('synthetic-dimension-02',{...current.definition,unit:'ml',base_unit_change:{from:'l',old_quantity:1,new_quantity:1}},{expected:current.fingerprint}),{code:'UNIT_DIMENSION_MISMATCH'});
+ await assert.rejects(f.start('synthetic-dimension-03',{...current.definition,unit:'kg',base_unit_change:{from:'l',old_quantity:1,new_quantity:1}},{expected:current.fingerprint}),{code:'UNIT_DIMENSION_MISMATCH'});
+});
+test('historical receipt prices in an earlier base unit cannot overwrite the converted master',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-old-price-01'));const item=f.db.OutletItem[0];
+ f.db.DeliveryDraft.push({id:'old-receipt',outlet_id:'outlet',revision:0,lines:[{source:{id:'line'},confirmation:{outlet_item_id:item.id,global_item_id:item.global_item_id,net_base_unit_price:2,unit_abbreviation:'l'},booking_receipt:{operation_id:'old-booking'}}]});
+ f.db.GlobalItem[0].unit_abbreviation='ml';item.net_purchase_price=.0015;
+ assert.equal((await readAdminQueue(f.e,'outlet')).prices.length,0);
+ await assert.rejects(reviewPrice({e:f.e,store:f.store,user:f.user,outletId:'outlet',draftId:'old-receipt',lineId:'line',decision:'approve',requestId:'synthetic-old-price-02'}),{code:'PRICE_UNIT_CHANGED'});
+ assert.equal(item.net_purchase_price,.0015);
+});
+test('base unit conversion cannot alter a global product shared with a different outlet',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-shared-unit-01'));const current=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ f.db.OutletItem.push({...copy(f.db.OutletItem[0]),id:'foreign-item',outlet_id:'foreign-outlet'});
+ await assert.rejects(f.start('synthetic-shared-unit-02',{...current.definition,unit:'ml',factor:6000,base_unit_change:{from:'l',old_quantity:1,new_quantity:1000}},{expected:current.fingerprint}),{code:'SHARED_ARTICLE_REQUIRES_REVIEW'});
+ assert.equal(f.db.GlobalItem[0].unit_abbreviation,'l');
 });

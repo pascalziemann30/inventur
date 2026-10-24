@@ -8,13 +8,13 @@ export async function readAdminHistory(e,outletId){
  deliveries:drafts.filter(d=>!d.discarded_at).map(d=>({id:d.id,date:d.delivery_date,supplier:d.supplier_name,reference:d.document_reference,status:d.status,lines:d.lines.map(l=>({name:l.source.original_name,quantity:l.source.purchase_quantity,purchase_unit:l.source.purchase_unit_code,receipt_price:l.source.net_purchase_price,booked:!!l.booking_receipt,base_quantity:l.confirmation?.base_quantity??null,unit:l.confirmation?.unit_abbreviation||'',price_review:l.price_review||null}))})),prices:prices.filter(p=>ids.has(p.article_id))};
 }
 export async function readAdminQueue(e,outletId){
- const [drafts,items]=await Promise.all([bounded(e.DeliveryDraft.filter({outlet_id:outletId},'-created_date',501)),bounded(e.OutletItem.filter({outlet_id:outletId},'id',501))]);
+ const [drafts,items,globals]=await Promise.all([bounded(e.DeliveryDraft.filter({outlet_id:outletId},'-created_date',501)),bounded(e.OutletItem.filter({outlet_id:outletId},'id',501)),bounded(e.GlobalItem.list('id',501))]);
  const proposals=[],prices=[];
  for(const draft of drafts.filter(d=>!d.discarded_at))for(const line of draft.lines){
   if(line.proposal?.status==='pending')proposals.push({draft_id:draft.id,revision:draft.revision,line_id:line.source.id,supplier_id:draft.supplier_id,supplier_name:draft.supplier_name,date:draft.delivery_date,reference:draft.document_reference,source:line.source,note:line.proposal.note});
   if(line.booking_receipt&&line.confirmation&&!line.price_review){
    const item=items.find(i=>i.id===line.confirmation.outlet_item_id);
-   if(item&&Math.abs(item.net_purchase_price-line.confirmation.net_base_unit_price)>1e-10)prices.push({draft_id:draft.id,line_id:line.source.id,article_id:item.id,name:item.display_name,unit:line.confirmation.unit_abbreviation,current:item.net_purchase_price,proposed:line.confirmation.net_base_unit_price,date:draft.delivery_date,reference:draft.document_reference});
+   if(item&&globals.some(g=>g.id===item.global_item_id&&g.unit_abbreviation===line.confirmation.unit_abbreviation)&&Math.abs(item.net_purchase_price-line.confirmation.net_base_unit_price)>1e-10)prices.push({draft_id:draft.id,line_id:line.source.id,article_id:item.id,name:item.display_name,unit:line.confirmation.unit_abbreviation,current:item.net_purchase_price,proposed:line.confirmation.net_base_unit_price,date:draft.delivery_date,reference:draft.document_reference});
   }
  }
  return {proposals,prices};
@@ -34,6 +34,8 @@ export async function reviewPrice({e,store,user,outletId,draftId,lineId,decision
  if(line.price_review){if(line.price_review.request_id!==requestId)fail('PRICE_ALREADY_REVIEWED');return {completed:true};}
  const item=await store.get('OutletItem',line.confirmation.outlet_item_id);
  if(!item||item.outlet_id!==outletId||item.global_item_id!==line.confirmation.global_item_id)fail('ARTICLE_LINK_CHANGED');
+ const global=await store.get('GlobalItem',item.global_item_id);
+ if(!global||global.unit_abbreviation!==line.confirmation.unit_abbreviation)fail('PRICE_UNIT_CHANGED');
  // Only explicit approval can change the master. Receipt snapshots are never changed.
  return {draft,line,item,proposed:line.confirmation.net_base_unit_price,decision,requestId,userId:user.id,at:now()};
 }
