@@ -104,7 +104,11 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             if (refs.length !== 1 || refs[0].id !== draft.id) fail('DOCUMENT_REFERENCE_ALREADY_EXISTS');
         }
     };
-    const ack=async(draft,receipt)=>({request_id:receipt.request_id,revision:receipt.revision,draft:await project(draft)});
+    // Deleting/restoring an unbooked draft needs no article catalog or stock valuation.
+    const lifecycleAction=action=>['discard','restore'].includes(action);
+    const ack=async(draft,receipt,action)=>({request_id:receipt.request_id,revision:receipt.revision,
+        draft:lifecycleAction(action)?{id:draft.id,revision:draft.revision,discarded_at:draft.discarded_at || '',read_only:!!draft.discarded_at,
+            can_discard:!draft.discarded_at && draft.status==='draft' && !draft.lines.some(line=>line.booking_receipt)}:await project(draft)});
     const mutate=async(action,input,change)=>{
         if (!token(input.request_id) || !Number.isSafeInteger(input.revision) || input.revision < 0) fail('INVALID_DRAFT_REQUEST',400);
         const draft=await load(input.id,{includeDiscarded:true});
@@ -116,25 +120,25 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
             return found[0];
         };
         const previous=prior(draft);
-        if (previous) return ack(draft,previous);
+        if (previous) return ack(draft,previous,action);
         if(draft.discarded_at && action!=='restore')fail('DRAFT_DISCARDED');
         if(['posting','completed'].includes(draft.status))fail('DRAFT_FROZEN_FOR_BOOKING');
         if(action!=='discard')await unique(draft);
         if (draft.revision !== input.revision) fail('DRAFT_CHANGED_RELOAD');
         if (draft.request_receipts.length >= 1000 || draft.revision >= Number.MAX_SAFE_INTEGER) fail('DRAFT_REQUEST_LIMIT');
-        const catalog=await store.catalog(draft.outlet_id,draft.supplier_id);
+        const catalog=lifecycleAction(action)?null:await store.catalog(draft.outlet_id,draft.supplier_id);
         const patch=await change(draft,catalog);
         const receipt={request_id:input.request_id,fingerprint,revision:draft.revision+1,actor_id:user.id,at:now()};
         const next={...patch,revision:draft.revision+1,request_receipts:[...draft.request_receipts,receipt]};
         try {
-            if (await store.cas(draft,next)) return ack({...draft,...next},receipt);
+            if (await store.cas(draft,next)) return ack({...draft,...next},receipt,action);
         } catch(error) {
             const observed=await load(draft.id,{includeDiscarded:true}),recovered=prior(observed);
-            if (recovered) return ack(observed,recovered);
+            if (recovered) return ack(observed,recovered,action);
             throw error;
         }
         const observed=await load(draft.id,{includeDiscarded:true}),recovered=prior(observed);
-        if (recovered) return ack(observed,recovered);
+        if (recovered) return ack(observed,recovered,action);
         fail('DRAFT_CHANGED_RELOAD');
     };
     const entry=(draft,id)=>{

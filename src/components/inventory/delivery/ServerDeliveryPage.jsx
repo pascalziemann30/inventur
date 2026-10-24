@@ -4,6 +4,7 @@ import {useSearchParams} from 'react-router-dom';
 import DeliveryReviewWorkspace from './DeliveryReviewWorkspace.jsx';
 import {deliveryDraftApi,prepareDeliveryFixture,reviewDraftLines} from './draftApi.js';
 import {inventoryEnvironment} from '../counting/testClient.js';
+import {isLifecycleRequest,lifecyclePendingKey,withLifecycleDeadline} from './lifecycleRequest.js';
 import {initialManualEntries,manualDeliveryLines} from './manualDelivery.js';
 import './deliveryReview.css';
 
@@ -18,12 +19,12 @@ export default function ServerDeliveryPage() {
     const [options,setOptions]=useState(null),[outlet,setOutlet]=useState(''),[supplier,setSupplier]=useState('');
     const [date,setDate]=useState(dateToday),[reference,setReference]=useState('');
     const [articles,setArticles]=useState([]),[entries,setEntries]=useState({}),[articleLoading,setArticleLoading]=useState(false),[articleError,setArticleError]=useState(''),[articleVersion,setArticleVersion]=useState(0),[search,setSearch]=useState('');
-    const [showDiscarded,setShowDiscarded]=useState(false),[notice,setNotice]=useState(''),[lifecycle,setLifecycle]=useState(null),[lifecyclePending,setLifecyclePending]=useState(null);
+    const [showDiscarded,setShowDiscarded]=useState(false),[notice,setNotice]=useState(''),[lifecycle,setLifecycle]=useState(null),[lifecyclePending,setLifecyclePending]=useState(()=>{const saved=readLocal(lifecyclePendingKey);return isLifecycleRequest(saved)?saved:null;});
     const [draft,setDraft]=useState(null),[drafts,setDrafts]=useState([]),[error,setError]=useState('');
     const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[pending,setPending]=useState(null),[backup,setBackup]=useState(null);
     const [generation,setGeneration]=useState(0),[listVersion,setListVersion]=useState(0);
     const startRef=useRef(null),requestRef=useRef(null),revisionRef=useRef(0);
-    const localCopyRef=useRef(null);
+    const localCopyRef=useRef(null),lifecycleFlightRef=useRef(false);
     useEffect(()=>{
         let active=true;
         deliveryDraftApi('options').then(value=>{if(active){setOptions(value);if(value.outlets.length===1)setOutlet(value.outlets[0].id);}})
@@ -69,13 +70,16 @@ export default function ServerDeliveryPage() {
         return {...current,[article.id]:entry};
     });
     const lifecycleRequest=async request=>{
-        setBusy(true);setError('');
+        if(lifecycleFlightRef.current || !isLifecycleRequest(request))return;
+        lifecycleFlightRef.current=true;setBusy(true);setError('');
         try{
-            await deliveryDraftApi(request.action,request.input);
+            sessionStorage.setItem(lifecyclePendingKey,JSON.stringify(request));
+            await withLifecycleDeadline(()=>deliveryDraftApi(request.action,request.input));
+            sessionStorage.removeItem(lifecyclePendingKey);
             setLifecyclePending(null);setLifecycle(null);setListVersion(v=>v+1);setNotice(request.action==='discard'?'Entwurf gelöscht. Unter „Gelöschte Entwürfe“ kannst du ihn wiederherstellen.':'Entwurf wiederhergestellt.');
             if(id){const next=new URLSearchParams(params);next.delete('delivery');setParams(next);}
-        }catch(cause){setError(cause.message);if(cause.uncertain)setLifecyclePending(request);else{setLifecyclePending(null);setLifecycle(null);setListVersion(v=>v+1);}}
-        finally{setBusy(false);}
+        }catch(cause){setError(cause.message);setLifecycle(null);if(cause.uncertain)setLifecyclePending(request);else{setLifecyclePending(null);sessionStorage.removeItem(lifecyclePendingKey);setListVersion(v=>v+1);}}
+        finally{lifecycleFlightRef.current=false;setBusy(false);}
     };
     const apply=value=>{setDraft(value);revisionRef.current=value.revision;setGeneration(v=>v+1);};
     const send=async request=>{
@@ -114,7 +118,7 @@ export default function ServerDeliveryPage() {
         <EntryHeader outlet={options?.outlets.find(o=>o.id===outlet)?.name}/>
         {notice && <div role="status" className="count-copy">{notice}</div>}
         {lifecyclePending && <div className="count-copy"><p>Antwort zum Löschen oder Wiederherstellen noch unklar. Bitte denselben Vorgang erneut prüfen.</p><button className="count-confirm" disabled={busy} onClick={()=>lifecycleRequest(lifecyclePending)}>Gleichen Vorgang erneut versuchen</button></div>}
-        {lifecycle && <div className="delivery-dialog-backdrop"><section role="dialog" aria-modal="true" aria-labelledby="delivery-lifecycle-title" className="delivery-lifecycle-dialog"><h2 id="delivery-lifecycle-title">{lifecycle.action==='discard'?'Entwurf löschen?':'Entwurf wiederherstellen?'}</h2><p>{lifecycle.item.document_reference || 'Ohne Belegreferenz'} · {lifecycle.item.supplier_name}</p><p>{lifecycle.action==='discard'?'Der ungebuchte Entwurf verschwindet aus der aktiven Liste. Der Bestand bleibt unverändert. Du kannst ihn später wiederherstellen.':'Der Entwurf wird wieder in der aktiven Lieferübersicht angezeigt.'}</p><div className="delivery-actions"><button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setLifecycle(null)}>Abbrechen</button><button className="count-primary" disabled={busy || !!lifecyclePending} onClick={()=>lifecycleRequest({action:lifecycle.action,input:{id:lifecycle.item.id,revision:lifecycle.item.revision,request_id:crypto.randomUUID()}})}>{lifecycle.action==='discard'?'Entwurf löschen':'Wiederherstellen'}</button></div></section></div>}
+        {lifecycle && <div className="delivery-dialog-backdrop"><section role="dialog" aria-modal="true" aria-labelledby="delivery-lifecycle-title" className="delivery-lifecycle-dialog"><h2 id="delivery-lifecycle-title">{lifecycle.action==='discard'?'Entwurf löschen?':'Entwurf wiederherstellen?'}</h2><p>{lifecycle.item.document_reference || 'Ohne Belegreferenz'} · {lifecycle.item.supplier_name}</p><p>{lifecycle.action==='discard'?'Der ungebuchte Entwurf verschwindet aus der aktiven Liste. Der Bestand bleibt unverändert. Du kannst ihn später wiederherstellen.':'Der Entwurf wird wieder in der aktiven Lieferübersicht angezeigt.'}</p><div className="delivery-actions"><button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setLifecycle(null)}>Abbrechen</button><button className="count-primary" disabled={busy || !!lifecyclePending} onClick={()=>lifecycleRequest({action:lifecycle.action,input:{id:lifecycle.item.id,revision:lifecycle.item.revision,request_id:crypto.randomUUID()}})}>{busy?'Bestätigung läuft …':lifecycle.action==='discard'?'Entwurf löschen':'Wiederherstellen'}</button></div></section></div>}
         {error && <div role="alert" className="count-copy"><p>{error}</p>{draft && <button className="count-confirm" disabled={busy} onClick={reload}>Gespeicherten Stand laden · lokale Eingaben als Vergleich behalten</button>}</div>}
         {pending && <div className="count-copy"><strong>Antwort noch unklar</strong><p>Der exakt gleiche Vorgang bleibt für einen erneuten Versuch erhalten. Weitere Änderungen sind bis zur Klärung gesperrt.</p><button className="count-confirm" disabled={busy} onClick={()=>send(requestRef.current).catch(()=>{})}>Gleichen Vorgang erneut versuchen</button></div>}
         {backup && <details className="count-copy"><summary>Lokale Eingaben als Vergleichskopie</summary><ul>{backup.map(line=><li key={line.id}>{line.original_name || 'Ohne Bezeichnung'} · {line.purchase_quantity || 'keine Menge'} {line.purchase_unit_code} · {line.net_purchase_price || 'kein Preis'}</li>)}</ul></details>}

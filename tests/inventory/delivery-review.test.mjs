@@ -104,7 +104,7 @@ function endpoint(){
     const e={Outlet:{get:async id=>{calls.push('outlet');return {id,is_active:true};}},Supplier:{get:async id=>({id})},
         OutletItem:{filter:async query=>{assert.equal(query.outlet_id,f.outletId);return f.catalog.items;}},
         SupplierItem:{filter:async query=>{assert.equal(query.supplier_id,f.supplierId);return f.catalog.offers;}},
-        GlobalItem:{get:async id=>{calls.push(id);return f.catalog.globals.find(g=>g.id===id);}}};
+        GlobalItem:{filter:async query=>{calls.push('global-batch');assert.deepEqual(query.id.$in,f.catalog.globals.map(g=>g.id));return f.catalog.globals;}}};
     const handler=createReviewDeliveryHandler({createClientFromRequest:()=>({auth:{me:async()=>config.user},asServiceRole:{entities:e}})});
     const request=(body={},env='dev')=>handler(new Request('https://test.invalid/review',{method:'POST',headers:{'X-Data-Env':env},body:JSON.stringify({outlet_id:f.outletId,supplier_id:f.supplierId,lines:f.lines,...body})}));
     return {f,e,config,calls,request};
@@ -139,4 +139,12 @@ test('duplicate supplier identity outside the authorized outlet is flagged witho
     const response=await t.request();const result=await response.json();
     assert.equal(result.lines[0].match,'invalid');assert(result.lines[0].issues.includes('DUPLICATE_SUPPLIER_IDENTITY'));
     assert(!JSON.stringify(result).includes('Private other product'));
+});
+
+test('delivery catalog performs one bounded global query rather than per-article requests',async()=>{
+ const t=endpoint();const response=await t.request();assert.equal(response.status,200);
+ assert.equal(t.calls.filter(call=>call==='global-batch').length,1);
+ t.e.GlobalItem.filter=async()=>Array(501).fill(t.f.catalog.globals[0]);
+ const rejected=await t.request();assert.equal(rejected.status,409);
+ assert.equal((await rejected.json()).error,'REVIEW_CATALOG_REQUIRES_PAGING');
 });
