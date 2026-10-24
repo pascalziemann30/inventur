@@ -2,7 +2,7 @@ import {assertOutletAccess} from '../../shared/inventory/stock.js';
 import {BookingError} from '../../shared/inventory/quantities.js';
 import {adminStore,createCatalogAdminService} from '../../shared/inventory/catalogAdmin.js';
 import {readAdminHistory,readAdminQueue,historyCsv,reviewPrice,priceReviewPlan} from '../../shared/inventory/adminHistory.js';
-const allowed={classify:['outlet_id','request_id','groups','assignments'],subcategory:['outlet_id','request_id','mode','parent','id','name','keywords','expected'],lifecycle:['outlet_id','id','action_kind','request_id','expected'],outlets:['outlet_id'],list:['outlet_id'],status:['outlet_id'],start:['outlet_id','request_id','articles','importing','expected'],step:['outlet_id','request_id','revision'],queue:['outlet_id'],history:['outlet_id'],export:['outlet_id','id'],price:['outlet_id','draft_id','line_id','decision','request_id']};
+const allowed={discardMany:['outlet_id','request_id','items'],classify:['outlet_id','request_id','groups','assignments'],subcategory:['outlet_id','request_id','mode','parent','id','name','keywords','expected'],lifecycle:['outlet_id','id','action_kind','request_id','expected'],outlets:['outlet_id'],list:['outlet_id'],status:['outlet_id'],start:['outlet_id','request_id','articles','importing','expected'],step:['outlet_id','request_id','revision'],queue:['outlet_id'],history:['outlet_id'],export:['outlet_id','id'],price:['outlet_id','draft_id','line_id','decision','request_id']};
 export function createCatalogAdminHandler({createClientFromRequest,productionClient,originAllowed,defaultEnvironment,now,resolveAdmin=(_req,client)=>client.auth.me()}){
  return async req=>{
   try{

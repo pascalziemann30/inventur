@@ -286,6 +286,19 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
    if(input.id){const linked=await store.find('OutletItem',{subcategory_id:input.id});if(linked.some(r=>r.outlet_id!==outlet_id))fail('SUBCATEGORY_SCOPE_MISMATCH');}
    return service.startPrepared({outlet_id,request_id,plan:subcategoryPlan({catalog:c,input,requestId:request_id,userId:user.id,now:now()})});
   },
+  async discardMany({outlet_id,request_id,items}){
+   assertOutletAccess(user,outlet_id);
+   if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id)||!Array.isArray(items)||!items.length||items.length>250||new Set(items.map(r=>r?.id)).size!==items.length||items.some(r=>!r||Object.keys(r).some(k=>!['id','expected'].includes(k))||!text(r.id,100)||typeof r.expected!=='string'))fail('ARTICLE_SELECTION_INVALID',400);
+   const c=await readAdminCatalog(store,outlet_id),prior=c.outlet.catalog_admin_state,fingerprint=canonical(items);
+   if(prior?.request_id===request_id){if(prior.input_fingerprint!==fingerprint)fail('REQUEST_CONTENT_CHANGED');return view(c.outlet);}
+   if(prior&&prior.status!=='completed')fail('CATALOG_OPERATION_PENDING');
+   const selected=items.map(input=>{const item=c.items.find(r=>r.id===input.id);if(!item)fail('ARTICLE_NOT_FOUND',404);if(isDeleted(item))fail('ARTICLE_ALREADY_DELETED');if(definitionFor(item,c).fingerprint!==input.expected)fail('ARTICLE_CHANGED_RELOAD');return item;});
+   const recipes=await store.find('OutletItem');
+   if(recipes.some(r=>!isDeleted(r)&&r.recipe_items?.some(ingredient=>selected.some(item=>item.id===ingredient.article_id))))fail('ARTICLE_USED_IN_RECIPE');
+   const date=now(),plans=selected.map(item=>lifecyclePlan({item,action:'discard',requestId:request_id,userId:user.id,now:date}));
+   const nodes=plans.flatMap((p,index)=>p.nodes.map(node=>({...node,key:`discard:${index}`}))).sort((a,b)=>canonical(a.data).localeCompare(canonical(b.data)));
+   return service.startPrepared({outlet_id,request_id,plan:{...plans[0],kind:'article-discard-many',input_fingerprint:fingerprint,nodes,articles:items.length}});
+  },
   async lifecycle({outlet_id,id,action,request_id,expected}){
    assertOutletAccess(user,outlet_id);
    if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id)||!text(id,100)||!['discard','restore'].includes(action))fail('ARTICLE_LIFECYCLE_INVALID',400);
@@ -332,14 +345,14 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
     const nodes=s.nodes.slice(s.cursor,s.cursor+s.in_flight.count);
     let rows;
     if(nodes[0].kind==='create')rows=await verifiedRows(s,nodes);
-    else if(s.kind==='article-classification'&&nodes[0].entity==='OutletItem'&&store.classifyMany)rows=await store.classifyMany(nodes,s.results);
+    else if(['article-classification','article-discard-many'].includes(s.kind)&&nodes[0].entity==='OutletItem'&&store.classifyMany)rows=await store.classifyMany(nodes,s.results);
     else if(nodes[0].kind==='activate'&&store.activateMany){await store.activateMany(nodes,s.results);rows=[];}
     else rows=await applyUpdate(nodes[0],s.results);
     return view(await checkpoint(o,{...s,results:[...s.results,...rows],cursor:s.cursor+nodes.length,in_flight:null,status:'ready',error:null}));
    }
    if(s.cursor===s.nodes.length){await verifyGraph(o);return view(await checkpoint(o,{...s,status:'completed',completed_operations:s.cursor,total_operations:s.nodes.length,nodes:[],results:s.results.filter(r=>['OutletItem','SupplierItem'].includes(r.entity)),verification:{all_links_valid:true,zero_stocks_verified:s.kind==='catalog-import',articles:s.articles}}));}
    const node=s.nodes[s.cursor];
-   const classifying=s.kind==='article-classification'&&node.entity==='OutletItem'&&store.classifyMany;
+   const classifying=['article-classification','article-discard-many'].includes(s.kind)&&node.entity==='OutletItem'&&store.classifyMany;
    const batchable=node.kind==='create'||(node.kind==='activate'&&store.activateMany)||classifying;
    const group=batchable?s.nodes.slice(s.cursor,s.cursor+20).filter((n,i,a)=>n.kind===node.kind&&n.entity===node.entity&&(node.kind!=='activate'||n.data.is_active===node.data.is_active)&&(!classifying||equal(n.data,node.data))&&a.slice(0,i).every(x=>x.kind===node.kind&&x.entity===node.entity&&(node.kind!=='activate'||x.data.is_active===node.data.is_active)&&(!classifying||equal(x.data,node.data)))):[node];
    o=await checkpoint(o,{...s,status:'working',in_flight:{count:group.length}});s=o.catalog_admin_state;

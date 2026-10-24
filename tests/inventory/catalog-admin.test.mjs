@@ -285,3 +285,27 @@ test('batch classification creates scoped groups and only changes classification
  const fresh=list.articles[0];await assert.rejects(f.service.classify({...input,request_id:'synthetic-class-dupe1',assignments:[{...input.assignments[0],expected:fresh.classification_fingerprint},{...input.assignments[0],expected:fresh.classification_fingerprint}]}),{code:'CLASSIFICATION_INVALID'});
  await assert.rejects(f.service.classify({...input,request_id:'synthetic-class-wrong',assignments:[{...input.assignments[0],expected:fresh.classification_fingerprint,parent:'Wrong'}]}),{code:'ARTICLE_CHANGED_RELOAD'});
 });
+
+test('bulk discard retains stocks, offers and history, supports retry and individual restore within 30 days',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-multi-one1'));await f.complete(await f.start('synthetic-multi-two2',{...article,name:'Other synthetic item',distinct_confirmed:true}));
+ f.db.InventoryRun.push({id:'old-count',entries:[{article_id:f.db.OutletItem[0].id,counted_quantity:3}]});
+ const before=copy({stock:f.db.OutletStock,offers:f.db.SupplierItem,globals:f.db.GlobalItem,runs:f.db.InventoryRun});
+ const rows=(await f.service.list({outlet_id:'outlet'})).articles,items=rows.map(row=>({id:row.definition.id,expected:row.fingerprint})),request={outlet_id:'outlet',request_id:'synthetic-multi-trash',items};
+ await f.complete(await f.service.discardMany(request));assert.equal((await f.service.discardMany(request)).operation.status,'completed');
+ assert(f.db.OutletItem.every(item=>item.is_active===false&&item.deleted_at&&Date.parse(item.delete_after)-Date.parse(item.deleted_at)===30*24*60*60*1000));
+ assert.deepEqual({stock:f.db.OutletStock,offers:f.db.SupplierItem,globals:f.db.GlobalItem,runs:f.db.InventoryRun},before);
+ await assert.rejects(f.service.discardMany({...request,items:items.slice(0,1)}),{code:'REQUEST_CONTENT_CHANGED'});
+ const row=(await f.service.list({outlet_id:'outlet'})).articles[0];await f.complete(await f.service.lifecycle({outlet_id:'outlet',request_id:'synthetic-multi-undo1',id:row.definition.id,action:'restore',expected:row.fingerprint}));assert.equal(f.db.OutletItem[0].is_active,true);assert.equal(f.db.OutletItem[0].deleted_at,'');assert(f.db.OutletItem[1].deleted_at);
+});
+test('bulk discard validates the entire selection and recipe usage before opening a write',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-multi-guard'));
+ const row=(await f.service.list({outlet_id:'outlet'})).articles[0],item={id:row.definition.id,expected:row.fingerprint};
+ for(const items of [[],[item,item],[item,{id:'foreign-outlet-item',expected:'x'}],[{...item,expected:'stale'}]])await assert.rejects(f.service.discardMany({outlet_id:'outlet',request_id:crypto.randomUUID(),items}));
+ assert(!f.db.OutletItem[0].deleted_at);assert.equal(f.db.Outlet[0].catalog_admin_state.status,'completed');
+ f.db.OutletItem.push({id:'recipe',outlet_id:'other',recipe_items:[{article_id:item.id}]});
+ await assert.rejects(f.service.discardMany({outlet_id:'outlet',request_id:crypto.randomUUID(),items:[item]}),{code:'ARTICLE_USED_IN_RECIPE'});assert(!f.db.OutletItem[0].deleted_at);
+});
+test('bulk discard endpoint rejects employees before privileged entities are accessed',async()=>{
+ let touched=false;const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'employee',role:'user'})},get asServiceRole(){touched=true;throw Error('forbidden');}}),originAllowed:()=>true,defaultEnvironment:()=> 'prod'});
+ const result=await handler(new Request('https://synthetic.invalid',{method:'POST',headers:{Origin:'https://synthetic.invalid','X-Data-Env':'prod'},body:JSON.stringify({action:'discardMany',outlet_id:'outlet',request_id:crypto.randomUUID(),items:[]})}));assert.equal(result.status,403);assert.equal(touched,false);
+});
