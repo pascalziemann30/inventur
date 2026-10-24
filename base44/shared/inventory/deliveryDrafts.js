@@ -164,7 +164,7 @@ export function createDeliveryDraftService({store,user,now=()=>new Date().toISOS
         async articles({outlet_id,supplier_id}) {
             assertOutletAccess(user,outlet_id);
             const catalog=await store.catalog(outlet_id,supplier_id);
-            return catalog.items.filter(item=>item.is_active===true && item.outlet_id===outlet_id && item.supplier_id===supplier_id).map(item=>({
+            return catalog.items.filter(item=>!item.deleted_at && item.is_active===true && item.outlet_id===outlet_id && item.supplier_id===supplier_id).map(item=>({
                 id:item.id,name:item.display_name || catalog.globals.find(g=>g.id===item.global_item_id)?.canonical_name || 'Artikel ohne Bezeichnung',
                 offers:catalog.offers.filter(o=>o.global_item_id===item.global_item_id && o.supplier_id===supplier_id && o.status==='approved').map(offer=>{
                     const line={id:'catalog-check',original_name:offer.original_name,supplier_article_number:offer.supplier_article_number || '',purchase_unit_code:offer.purchase_unit_code,purchase_quantity:'1',net_purchase_price:'1'};

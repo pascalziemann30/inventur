@@ -35,7 +35,7 @@ function suggestionScore(left, right) {
 function linkedCandidate(offer, catalog, outletId, supplierId) {
     const global = catalog.globals.find(item => item.id === offer.global_item_id);
     const items = catalog.items.filter(item => item.global_item_id === offer.global_item_id
-        && item.outlet_id === outletId && item.is_active === true);
+        && item.outlet_id === outletId && !item.deleted_at && item.is_active === true);
     const problems = [];
     if (offer.status !== 'approved') problems.push('OFFER_NOT_APPROVED');
     if (offer.identity_conflict === true) problems.push('DUPLICATE_SUPPLIER_IDENTITY');

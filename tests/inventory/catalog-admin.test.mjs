@@ -9,6 +9,7 @@ function fixture(){
  const db=Object.fromEntries(['Outlet','OutletItem','OutletStock','GlobalItem','SupplierItem','Supplier','Category','Unit','PriceHistory','DeliveryDraft','InventoryRun'].map(k=>[k,[]]));db.Outlet.push({id:'outlet',name:'Synthetic outlet',type:'NORMAL',is_active:true});
  let seq=0,lost=false;const match=(r,q)=>Object.entries(q).every(([k,v])=>v&&typeof v==='object'&&'$in'in v?v.$in.includes(r[k]):JSON.stringify(r[k])===JSON.stringify(v));
  const store={get:async(t,id)=>copy(db[t].find(r=>r.id===id)),find:async(t,q={})=>copy(db[t].filter(r=>match(r,q))),
+ remove:async(t,id)=>{db[t]=db[t].filter(r=>r.id!==id);},
  bulkCreate:async(t,rows)=>{const r=rows.map(x=>({...copy(x),id:`generated-${++seq}`}));db[t].push(...r);if(lost){lost=false;throw Error('lost');}return copy(r.reverse());},
  cas:async(t,id,expected,patch)=>{const r=db[t].find(r=>r.id===id);if(!r||!match(r,expected))return false;Object.assign(r,copy(patch));return true;},
  casOutlet:async(old,state)=>{const o=db.Outlet[0];if((o.catalog_admin_revision||0)!==(old.catalog_admin_revision||0))return false;o.catalog_admin_revision=(o.catalog_admin_revision||0)+1;o.catalog_admin_state=copy(state);return true;}};
@@ -152,4 +153,66 @@ test('base unit conversion cannot alter a global product shared with a different
  f.db.OutletItem.push({...copy(f.db.OutletItem[0]),id:'foreign-item',outlet_id:'foreign-outlet'});
  await assert.rejects(f.start('synthetic-shared-unit-02',{...current.definition,unit:'ml',factor:6000,base_unit_change:{from:'l',old_quantity:1,new_quantity:1000}},{expected:current.fingerprint}),{code:'SHARED_ARTICLE_REQUIRES_REVIEW'});
  assert.equal(f.db.GlobalItem[0].unit_abbreviation,'l');
+});
+
+test('article trash is admin-only, reversible for 30 days, keeps stock/history, and rejects editing trashed records',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-trash-0001'));f.db.OutletStock[0].on_hand_quantity=12;
+ f.db.InventoryRun.push({id:'kept-run',outlet_id:'outlet',entries:[{article_name:'Snapshot',counted_quantity:12}]});const history=copy(f.db.InventoryRun),stock=copy(f.db.OutletStock);
+ const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ let state=await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-trash-0002',expected:row.fingerprint});await f.complete(state);
+ assert.equal(f.db.OutletItem[0].is_active,false);assert.equal(f.db.OutletItem[0].deleted_at,'2026-10-23T10:00:00Z');assert.equal(f.db.OutletItem[0].delete_after,'2026-11-22T10:00:00.000Z');assert.deepEqual(f.db.OutletStock,stock);assert.deepEqual(f.db.InventoryRun,history);
+ const trashed=(await f.service.list({outlet_id:'outlet'})).articles[0];assert(trashed.deleted_at);assert.equal(trashed.definition.is_active,false);
+ await assert.rejects(f.start('synthetic-trash-0003',trashed.definition,{expected:trashed.fingerprint}),{code:'ARTICLE_ALREADY_DELETED'});
+ assert.equal((await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-trash-0002',expected:row.fingerprint})).operation.status,'completed');
+ await f.complete(await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'restore',request_id:'synthetic-trash-0004',expected:trashed.fingerprint}));
+ assert.equal(f.db.OutletItem[0].is_active,true);assert.equal(f.db.OutletItem[0].deleted_at,'');assert.deepEqual(f.db.OutletStock,stock);
+ const scoped=createCatalogAdminService({store:f.store,user:{id:'admin-session',role:'admin',access_kind:'password_admin',outlet_id:'elsewhere'}});
+ await assert.rejects(scoped.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-trash-0005',expected:row.fingerprint}),{code:'OUTLET_FORBIDDEN'});
+});
+test('mature article trash permanently removes its graph but retains supplier/category and historical snapshots',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-purge-0001'));const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ f.db.InventoryRun.push({id:'history',outlet_id:'outlet',entries:[{article_id:row.definition.id,article_name:row.definition.name,counted_quantity:1}]});
+ f.db.DeliveryDraft.push({id:'receipt',outlet_id:'outlet',lines:[{source:{original_name:row.definition.name},booking_receipt:{operation_id:'kept'}}]});
+ await f.complete(await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-purge-0002',expected:row.fingerprint}));
+ const history=copy(f.db.InventoryRun),receipts=copy(f.db.DeliveryDraft);
+ const later=createCatalogAdminService({store:f.store,user:f.user,now:()=> '2026-11-22T10:00:01Z'});
+ const list=await later.list({outlet_id:'outlet'});assert.equal(list.articles.length,0);assert.equal(list.operation.status,'completed');
+ for(const entity of ['OutletItem','OutletStock','SupplierItem','GlobalItem'])assert.equal(f.db[entity].length,0,entity);
+ assert.equal(f.db.Supplier.length,1);assert.equal(f.db.Category.length,1);assert.equal(f.db.Unit.length,1);assert.deepEqual(f.db.InventoryRun,history);assert.deepEqual(f.db.DeliveryDraft,receipts);
+ assert.equal((await later.list({outlet_id:'outlet'})).articles.length,0);
+});
+test('purge preserves products/stock/offers shared with another outlet and retries a lost delete acknowledgment',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-shared-trash-01'));const row=(await f.service.list({outlet_id:'outlet'})).articles[0],item=copy(f.db.OutletItem[0]);
+ f.db.OutletItem.push({...item,id:'foreign-item',outlet_id:'foreign'});f.db.OutletStock.push({...copy(f.db.OutletStock[0]),id:'foreign-stock',outlet_item_id:'foreign-item',outlet_id:'foreign'});
+ await f.complete(await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-shared-trash-02',expected:row.fingerprint}));
+ let lost=true;const remove=f.store.remove;f.store.remove=async(t,id)=>{await remove(t,id);if(lost){lost=false;throw Error('lost delete reply');}};
+ const later=createCatalogAdminService({store:f.store,user:f.user,now:()=> '2026-11-24T10:00:00Z'});await later.list({outlet_id:'outlet'});
+ assert.deepEqual(f.db.OutletItem.map(i=>i.id),['foreign-item']);assert.deepEqual(f.db.OutletStock.map(i=>i.id),['foreign-stock']);assert.equal(f.db.GlobalItem.length,1);assert.equal(f.db.SupplierItem.length,2);
+});
+test('recipe references and expired restores are blocked before deleting data',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-recipe-trash-01'));const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ f.db.OutletItem.push({id:'recipe',outlet_id:'outlet',recipe_items:[{article_id:row.definition.id}]});
+ await assert.rejects(f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-recipe-trash-02',expected:row.fingerprint}),{code:'ARTICLE_USED_IN_RECIPE'});f.db.OutletItem.pop();
+ await f.complete(await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-recipe-trash-03',expected:row.fingerprint}));
+ const item=f.db.OutletItem[0],later=createCatalogAdminService({store:f.store,user:f.user,now:()=> '2026-11-24T10:00:00Z'}),c=await readAdminCatalog(f.store,'outlet');
+ await assert.rejects(later.lifecycle({outlet_id:'outlet',id:item.id,action:'restore',request_id:'synthetic-recipe-trash-04',expected:definitionFor(item,c).fingerprint}),{code:'ARTICLE_RETENTION_EXPIRED'});assert.equal(f.db.OutletStock.length,1);
+});
+test('employee and anonymous callers cannot invoke article deletion or restore',async()=>{
+ for(const actor of [null,{id:'staff',role:'user',outlet_id:'outlet'}]){
+  let privileged=false;const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>actor},get asServiceRole(){privileged=true;throw Error('must not access');}}),originAllowed:()=>true,defaultEnvironment:()=> 'prod'});
+  for(const action_kind of ['discard','restore']){
+   const response=await handler(new Request('https://synthetic.invalid',{method:'POST',headers:{Origin:'https://synthetic.invalid','X-Data-Env':'prod'},body:JSON.stringify({action:'lifecycle',action_kind,outlet_id:'outlet',id:'item',request_id:'synthetic-denied-trash-01',expected:'forged'})}));assert.equal(response.status,403);assert.equal(privileged,false);
+  }
+ }
+});
+test('interrupted permanent cleanup stays recoverable as an operation, not as an incomplete restored article',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-partial-trash-01'));const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ await f.complete(await f.service.lifecycle({outlet_id:'outlet',id:row.definition.id,action:'discard',request_id:'synthetic-partial-trash-02',expected:row.fingerprint}));
+ const remove=f.store.remove;let blocked=true;f.store.remove=async(t,id)=>{if(t==='OutletStock'&&blocked)throw Error('temporary outage');return remove(t,id);};
+ const later=createCatalogAdminService({store:f.store,user:f.user,now:()=> '2026-11-24T10:00:00Z'}),list=await later.list({outlet_id:'outlet'});assert.equal(list.operation.status,'blocked');assert(list.articles[0].purging);assert.equal(f.db.OutletItem.length,1);
+ const current=(await readAdminCatalog(f.store,'outlet')).items[0],catalog=await readAdminCatalog(f.store,'outlet');
+ await assert.rejects(later.lifecycle({outlet_id:'outlet',id:current.id,action:'restore',request_id:'synthetic-partial-trash-03',expected:definitionFor(current,catalog).fingerprint}),{code:'CATALOG_OPERATION_PENDING'});
+ blocked=false;let state=await later.status({outlet_id:'outlet'});
+ for(let n=0;n<10&&state.operation.status!=='completed';n++)state=await later.step({outlet_id:'outlet',request_id:state.operation.request_id,revision:state.revision});
+ assert.equal(state.operation.status,'completed');assert.equal(f.db.OutletItem.length,0);assert.equal(f.db.OutletStock.length,0);
 });

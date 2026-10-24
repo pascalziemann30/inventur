@@ -63,7 +63,7 @@ export function base44RunStore(entities) {
         async assertEntry(entry,outletId) {
             const item=await entities.OutletItem.get(entry.article_id);
             const global=await entities.GlobalItem.get(entry.global_item_id);
-            if (!item || item.is_active !== true || item.outlet_id !== outletId || item.global_item_id !== entry.global_item_id
+            if (!item || item.deleted_at || item.is_active !== true || item.outlet_id !== outletId || item.global_item_id !== entry.global_item_id
                 || item.supplier_id !== entry.supplier_id || !global || global.unit_abbreviation !== entry.unit_abbreviation
                 || global.unit_id !== entry.unit_id || global.category_id !== entry.category_id
                 || unitIdentity(item.count_units || []) !== unitIdentity(entry.count_units)) reject('ARTICLE_CONFIGURATION_CHANGED');

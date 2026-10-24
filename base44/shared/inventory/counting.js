@@ -57,6 +57,6 @@ export function countProgress(entries) {
 
 export function selectCountItems(items, period = 'monthly') {
     if (!['weekly', 'monthly', 'yearly', 'adhoc'].includes(period)) throw new Error('Ungültiger Zählrhythmus.');
-    return items.filter(item => item.is_active !== false && (period === 'adhoc' || item.inventory_intervals?.includes(period)))
+    return items.filter(item => !item.deleted_at && item.is_active !== false && (period === 'adhoc' || item.inventory_intervals?.includes(period)))
         .sort((left, right) => left.article_name.localeCompare(right.article_name, 'de'));
 }

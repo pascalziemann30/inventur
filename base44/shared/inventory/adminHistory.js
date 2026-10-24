@@ -14,7 +14,7 @@ export async function readAdminQueue(e,outletId){
   if(line.proposal?.status==='pending')proposals.push({draft_id:draft.id,revision:draft.revision,line_id:line.source.id,supplier_id:draft.supplier_id,supplier_name:draft.supplier_name,date:draft.delivery_date,reference:draft.document_reference,source:line.source,note:line.proposal.note});
   if(line.booking_receipt&&line.confirmation&&!line.price_review){
    const item=items.find(i=>i.id===line.confirmation.outlet_item_id);
-   if(item&&globals.some(g=>g.id===item.global_item_id&&g.unit_abbreviation===line.confirmation.unit_abbreviation)&&Math.abs(item.net_purchase_price-line.confirmation.net_base_unit_price)>1e-10)prices.push({draft_id:draft.id,line_id:line.source.id,article_id:item.id,name:item.display_name,unit:line.confirmation.unit_abbreviation,current:item.net_purchase_price,proposed:line.confirmation.net_base_unit_price,date:draft.delivery_date,reference:draft.document_reference});
+   if(item&&!item.deleted_at&&globals.some(g=>g.id===item.global_item_id&&g.unit_abbreviation===line.confirmation.unit_abbreviation)&&Math.abs(item.net_purchase_price-line.confirmation.net_base_unit_price)>1e-10)prices.push({draft_id:draft.id,line_id:line.source.id,article_id:item.id,name:item.display_name,unit:line.confirmation.unit_abbreviation,current:item.net_purchase_price,proposed:line.confirmation.net_base_unit_price,date:draft.delivery_date,reference:draft.document_reference});
   }
  }
  return {proposals,prices};
