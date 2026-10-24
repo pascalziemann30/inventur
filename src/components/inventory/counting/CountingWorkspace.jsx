@@ -2,6 +2,8 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Check, ChevronRight, Clock3, Search, SkipForward, Undo2, AlertCircle} from 'lucide-react';
 import {countProgress, evaluateCount, resolveEntry, unitsFor} from './countModel.js';
 import {createDraftQueue} from './draftQueue.js';
+import NavigationGuard from '../entry/NavigationGuard.jsx';
+import {countCategoryGroups} from './categoryGroups.js';
 import './counting.css';
 
 const number = value => new Intl.NumberFormat('de-DE', {maximumFractionDigits: 6}).format(value);
@@ -28,8 +30,8 @@ function CountCard({entry, onChange, disabled}) {
         catch (cause) { setError(cause.message); }
     };
     const counted = entry.status === 'counted';
-    return <article className={`count-card count-card--${entry.status}`} aria-label={entry.article_name}>
-        <div className="count-card-heading"><div><p className="count-category">{entry.category_name || 'Artikel'}</p><h2>{entry.article_name}</h2></div>
+    return <article className={`count-card count-row count-card--${entry.status}`} aria-label={entry.article_name}>
+        <div className="count-card-heading"><div><h3>{entry.article_name}</h3></div>
             <span className={`count-badge count-badge--${entry.status}`}>{counted && <Check size={13}/>} {entry.booked ? 'Gebucht' : statusLabels[entry.status]}</span></div>
         {entry.status === 'skipped' ? <div className="count-skipped"><p>Der bisherige Bestand bleibt erhalten.</p>
             <button className="count-link" disabled={disabled} onClick={() => {setValues({}); onChange({...resolveEntry(entry, 'reopen'), values: {}});}}><Undo2 size={15}/> Wieder aufnehmen</button></div>
@@ -58,10 +60,11 @@ function CountCard({entry, onChange, disabled}) {
  * Mount with key=session.id so drafts from different sessions cannot share a write queue.
  */
 export default function CountingWorkspace({initialEntries, initialRevision = 0, outletName, title = 'Monatsinventur',
-    saveDraft, completeSession, preview = false, onSaveState, onReload, completionLabel, readOnly = false}) {
+    saveDraft, completeSession, preview = false, onSaveState, onReload, completionLabel, readOnly = false,embedded=false,sessionKey='preview'}) {
     const [entries, setEntries] = useState(() => structuredClone(initialEntries));
     const entriesRef = useRef(entries);
     const [saveState, setSaveState] = useState({status: 'saved'});
+    const [expanded,setExpanded]=useState(()=>{try{return JSON.parse(sessionStorage.getItem(`inventory_categories:${sessionKey}`)||'null');}catch{return null;}});
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [confirm, setConfirm] = useState(false);
@@ -86,6 +89,16 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
     const progress = countProgress(entries);
     const visible = useMemo(() => entries.filter(entry => (filter === 'all' || entry.status === filter)
         && entry.article_name.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de'))), [entries, search, filter]);
+    const groups=useMemo(()=>countCategoryGroups(entries,visible),[entries,visible]);
+    const initialGroups=useRef(null);
+    if(initialGroups.current===null)initialGroups.current=countCategoryGroups(initialEntries);
+    const firstGroup=initialGroups.current.find(group=>group.progress.open>0)?.id || initialGroups.current[0]?.id;
+    const isOpen=group=>expanded===null?group.id===firstGroup:expanded[group.id]===true;
+    const changeExpanded=(group,open)=>setExpanded(current=>{
+        const next={...(current===null?{[firstGroup]:true}:current),[group]:open};
+        try{sessionStorage.setItem(`inventory_categories:${sessionKey}`,JSON.stringify(next));}catch{/* Count inputs remain independent of view preferences. */}
+        return next;
+    });
     const unsaved = saveState.status !== 'saved';
     useEffect(() => {
         if (!unsaved) return;
@@ -117,7 +130,8 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
         finally {setProcessing(false);}
     };
     return <div className="counting-workspace">
-        <header className="count-top"><div className="count-brand">ShiftCntrl<span>.</span><small>INVENTUR</small></div><span className="count-outlet">{outletName}</span></header>
+        {!embedded&&<header className="count-top"><div className="count-brand">ShiftCntrl<span>.</span><small>INVENTUR</small></div><span className="count-outlet">{outletName}</span></header>}
+        {!preview&&<NavigationGuard dirty={unsaved || processing} onSave={async()=>{if(processing)throw new Error('Bitte den laufenden Inventurabschluss abwarten.');if(saveState.status==='error')queueRef.current.retry();await queueRef.current.flush();}}/>}
         <main className="count-main">
             {preview && <aside className="count-preview"><strong>Bedienvorschau mit Beispieldaten</strong><span>Keine Verbindung zu Artikeln oder Beständen. Speicherung nur in diesem Vorschaufenster.</span></aside>}
             <div className="count-title"><div><p className="count-eyebrow">BESTAND AUFNEHMEN</p><h1>{title}</h1><p>Erst zählen. Danach mit dem erwarteten Bestand vergleichen.</p></div>
@@ -131,10 +145,13 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
                 <section className="count-progress" aria-label="Zählfortschritt"><div><strong>{progress.counted + progress.skipped}<span> / {progress.total}</span></strong><p>Artikel bearbeitet</p></div>
                     <div className="count-progress-track" role="progressbar" aria-label="Bearbeitete Artikel" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.counted + progress.skipped}><span style={{width: `${progress.total ? (progress.counted + progress.skipped) / progress.total * 100 : 0}%`}}/></div>
                     <p>{progress.open} offen · {progress.skipped} übersprungen</p></section>
-                <div className="count-tools"><label className="count-search"><Search size={17}/><input aria-label="Artikel suchen" placeholder="Artikel suchen …" value={search} onChange={event => setSearch(event.target.value)}/></label>
-                    <div className="count-filters" role="group" aria-label="Artikel filtern">{[['all','Alle'],['open','Offen'],['counted','Gezählt'],['skipped','Übersprungen']].map(([value,label]) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div></div>
-                <div className="count-list">{visible.map(entry => <CountCard key={entry.article_id} entry={entry} onChange={changeEntry} disabled={readOnly || processing || confirm || entry.editable === false || entry.booked}/>)}
-                    {!visible.length && <p className="count-empty">{progress.total ? 'Keine Artikel in dieser Ansicht.' : 'Für diesen Zählrhythmus sind noch keine Artikel eingerichtet.'}</p>}</div>
+                <div className="count-tools"><label className="count-search"><Search size={17}/><input aria-label="Artikel suchen" placeholder="Artikel suchen …" value={search} onChange={event => {setSearch(event.target.value);if(event.target.value)setExpanded(Object.fromEntries(countCategoryGroups(entries).map(group=>[group.id,true])));}}/></label>
+                    <div className="count-filters" role="group" aria-label="Artikel filtern">{[['all','Alle'],['open','Offen'],['counted','Gezählt'],['skipped','Übersprungen']].map(([value,label]) => <button key={value} aria-pressed={filter === value} onClick={() => {setFilter(value);if(value!=='all')setExpanded(Object.fromEntries(countCategoryGroups(entries).map(group=>[group.id,true])));}}>{label}</button>)}</div></div>
+                <div className="count-category-tools"><span>{groups.length} Kategorien</span><div><button className="count-link" onClick={()=>setExpanded(Object.fromEntries(groups.map(group=>[group.id,true])))}>Alle aufklappen</button><button className="count-link" onClick={()=>setExpanded({})}>Alle zuklappen</button></div></div>
+                <div className="count-categories">{groups.map(group=><details className="count-category-group" key={group.id} open={isOpen(group)} onToggle={event=>{if(event.currentTarget.open!==isOpen(group))changeExpanded(group.id,event.currentTarget.open);}}>
+                    <summary><h2>{group.name}</h2><span className="count-category-progress">{group.progress.counted} von {group.progress.total} gezählt · {group.progress.skipped} übersprungen · {group.progress.open} offen{group.entries.length!==group.all.length?` · ${group.entries.length} angezeigt`:''}</span></summary>
+                    <div className="count-category-rows">{group.entries.map(entry=><CountCard key={entry.article_id} entry={entry} onChange={changeEntry} disabled={readOnly || processing || confirm || entry.editable===false || entry.booked}/>)}</div>
+                </details>)}{!visible.length&&<p className="count-empty">{progress.total?'Keine Artikel in dieser Ansicht.':'Für diesen Zählrhythmus sind noch keine Artikel eingerichtet.'}</p>}</div>
                 <p className="count-footnote">Leer bedeutet noch offen. Mit 0 bestätigst du „nicht vorhanden“. Übersprungene Artikel behalten ihren bisherigen Bestand.</p>
                 <footer className="count-bottom"><span>{progress.open ? `${progress.open} Artikel noch offen` : 'Alle Artikel bearbeitet'}</span><button className="count-primary" disabled={readOnly || !progress.canComplete || unsaved || processing || !completeSession} onClick={() => setConfirm(true)}>{completionLabel || (preview ? 'Vorschau abschließen' : 'Inventur abschließen')} <ChevronRight size={18}/></button></footer>
             </>}

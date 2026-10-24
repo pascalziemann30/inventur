@@ -1,3 +1,4 @@
+import NavigationGuard from '../entry/NavigationGuard.jsx';
 import EntryHeader from '../entry/EntryHeader.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
@@ -56,13 +57,14 @@ export default function ServerDeliveryPage() {
     },[id]);
     const navigateWorkflow=(workflow,extra={})=>{const next=new URLSearchParams(params);next.set('workflow',workflow);next.delete('delivery');next.delete('scan');for(const [key,value] of Object.entries(extra))next.set(key,value);setParams(next);};
     const open=value=>{const next=new URLSearchParams(params);next.set('delivery',value.id);setParams(next);};
+    const createManualDraft=async()=>{
+        const signature=JSON.stringify([outlet,supplier,date,reference,entries]);
+        if(startRef.current?.signature!==signature)startRef.current={signature,input:{outlet_id:outlet,supplier_id:supplier,delivery_date:date,document_reference:reference,start_key:crypto.randomUUID(),lines:manualDeliveryLines(articles,entries)}};
+        return deliveryDraftApi('start',startRef.current.input);
+    };
     const start=async event=>{
         event.preventDefault();setBusy(true);setError('');
-        try {
-            const signature=JSON.stringify([outlet,supplier,date,reference,entries]);
-            if(startRef.current?.signature!==signature)startRef.current={signature,input:{outlet_id:outlet,supplier_id:supplier,delivery_date:date,document_reference:reference,start_key:crypto.randomUUID(),lines:manualDeliveryLines(articles,entries)}};
-            open(await deliveryDraftApi('start',startRef.current.input));
-        }catch(cause){setError(cause.message);}finally{setBusy(false);}
+        try{open(await createManualDraft());}catch(cause){setError(cause.message);}finally{setBusy(false);}
     };
     const changeEntry=(article,field,value)=>setEntries(current=>{
         const entry={...current[article.id],[field]:value};
@@ -115,7 +117,8 @@ export default function ServerDeliveryPage() {
     };
     if(loading)return <div className="counting-workspace"><main className="count-main"><p role="status">Lieferungen werden geladen …</p></main></div>;
     return <div className="counting-workspace">
-        <EntryHeader outlet={options?.outlets.find(o=>o.id===outlet)?.name}/>
+        <EntryHeader outlet={options?.outlets.find(o=>o.id===outlet)?.name} outletId={outlet} disabled={busy || !!pending || !!lifecyclePending}/>
+        {!id&&<NavigationGuard dirty={Object.values(entries).some(entry=>String(entry.quantity||'').trim())} onSave={async()=>{await createManualDraft();}}/>}
         {notice && <div role="status" className="count-copy">{notice}</div>}
         {lifecyclePending && <div className="count-copy"><p>Antwort zum Löschen oder Wiederherstellen noch unklar. Bitte denselben Vorgang erneut prüfen.</p><button className="count-confirm" disabled={busy} onClick={()=>lifecycleRequest(lifecyclePending)}>Gleichen Vorgang erneut versuchen</button></div>}
         {lifecycle && <div className="delivery-dialog-backdrop"><section role="dialog" aria-modal="true" aria-labelledby="delivery-lifecycle-title" className="delivery-lifecycle-dialog"><h2 id="delivery-lifecycle-title">{lifecycle.action==='discard'?'Entwurf löschen?':'Entwurf wiederherstellen?'}</h2><p>{lifecycle.item.document_reference || 'Ohne Belegreferenz'} · {lifecycle.item.supplier_name}</p><p>{lifecycle.action==='discard'?'Der ungebuchte Entwurf verschwindet aus der aktiven Liste. Der Bestand bleibt unverändert. Du kannst ihn später wiederherstellen.':'Der Entwurf wird wieder in der aktiven Lieferübersicht angezeigt.'}</p><div className="delivery-actions"><button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setLifecycle(null)}>Abbrechen</button><button className="count-primary" disabled={busy || !!lifecyclePending} onClick={()=>lifecycleRequest({action:lifecycle.action,input:{id:lifecycle.item.id,revision:lifecycle.item.revision,request_id:crypto.randomUUID()}})}>{busy?'Bestätigung läuft …':lifecycle.action==='discard'?'Entwurf löschen':'Wiederherstellen'}</button></div></section></div>}
@@ -126,7 +129,7 @@ export default function ServerDeliveryPage() {
             <div className="delivery-draft-meta"><button className="count-link" disabled={busy || !!pending} onClick={()=>{const next=new URLSearchParams(params);next.delete('delivery');setParams(next);setListVersion(v=>v+1);}}>Zur Lieferübersicht</button><span>{draft.delivery_date} · Beleg {draft.document_reference || 'ohne Referenz'} · Stand {draft.revision} · {statusLabel[draft.status]}</span></div>
             {draft.is_admin && <div className="delivery-draft-controls">{draft.discarded_at?<><p>Gelöschter Entwurf · Bestand unverändert</p><button className="count-confirm" disabled={busy || !!pending || !!lifecyclePending} onClick={()=>setLifecycle({action:'restore',item:draft})}>Entwurf wiederherstellen</button></>:draft.can_discard?<button className="count-confirm delivery-danger" disabled={busy || !!pending || !!lifecyclePending} onClick={()=>setLifecycle({action:'discard',item:draft})}>Entwurf löschen</button>:<p>Bereits gebuchte Lieferungen können nicht als Entwurf gelöscht werden.</p>}</div>}
             {draft.source_scan_id && <p><button className="count-link" onClick={()=>navigateWorkflow('scan',{scan:draft.source_scan_id})}>Originalbeleg und Gegenprüfung öffnen</button></p>}
-            <DeliveryReviewWorkspace key={`${id}:${generation}`} initialLines={draft.lines} initialReview={draft.review} lineStates={draft.line_states}
+            <DeliveryReviewWorkspace embedded key={`${id}:${generation}`} initialLines={draft.lines} initialReview={draft.review} lineStates={draft.line_states}
                 outletName={draft.outlet_name} supplierName={draft.supplier_name} offers={draft.offers} isAdmin={draft.is_admin}
                 readOnly={draft.read_only} externalBusy={busy || !!pending || !!lifecyclePending} posting={draft.posting} bookingEnabled={draft.booking_enabled} batchLineIds={draft.batch_line_ids}
                 onInventory={()=>navigateWorkflow('server')} onBook={line_ids=>send({action:'book',input:{id,revision:revisionRef.current,line_ids}})}

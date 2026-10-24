@@ -1,6 +1,6 @@
 import {inventoryTestClient as base44} from './testClient.js';
 
-const messages={
+const messages={RUN_DISCARDED:'Dieser Zwischenstand wurde gelöscht. Der Administrator kann ihn wiederherstellen.',RUN_NOT_DISCARDED:'Dieser Zwischenstand ist bereits wiederhergestellt.',ADMIN_REQUIRED:'Nur der Administrator darf Zwischenstände löschen oder wiederherstellen.',BOOKED_RUN_CANNOT_DISCARD:'Der Abschluss wurde bereits begonnen oder Mengen wurden gebucht. Diese Inventur kann nicht als Entwurf gelöscht werden.',
     INVENTORY_TEST_ROLLOUT_DISABLED:'Der Inventur-Testzugang ist noch nicht oder nicht mehr freigegeben.',
     TEST_DATA_ENV_REQUIRED:'Diese Inventurprüfung erfordert ausdrücklich den Base44-Testdatenbereich.',
     AUTHENTICATION_REQUIRED:'Bitte mit deinem echten App-Konto anmelden.',OUTLET_FORBIDDEN:'Dein Konto ist diesem Standort nicht zugeordnet.',
@@ -23,6 +23,6 @@ export async function inventoryRunApi(action,input={}) {
     try {return (await base44.functions.invoke('inventoryRuns',{action,...input})).data;}
     catch (cause) {
         const code=cause.data?.error || cause.response?.data?.error;
-        throw Object.assign(new Error(runErrorMessage(code)),{code});
+        throw Object.assign(new Error(runErrorMessage(code)),{code,uncertain:!code || code==='INVENTORY_REQUEST_UNCERTAIN_RETRY_SAME_OPERATION'});
     }
 }

@@ -1,3 +1,4 @@
+import NavigationGuard from '../entry/NavigationGuard.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {proposedDisposition,lineAmountChecks} from '../../../../base44/shared/inventory/scanRules.js';
 import {scanFields} from '../../../../base44/shared/inventory/deliveryScan.js';
@@ -9,8 +10,10 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
     const [busy,setBusy]=useState(false),[error,setError]=useState(''),[lines,setLines]=useState([]),[reference,setReference]=useState(''),[date,setDate]=useState('');
     const [documentChecked,setDocumentChecked]=useState(false),[netChecked,setNetChecked]=useState(false),[missingPagesChecked,setMissingPagesChecked]=useState(false);
     const fileInput=useRef(null),cameraInput=useRef(null),appendInput=useRef(null);
+    const [dirty,setDirty]=useState(false);
     const [selected,setSelected]=useState(null),[uploadPhase,setUploadPhase]=useState('');
     useEffect(()=>{
+        setDirty(false);
         const source=scan?.frozen_review || scan?.reads?.[0];
         setLines((source?.reviewed_lines || source?.lines || []).map(row=>({...scan?.reads?.[0]?.lines.find(original=>original.id===row.id),...row,disposition:row.disposition || proposedDisposition(row.line_kind),checked:!!scan?.frozen_review})));setMissingPagesChecked(scan?.frozen_review?.coverage_review?.missing_pages_no_goods_checked===true);
         setReference(source?.document_reference || '');setDate(source?.delivery_date || '');setDocumentChecked(scan?.frozen_review?.document_checked===true);setNetChecked(scan?.frozen_review?.prices_net_checked===true);
@@ -34,7 +37,8 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
     });
     const change=(id,key,value)=>{setLines(rows=>rows.map(row=>row.id===id?{...row,[key]:value,checked:false,edited:true}:row));setDocumentChecked(false);};
     const submit=()=>run(async()=>{const result=await api('commit',{id:scan.id,revision:scan.revision,review:{delivery_date:date,document_reference:reference,document_checked:documentChecked,prices_net_checked:netChecked,missing_pages_no_goods_checked:missingPagesChecked,lines:lines.map(row=>({id:row.id,...Object.fromEntries(scanFields.map(key=>[key,row[key]])),checked:row.checked,disposition:row.disposition || 'goods',...(row.reviewed_line_total!=null?{reviewed_line_total:row.reviewed_line_total}:{})}))}});onDraft(result.draft_id);});
-    return <section className="scan-workspace">
+    return <section className="scan-workspace" onChange={event=>{if(event.target.type!=='file')setDirty(true);}}>
+        <NavigationGuard dirty={dirty || !!selected || busy} allowDiscard={!busy} blockedMessage={busy?'Die Belegverarbeitung läuft noch. Bitte hier bleiben, bis das Ergebnis bestätigt ist.':undefined} message="Nicht gespeicherte Korrekturen oder eine noch nicht hochgeladene Datei gehen beim Wechsel verloren. Bereits hochgeladene Originaldateien bleiben gespeichert."/>
         <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG · BELEG ERFASSEN</p><h1>Beleg scannen</h1><p>Foto oder Datei → gegenlesen → Artikel zuordnen → ausdrücklich buchen.</p></div></div>
         {error && <p role="alert" className="count-error">{error}</p>}
         {busy && <p role="status" className="count-preview">{uploadPhase || 'Vorgang läuft … Die zwei Lesungen können etwas dauern. Diese Seite bitte geöffnet lassen.'}</p>}{!busy && uploadPhase && <p className="count-preview">{uploadPhase}</p>}
@@ -64,7 +68,7 @@ export default function ScanWorkspace({scan,api,onScan,onDraft,outletId,supplier
                         </article>;
                     })}
                     <details className="scan-header"><summary>Vollständige Kontrolllesung · auch zusätzliche Zeilen prüfen</summary>{scan.reads[1]?.lines.map((line,i)=><p key={i}>Seite {line.page}: {line.source_text} · {line.purchase_quantity} {line.purchase_unit_code} · {line.net_purchase_price} €</p>)}</details>
-                    <button className="count-confirm" disabled={locked || lines.length>=100} onClick={()=>{setLines(rows=>[...rows,{id:crypto.randomUUID(),...Object.fromEntries(scanFields.map(field=>[field,''])),checked:false}]);setDocumentChecked(false);}}>Fehlende Position ergänzen</button>
+                    <button className="count-confirm" disabled={locked || lines.length>=100} onClick={()=>{setDirty(true);setLines(rows=>[...rows,{id:crypto.randomUUID(),...Object.fromEntries(scanFields.map(field=>[field,''])),checked:false}]);setDocumentChecked(false);}}>Fehlende Position ergänzen</button>
                     <section className="delivery-booking"><h2>Gegenprüfung abschließen</h2><label className="delivery-check"><input type="checkbox" disabled={locked} checked={netChecked} onChange={e=>setNetChecked(e.target.checked)}/>Preise sind geprüfte Nettopreise je Einkaufsgebinde; fehlende Preise bleiben offen</label><label className="delivery-check"><input type="checkbox" disabled={locked} checked={documentChecked} onChange={e=>setDocumentChecked(e.target.checked)}/>Lieferant, Referenz, Datum und Vollständigkeit aller Warenpositionen geprüft; Wiederholungen berücksichtigt</label><p>Die Übernahme erstellt nur einen Lieferentwurf. Artikelzuordnung und Bestandsbuchung werden danach gesondert bestätigt.</p><button className="count-primary" disabled={locked || !documentChecked || !netChecked || !reference.trim() || !date || (scan.coverage?.missing_pages.length>0 && !missingPagesChecked) || amountChecks.some(check=>check.mismatch) || lines.some(row=>!row.checked || !row.original_name.trim())} onClick={submit}>Geprüft als Lieferentwurf übernehmen</button>{scan.status==='committing' && <button className="count-confirm" disabled={readOnly || busy} onClick={submit}>Gleiche Übernahme fortsetzen</button>}{scan.draft_id && <button className="count-confirm" onClick={()=>onDraft(scan.draft_id)}>Gespeicherten Lieferentwurf öffnen</button>}</section>
                 </>}
             </div></div>
