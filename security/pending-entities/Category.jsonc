@@ -24,6 +24,18 @@
     "catalog_key": {
       "type": "string",
       "description": "Serverseitiger Wiederholungsnachweis der kontrollierten Artikelanlage"
+    },
+    "parent_id": {
+      "type": "string",
+      "description": "Übergeordnete Hauptkategorie; leer bei Hauptkategorien"
+    },
+    "outlet_id": {
+      "type": "string",
+      "description": "Standort der Unterkategorie"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Entfernte Unterkategorien bleiben für historische Referenzen inaktiv"
     }
   },
   "required": [

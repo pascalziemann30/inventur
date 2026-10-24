@@ -1,4 +1,5 @@
 import {BookingError, scaledQuantity, quantityNumber} from './quantities.js';
+import {availableSubcategories} from './subcategories.js';
 import {canonicalCategory} from './categories.js';
 import {base44StockStore} from './base44Store.js';
 import {unitsFor, selectCountItems} from './counting.js';
@@ -51,7 +52,8 @@ export function base44RunStore(entities) {
                 // Quantity precision must not round or reject an approved monetary snapshot.
                 if (typeof item.net_purchase_price !== 'number' || !Number.isFinite(item.net_purchase_price)
                     || item.net_purchase_price < 0 || item.net_purchase_price > 1_000_000_000) reject('APPROVED_BASE_PRICE_REQUIRED');
-                const entry={article_id:item.id,article_name:item.display_name,global_item_id:global.id,
+                const sub=availableSubcategories(categories,outletId).find(r=>r.id===item.subcategory_id&&r.parent_name===canonicalCategory(category.name));
+                const entry={...(sub?{subcategory_id:sub.id,subcategory_name:sub.name}:{}),article_id:item.id,article_name:item.display_name,global_item_id:global.id,
                     stock_id:stock.id,supplier_id:item.supplier_id,unit_id:global.unit_id,category_id:global.category_id,
                     category_name:canonicalCategory(category.name),unit_abbreviation:global.unit_abbreviation,
                     last_stock:quantityNumber(scaledQuantity(stock.on_hand_quantity)),stock_revision:stock.revision,

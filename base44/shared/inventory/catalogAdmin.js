@@ -5,6 +5,7 @@ import {similarArticles} from './articleIdentity.js';
 import {convertUnitQuantity,validateUnitDimensions} from './unitConversion.js';
 import {isDeleted,lifecyclePlan,purgePlan,purgeArticle} from './articleTrash.js';
 import {canonicalCategory,categoryChoices} from './categories.js';
+import {availableSubcategories,isMainCategory,selectedSubcategory,subcategoryPlan} from './subcategories.js';
 import {assertOutletAccess} from './stock.js';
 const fail=(code,status=409)=>{throw new BookingError(code,status);};
 export const canonical=v=>JSON.stringify(Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v??null);
@@ -15,12 +16,14 @@ const text=(v,max=300)=>typeof v==='string'&&v.trim()===v&&v.length>0&&v.length<
 const positive=v=>{if(scaledQuantity(v)===0n)fail('POSITIVE_CONVERSION_REQUIRED',400);return Number(String(v).replace(',','.'));};
 const bounded=async promise=>{const rows=await promise;if(!Array.isArray(rows)||rows.length>=501)fail('CATALOG_PAGING_REQUIRED');return rows;};
 export function normalizeDefinition(input){
- const allowed=['key','id','name','supplier','category','unit','sku','purchase_code','purchase_label','factor','net_price','count_units','receipt_units','inventory_intervals','is_active','notes','distinct_confirmed','base_unit_change'];
+ const allowed=['key','id','name','supplier','category','unit','sku','purchase_code','purchase_label','factor','net_price','count_units','receipt_units','inventory_intervals','is_active','notes','distinct_confirmed','base_unit_change','subcategory_id'];
  if(!input||Object.keys(input).some(k=>!allowed.includes(k)))fail('ARTICLE_INPUT_INVALID',400);
  if(input.distinct_confirmed!==undefined&&typeof input.distinct_confirmed!=='boolean')fail('ARTICLE_INPUT_INVALID',400);
  const r={...input,sku:input.sku||'',receipt_units:input.receipt_units||[],inventory_intervals:input.inventory_intervals||['monthly','yearly'],notes:input.notes||'',is_active:input.is_active!==false};
  for(const k of ['name','supplier','category','unit','purchase_code','purchase_label'])if(!text(r[k]))fail('ARTICLE_REQUIRED_FIELDS',400);
  r.category=canonicalCategory(r.category);
+ if(r.subcategory_id!==undefined&&(typeof r.subcategory_id!=='string'||r.subcategory_id.length>100))fail('SUBCATEGORY_INPUT_INVALID',400);
+ r.subcategory_id=r.subcategory_id||'';
  if(typeof r.sku!=='string'||r.sku.length>100||typeof r.notes!=='string'||r.notes.length>1000)fail('ARTICLE_INPUT_INVALID',400);
  r.factor=positive(r.factor);r.net_price=monetaryNumber(r.net_price);if(r.net_price<=0)fail('POSITIVE_PRICE_REQUIRED',400);
  if(!Array.isArray(r.count_units)||!r.count_units.length||r.count_units.length>8)fail('COUNT_UNITS_REQUIRED',400);
@@ -72,9 +75,9 @@ export function definitionFor(item,catalog){
  const offers=catalog.offers.filter(o=>o.global_item_id===global?.id&&o.supplier_id===item.supplier_id&&o.status==='approved');
  offers.sort((a,b)=>Number(b.purchase_unit_code===item.primary_purchase_code)-Number(a.purchase_unit_code===item.primary_purchase_code));
  const primary=offers[0],stock=catalog.stocks.filter(s=>s.outlet_item_id===item.id);
- const definition={id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:canonicalCategory(global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||''),unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
+ const definition={subcategory_id:item.subcategory_id||'',id:item.id,key:item.id,name:item.display_name,supplier:supplier?.name||'',category:canonicalCategory(global?.category_name||catalog.categories.find(c=>c.id===global?.category_id)?.name||''),unit:global?.unit_abbreviation||'',sku:primary?.supplier_article_number||'',purchase_code:primary?.purchase_unit_code||'',purchase_label:primary?.purchase_unit_label||'',factor:primary?.base_quantity_per_purchase||1,net_price:primary?.net_purchase_price||0,count_units:item.count_units||[],receipt_units:offers.slice(1).map(o=>({code:o.purchase_unit_code,factor:o.base_quantity_per_purchase})),inventory_intervals:item.inventory_intervals||[],is_active:item.is_active!==false,notes:item.notes||''};
  let countValid=true;try{unitsFor(item);}catch{countValid=false;}
- return {deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
+ return {subcategory_name:availableSubcategories(catalog.categories,item.outlet_id).find(r=>r.id===item.subcategory_id)?.name||'',deleted_at:item.deleted_at||null,delete_after:item.delete_after||null,purging:!!item.purge_started_at,definition,fingerprint:canonical({item,global,offers}),base_price:item.net_purchase_price,stock:stock.length===1?stock[0].on_hand_quantity:null,links_valid:countValid&&!!global&&!!supplier&&catalog.units.some(u=>u.id===global.unit_id&&u.abbreviation===global.unit_abbreviation)&&catalog.categories.some(c=>c.id===global.category_id)&&offers.length>0&&offers.every(o=>o.unit_abbreviation===global.unit_abbreviation&&o.base_quantity_per_purchase>0&&o.net_purchase_price>0&&Number.isSafeInteger(o.revision))&&stock.length===1&&stock[0].global_item_id===global.id&&stock[0].unit_abbreviation===global.unit_abbreviation&&Number.isSafeInteger(stock[0].revision)&&Array.isArray(stock[0].booking_journal)};
 }
 export function makeCatalogPlan({catalog,articles,requestId,importing=false,expected,userId,now}){
  const inputs=articles.map(normalizeDefinition),nodes=[],results=[];
@@ -86,7 +89,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
  const shared=(entity,label,field='name')=>{
   const key=`${entity}:${name(label)}`;
   if(results.some(r=>r.key===key)||nodes.some(n=>n.key===key))return ref(key);
-  let records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>name(entity==='Category'?canonicalCategory(row[field]):row[field])===name(label));
+  let records=catalog[{Supplier:'suppliers',Category:'categories',Unit:'units'}[entity]].filter(row=>(entity!=='Category'||isMainCategory(row))&&name(entity==='Category'?canonicalCategory(row[field]):row[field])===name(label));
   if(entity==='Category'&&records.length>1){
    // Reuse one deterministic master, preferring the canonical spelling; never create another alias row.
    records.sort((a,b)=>Number(name(b.name)===name(label))-Number(name(a.name)===name(label))||a.id.localeCompare(b.id));records=records.slice(0,1);
@@ -108,6 +111,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
  }
  const seenNames=new Set(),seenOffers=new Set();
  for(const [index,r] of inputs.entries()){
+  selectedSubcategory(r.subcategory_id,r.category,catalog.categories,catalog.outlet.id);
   const identity=name(r.name);if(seenNames.has(identity))fail('DUPLICATE_ARTICLE');seenNames.add(identity);
   const supplier=shared('Supplier',r.supplier),category=shared('Category',r.category),unit=shared('Unit',r.unit,'abbreviation');
   const existing=r.id?catalog.items.find(i=>i.id===r.id):null;
@@ -134,7 +138,7 @@ export function makeCatalogPlan({catalog,articles,requestId,importing=false,expe
   add(globalKey,'GlobalItem',globalData,oldGlobal);
   const globalId=oldGlobal?oldGlobal.id:ref(globalKey);
   // New items remain inactive until their full graph is verified; activation is the last step.
-  const itemData={outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,global_item_id:globalId,display_name:r.name,supplier_id:supplier,supplier_name:r.supplier,net_purchase_price:r.net_price/r.factor,count_units:r.count_units,primary_purchase_code:r.purchase_code,inventory_intervals:r.inventory_intervals,is_active:false,is_finished_product:existing?.is_finished_product===true,notes:r.notes};
+  const itemData={subcategory_id:r.subcategory_id,outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,global_item_id:globalId,display_name:r.name,supplier_id:supplier,supplier_name:r.supplier,net_purchase_price:r.net_price/r.factor,count_units:r.count_units,primary_purchase_code:r.purchase_code,inventory_intervals:r.inventory_intervals,is_active:false,is_finished_product:existing?.is_finished_product===true,notes:r.notes};
   add(itemKey,'OutletItem',itemData,existing);
   const itemId=existing?existing.id:ref(itemKey);
   if(!existing)add(`${key}:stock`,'OutletStock',{outlet_id:catalog.outlet.id,outlet_name:catalog.outlet.name,outlet_item_id:itemId,global_item_id:globalId,display_name:r.name,unit_abbreviation:r.unit,on_hand_quantity:0,revision:0,booking_journal:[]});
@@ -235,12 +239,31 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
      c=await readAdminCatalog(store,outlet_id);
     }
    }
+   if(cleanup&&(!c.outlet.catalog_admin_state||c.outlet.catalog_admin_state.status==='completed')){
+    const root=c.categories.find(r=>isMainCategory(r)&&canonicalCategory(r.name)==='Betriebsausstattung');
+    const exists=root&&c.categories.some(r=>r.parent_id&&r.outlet_id===outlet_id&&canonicalCategory(c.categories.find(p=>p.id===r.parent_id)?.name)==='Betriebsausstattung');
+    if(root&&!exists){
+     let state=await service.subcategory({outlet_id,request_id:`setup-${crypto.randomUUID()}`,mode:'setup',parent:'Betriebsausstattung'});
+     try{for(let n=0;n<10&&state.operation.status!=='completed';n++)state=await service.step({outlet_id,request_id:state.operation.request_id,revision:state.revision});}catch{/* Durable setup can be resumed. */}
+     c=await readAdminCatalog(store,outlet_id);
+    }
+   }
    const scoped=c.items.length>0;
    const globals=c.globals.filter(g=>c.items.some(i=>i.global_item_id===g.id));
    return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),
     suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false).map(s=>s.name))].sort((a,b)=>a.localeCompare(b,'de')),
-    categories:categoryChoices(c.categories.map(c=>c.name)),
+    categories:categoryChoices(c.categories.filter(isMainCategory).map(c=>c.name)),
+    subcategories:availableSubcategories(c.categories,outlet_id),
     units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
+  },
+  async subcategory({outlet_id,request_id,...input}){
+   assertOutletAccess(user,outlet_id);
+   if(!text(request_id,80)||!/^[-A-Za-z0-9]{16,80}$/.test(request_id))fail('SUBCATEGORY_INPUT_INVALID',400);
+   const c=await readAdminCatalog(store,outlet_id),prior=c.outlet.catalog_admin_state;
+   if(prior?.request_id===request_id){if(prior.input_fingerprint!==JSON.stringify(input))fail('REQUEST_CONTENT_CHANGED');return view(c.outlet);}
+   if(prior&&prior.status!=='completed')fail('CATALOG_OPERATION_PENDING');
+   if(input.id){const linked=await store.find('OutletItem',{subcategory_id:input.id});if(linked.some(r=>r.outlet_id!==outlet_id))fail('SUBCATEGORY_SCOPE_MISMATCH');}
+   return service.startPrepared({outlet_id,request_id,plan:subcategoryPlan({catalog:c,input,requestId:request_id,userId:user.id,now:now()})});
   },
   async lifecycle({outlet_id,id,action,request_id,expected}){
    assertOutletAccess(user,outlet_id);
