@@ -3,6 +3,7 @@ import EntryHeader from '../entry/EntryHeader.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import DeliveryReviewWorkspace from './DeliveryReviewWorkspace.jsx';
+import DeliveryDetails from './DeliveryDetails.jsx';
 import {deliveryDraftApi,prepareDeliveryFixture,reviewDraftLines} from './draftApi.js';
 import {inventoryEnvironment} from '../counting/testClient.js';
 import {isLifecycleRequest,lifecyclePendingKey,withLifecycleDeadline} from './lifecycleRequest.js';
@@ -144,10 +145,8 @@ export default function ServerDeliveryPage() {
             {options?.read_only && <p className="count-preview">Änderungen gesperrt. Vorhandene Entwürfe können weiterhin geöffnet werden.</p>}
             <nav aria-label="Weitere Aufgaben" style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:20}}><button className="count-confirm" onClick={()=>navigateWorkflow('scan')}>Beleg scannen · Foto oder Datei</button><button className="count-link" onClick={()=>navigateWorkflow('server')}>Zur Inventurübersicht</button></nav>
             <form className="count-start delivery-manual-form" onSubmit={start}>
-                <label>Standort<select aria-label="Lieferstandort" required disabled={busy||!options?.is_admin} value={outlet} onChange={e=>{setOutlet(e.target.value);setSupplier('');}}><option value="">Standort wählen</option>{options?.outlets.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                <label>Lieferant<select aria-label="Lieferant" required disabled={busy} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">Lieferant wählen</option>{options?.suppliers.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                <label>Lieferdatum<input type="date" required disabled={busy} value={date} onChange={e=>setDate(e.target.value)}/></label>
-                <label>Belegreferenz<input aria-label="Belegreferenz" value={reference} maxLength={100} disabled={busy} onChange={e=>setReference(e.target.value)} placeholder="Lieferscheinnummer, falls vorhanden"/></label>
+                <DeliveryDetails options={options} outlet={outlet} supplier={supplier} date={date} reference={reference} busy={busy}
+                    onOutletChange={value=>{setOutlet(value);setSupplier('');}} onSupplierChange={setSupplier} onDateChange={setDate} onReferenceChange={setReference}/>
                 <section className="delivery-manual-articles" aria-label="Artikel des Lieferanten">
                     <h2>Gelieferte Artikel</h2><p>Nur gelieferte Mengen eintragen. Leere Felder und 0 werden nicht übernommen. Preise sind netto je gewähltem Gebinde und gelten nur für diese Lieferung.</p>
                     {!supplier?<p>Bitte zuerst einen Lieferanten wählen.</p>:articleLoading?<p role="status">Artikel werden geladen …</p>:articleError?<div role="alert"><p>{articleError}</p><button type="button" className="count-confirm" onClick={()=>setArticleVersion(v=>v+1)}>Artikel erneut laden</button></div>:<>
