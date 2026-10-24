@@ -241,3 +241,16 @@ test('discard frees an unbooked reference, but restore cannot collide with its r
  await assert.rejects(admin.restore({...f.request(draft),revision:1,request_id:'restore-request-0001'}),{code:'DOCUMENT_REFERENCE_ALREADY_EXISTS'});
  assert.equal(f.records.get(draft.id).revision,1);assert(f.records.get(draft.id).discarded_at);
 });
+
+test('discard and restore including lost-response replay never load an article catalog',async()=>{
+ const f=fixture(),draft=await f.start(),s=f.service(f.admin);let catalogCalls=0;
+ f.store.catalog=async()=>{catalogCalls++;throw new Error('article catalog unavailable or rate-limited');};
+ f.config.failAfterWrite=true;
+ const request=f.request(draft),discarded=await s.discard(request);
+ assert.equal(discarded.draft.discarded_at,'2026-10-22T00:00:00Z');
+ assert.equal((await s.discard(request)).revision,1);
+ const restore={...request,request_id:'restore-request-0001',revision:1};
+ assert.equal((await s.restore(restore)).draft.discarded_at,'');
+ assert.equal((await s.restore(restore)).revision,2);
+ assert.equal(catalogCalls,0);assert.equal(f.writes(),2);
+});

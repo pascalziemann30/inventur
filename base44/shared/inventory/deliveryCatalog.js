@@ -18,7 +18,8 @@ export async function loadDeliveryCatalog(e,user,outletId,supplierId) {
         boundedDeliveryRows(e.SupplierItem.filter({supplier_id:supplierId},'id',501)),
     ]);
     const ids=[...new Set(items.filter(item=>item.is_active === true).map(item=>item.global_item_id).filter(Boolean))];
-    const globals=(await Promise.all(ids.map(id=>e.GlobalItem.get(id)))).filter(Boolean);
+    // A single bounded query replaces one request per article (230+ calls in Kuno15).
+    const globals=ids.length ? (await boundedDeliveryRows(e.GlobalItem.filter({id:{$in:ids}},'id',501))).filter(row=>ids.includes(row.id)) : [];
     const scopedOffers=offers.filter(offer=>ids.includes(offer.global_item_id)).map(offer=>({...offer,
         identity_conflict:offers.filter(other=>offerIdentityKey(other) === offerIdentityKey(offer)).length > 1,
     }));
