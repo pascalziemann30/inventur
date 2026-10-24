@@ -11,9 +11,9 @@ const countOperationId = (run, entry) => `inventory:${run.id}:${entry.article_id
 export function projectRun(run) {
     return {
         id:run.id, outlet_id:run.outlet_id, outlet_name:run.outlet_name, session_date:run.session_date,
-        period_type:run.period_type, status:run.status, revision:run.revision, completed_at:run.completed_at,
+        period_type:run.period_type, status:run.status, revision:run.revision, completed_at:run.completed_at,discarded_at:run.discarded_at || '',read_only:!!run.discarded_at,
         entries:run.entries.map(entry => ({article_id:entry.article_id, article_name:entry.article_name,
-            category_name:entry.category_name, unit_abbreviation:entry.unit_abbreviation,
+            category_name:entry.category_name,...(entry.category_id?{category_id:entry.category_id}:{}), unit_abbreviation:entry.unit_abbreviation,
             count_units:copy(entry.count_units), count_version:entry.count_version, values:copy(entry.values),
             status:entry.status, counted_quantity:entry.status === 'counted' ? entry.counted_quantity : null,
             ...(entry.status === 'counted' ? {last_stock:entry.last_stock} : {}),
@@ -54,12 +54,15 @@ function checkedEntries(run, submitted) {
 /** The store must supply real conditional document writes, not read-then-update. */
 export function createInventoryRunService({store, user, now = () => new Date().toISOString()}) {
     if (!store.verifiedAtomicWrites) fail('ATOMIC_WRITES_NOT_VERIFIED',503);
-    const load = async id => {
+    const canDiscard=run=>run.status==='draft' && !run.entries.some(entry=>entry.booked || entry.locked) && !run.discarded_at;
+    const project=run=>({...projectRun(run),is_admin:user?.role==='admin',can_discard:user?.role==='admin' && canDiscard(run)});
+    const load = async (id,{includeDiscarded=false}={}) => {
         if (typeof id !== 'string' || !id || id.length > 100) fail('RUN_ID_REQUIRED',400);
         const run = await store.getRun(id);
         if (!run) fail('RUN_NOT_FOUND',404);
         assertOutletAccess(user, run.outlet_id);
         if (!Number.isSafeInteger(run.revision) || !Array.isArray(run.request_receipts) || !Array.isArray(run.entries)) fail('RUN_NOT_INITIALIZED');
+        if(run.discarded_at && !includeDiscarded)fail('RUN_DISCARDED');
         return run;
     };
     const priorRequest = (run, id, fingerprint) => {
@@ -68,7 +71,7 @@ export function createInventoryRunService({store, user, now = () => new Date().t
         if (receipts[0] && receipts[0].fingerprint !== fingerprint) fail('REQUEST_CONTENT_CHANGED');
         return receipts[0];
     };
-    const acknowledge = (run, receipt) => ({request_id:receipt.request_id, revision:receipt.revision, run:projectRun(run)});
+    const acknowledge = (run, receipt) => ({request_id:receipt.request_id, revision:receipt.revision, run:project(run)});
     const conditionalRequest = async (run, requestId, expectedRevision, fingerprint, patch) => {
         if (run.revision !== expectedRevision) fail('RUN_CHANGED_RELOAD');
         if (run.request_receipts.length >= 2000) fail('DRAFT_REQUEST_LIMIT');
@@ -77,12 +80,12 @@ export function createInventoryRunService({store, user, now = () => new Date().t
         try {
             if (await store.casRun(run,next)) return acknowledge({...run,...next},receipt);
         } catch (error) {
-            const observed = await load(run.id);
+            const observed = await load(run.id,{includeDiscarded:true});
             const recovered = priorRequest(observed,requestId,fingerprint);
             if (recovered) return acknowledge(observed,recovered);
             throw error;
         }
-        const observed = await load(run.id);
+        const observed = await load(run.id,{includeDiscarded:true});
         const recovered = priorRequest(observed,requestId,fingerprint);
         if (recovered) return acknowledge(observed,recovered);
         fail('RUN_CHANGED_RELOAD');
@@ -107,7 +110,8 @@ export function createInventoryRunService({store, user, now = () => new Date().t
             if (existing.length > 1) fail('DUPLICATE_START_REQUIRES_REVIEW');
             if (existing.length) {
                 if (existing[0].start_fingerprint !== fingerprint) fail('START_CONTENT_CHANGED');
-                return projectRun(existing[0]);
+                if(existing[0].discarded_at)fail('RUN_DISCARDED');
+                return project(existing[0]);
             }
             const snapshot=await store.snapshot(outlet_id,period_type);
             if (!snapshot.entries.length) fail('NO_ARTICLES_FOR_INTERVAL',400);
@@ -118,13 +122,23 @@ export function createInventoryRunService({store, user, now = () => new Date().t
                 entries:snapshot.entries.map(entry=>({...entry,status:'open',values:{},count_version:0,locked:false,booked:false}))});
             const duplicates=await store.findRuns({outlet_id,start_key,actor_id:user.id});
             if (duplicates.length !== 1) fail('DUPLICATE_START_REQUIRES_REVIEW');
-            return projectRun(run);
+            return project(run);
         },
-        async list(outletId) {
+        async list(outletId,includeDiscarded=false) {
             assertOutletAccess(user,outletId);
-            return (await store.findRuns({outlet_id:outletId})).map(run=>({id:run.id,session_date:run.session_date,period_type:run.period_type,status:run.status,revision:run.revision}));
+            if(includeDiscarded && user?.role!=='admin')fail('ADMIN_REQUIRED',403);
+            return (await store.findRuns({outlet_id:outletId})).filter(run=>includeDiscarded || !run.discarded_at).map(run=>({id:run.id,session_date:run.session_date,period_type:run.period_type,status:run.status,revision:run.revision,discarded_at:run.discarded_at || '',can_discard:user?.role==='admin' && canDiscard(run)}));
         },
-        async get(id) {return projectRun(await load(id));},
+        async get(id) {const run=await load(id,{includeDiscarded:true});if(run.discarded_at && user?.role!=='admin')fail('RUN_DISCARDED');return project(run);},
+        async lifecycle(action,{id,request_id,revision}) {
+            if(user?.role!=='admin')fail('ADMIN_REQUIRED',403);
+            if(!['discard','restore'].includes(action) || !key(request_id) || !Number.isSafeInteger(revision) || revision<0)fail('INVALID_SAVE_REQUEST',400);
+            const run=await load(id,{includeDiscarded:true}),fingerprint=JSON.stringify({action,revision});
+            const prior=priorRequest(run,request_id,fingerprint);if(prior)return acknowledge(run,prior);
+            if(action==='discard' && !canDiscard(run))fail('BOOKED_RUN_CANNOT_DISCARD');
+            if(action==='restore' && !run.discarded_at)fail('RUN_NOT_DISCARDED');
+            return conditionalRequest(run,request_id,revision,fingerprint,{discarded_at:action==='discard'?now():'',discarded_by:action==='discard'?user.id:''});
+        },
         async save({id,request_id,revision,entries}) {
             if (!key(request_id) || !Number.isSafeInteger(revision) || revision < 0) fail('INVALID_SAVE_REQUEST',400);
             const run=await load(id);
@@ -138,7 +152,7 @@ export function createInventoryRunService({store, user, now = () => new Date().t
         },
         async finalize({id,revision}) {
             let run=await load(id);
-            if (run.status === 'completed') return projectRun(run);
+            if (run.status === 'completed') return project(run);
             const identities=await store.findRuns({outlet_id:run.outlet_id,start_key:run.start_key,actor_id:run.actor_id});
             if (identities.length !== 1 || identities[0].id !== id) fail('DUPLICATE_START_REQUIRES_REVIEW');
             if (['draft','resolving'].includes(run.status)) {
@@ -150,11 +164,11 @@ export function createInventoryRunService({store, user, now = () => new Date().t
                     if (run.status !== 'posting' && run.status !== 'completed') fail('RUN_CHANGED_RELOAD');
                 } else run={...run,...patch};
             }
-            if (run.status === 'completed') return projectRun(run);
+            if (run.status === 'completed') return project(run);
             if (run.status !== 'posting') fail('RUN_NOT_POSTING');
             for (const frozen of run.entries) {
                 const current=await load(id);
-                if (current.status !== 'posting') return projectRun(current);
+                if (current.status !== 'posting') return project(current);
                 const entry=current.entries.find(candidate=>candidate.article_id === frozen.article_id);
                 if (entry.booked || entry.status === 'skipped' || entry.count_version !== frozen.count_version) continue;
                 try {
@@ -182,7 +196,7 @@ export function createInventoryRunService({store, user, now = () => new Date().t
             }
             run=await internalUpdate(id,latest=>latest.status === 'posting' && latest.entries.every(entry=>entry.booked || entry.status === 'skipped')
                 ? {status:'completed',completed_at:now(),completed_by:user.id} : null);
-            return projectRun(run);
+            return project(run);
         },
         async reopen({id,article_id,request_id,revision}) {
             if (!key(request_id) || !Number.isSafeInteger(revision)) fail('INVALID_RECOUNT_REQUEST',400);

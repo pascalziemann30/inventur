@@ -16,7 +16,7 @@ export default function ServerScanPage(){
     useEffect(()=>{let active=true;setScan(null);if(id)scanApi('get',{id}).then(value=>{if(active)setScan(value);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[id,version]);
     const openScan=value=>{setScan(value);const next=new URLSearchParams(params);next.set('scan',value.id);setParams(next);};
     return <div className="counting-workspace"><EntryHeader outlet={options?.outlets.find(o=>o.id===outlet)?.name}/><main className="count-main">
-        <button className="count-link" onClick={()=>{const next=new URLSearchParams(params);next.set('workflow','delivery');next.delete('scan');next.delete('delivery');setParams(next);}}>Zur Lieferübersicht</button>
+
         {error && <div role="alert" className="count-error"><p>{error}</p><button className="count-confirm" onClick={()=>{setError('');setVersion(value=>value+1);}}>Gespeicherten Stand erneut laden</button></div>}
         {uploadSeconds!==null && <p className="count-preview">Privat gespeichert · Übertragung und Verarbeitung: {uploadSeconds} Sekunden</p>}
         {!options && <p role="status">Zugriff wird geprüft …</p>}

@@ -129,7 +129,7 @@
                 },
                 "base_quantity": {
                   "type": "number",
-                  "minimum": 0.000001
+                  "minimum": 1e-06
                 },
                 "whole_numbers_only": {
                   "type": "boolean",
@@ -163,6 +163,14 @@
           }
         }
       }
+    },
+    "discarded_at": {
+      "type": "string",
+      "description": "Zeitpunkt der reversiblen Entfernung eines ausschließlich ungebuchten Zwischenstands; leer nach Wiederherstellung"
+    },
+    "discarded_by": {
+      "type": "string",
+      "description": "Geprüfter Administrator; Revision und request_receipts bewahren die Vorgänge"
     }
   },
   "required": [

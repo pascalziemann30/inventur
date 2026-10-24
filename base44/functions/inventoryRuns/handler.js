@@ -2,7 +2,7 @@ import {BookingError} from '../../shared/inventory/quantities.js';
 import {createInventoryRunService} from '../../shared/inventory/runs.js';
 import {base44RunStore} from '../../shared/inventory/runStore.js';
 
-const fields={start:['outlet_id','period_type','session_date','start_key'],list:['outlet_id'],get:['id'],
+const fields={start:['outlet_id','period_type','session_date','start_key'],list:['outlet_id','include_discarded'],discard:['id','request_id','revision'],restore:['id','request_id','revision'],get:['id'],
     save:['id','request_id','revision','entries'],finalize:['id','revision'],reopen:['id','article_id','request_id','revision']};
 
 export function createInventoryRunsHandler({createClientFromRequest,environment='dev',isEnabled,storeFor=base44RunStore,now,resolveActor=(_req,client)=>client.auth.me()}) {
@@ -21,12 +21,13 @@ export function createInventoryRunsHandler({createClientFromRequest,environment=
             try {body=JSON.parse(text);} catch {throw new BookingError('INVALID_REQUEST',400);}
             if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.hasOwn(fields,body.action)
                 || Object.keys(body).some(name=>name !== 'action' && !fields[body.action].includes(name))) throw new BookingError('INVALID_REQUEST',400);
+            if(body.include_discarded!==undefined && typeof body.include_discarded!=='boolean')throw new BookingError('INVALID_REQUEST',400);
             const writable=(await isEnabled(req))===true;
             if (!writable && !['get','list'].includes(body.action)) throw new BookingError('INVENTORY_TEST_ROLLOUT_DISABLED',503);
             const service=createInventoryRunService({store:storeFor(client.asServiceRole.entities),user,now});
             const {action,...input}=body;
-            const result=action === 'list' ? await service.list(input.outlet_id) : action === 'get' ? await service.get(input.id) : await service[action](input);
-            return Response.json(action === 'get' ? {...result,read_only:!writable} : result);
+            const result=action === 'list' ? await service.list(input.outlet_id,input.include_discarded) : action === 'get' ? await service.get(input.id) : ['discard','restore'].includes(action)?await service.lifecycle(action,input):await service[action](input);
+            return Response.json(action === 'get' ? {...result,read_only:!writable || !!result.read_only} : result);
         } catch (error) {
             if (error instanceof BookingError) return Response.json({error:error.code},{status:error.status});
             return Response.json({error:'INVENTORY_REQUEST_UNCERTAIN_RETRY_SAME_OPERATION'},{status:500});

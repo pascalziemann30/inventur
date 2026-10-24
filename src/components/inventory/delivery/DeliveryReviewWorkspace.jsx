@@ -3,6 +3,7 @@ import {reviewDeliveryLines} from '../../../../base44/shared/inventory/deliveryR
 import {deliveryExamples} from './reviewExamples.js';
 import '../counting/counting.css';
 import './deliveryReview.css';
+import NavigationGuard from '../entry/NavigationGuard.jsx';
 
 const labels={matched:'Artikel erkannt',ambiguous:'Doppelte Einkaufszuordnung',invalid:'Stammdaten prüfen',needs_assignment:'Zuordnung prüfen',unknown:'Neuer Artikelvorschlag'};
 const messages={NAME_IDENTITY_CHECK_REQUIRED:'Zuordnung über die Bezeichnung: Produkt, Variante und Gebinde ausdrücklich vergleichen und bestätigen.',PURCHASE_UNIT_MISSING:'Einkaufseinheit fehlt.',
@@ -15,7 +16,7 @@ const messages={NAME_IDENTITY_CHECK_REQUIRED:'Zuordnung über die Bezeichnung: P
 const number=value=>new Intl.NumberFormat('de-DE',{maximumFractionDigits:6}).format(value);
 
 export default function DeliveryReviewWorkspace({initialLines,initialReview=null,lineStates=[],reviewLines,onSave,onConfirm,onPropose,onResolve,onEditLines,
-    readOnly=false,externalBusy=false,posting=false,bookingEnabled=false,onBook,onInventory,batchLineIds=[],offers=[],isAdmin=false,outletName='Kuno15',supplierName='',preview=false}) {
+    readOnly=false,externalBusy=false,posting=false,bookingEnabled=false,onBook,onInventory,batchLineIds=[],offers=[],isAdmin=false,outletName='Kuno15',supplierName='',preview=false,embedded=false}) {
     const [lines,setLines]=useState(()=>initialLines || (preview ? deliveryExamples().lines : []));
     const [result,setResult]=useState(initialReview),[busy,setBusy]=useState(false),[error,setError]=useState('');
     const [dirty,setDirty]=useState(false),[notes,setNotes]=useState({}),[selections,setSelections]=useState({}),[acknowledged,setAcknowledged]=useState({});
@@ -43,7 +44,8 @@ export default function DeliveryReviewWorkspace({initialLines,initialReview=null
     const visible=lines.filter(line=>filter==='all' || result?.lines.find(item=>item.line_id===line.id)?.match!=='matched'
         || result?.lines.find(item=>item.line_id===line.id)?.issues.length);
     return <div className="counting-workspace delivery-workspace">
-        <header className="count-top"><div className="count-brand">Shift<span>Cntrl</span><small>INVENTUR & BESTAND</small></div><span className="count-outlet">{outletName} · {preview?'Vorschau':'Lieferungsprüfung'}</span></header>
+        {!embedded&&<header className="count-top"><div className="count-brand">Shift<span>Cntrl</span><small>INVENTUR & BESTAND</small></div><span className="count-outlet">{outletName} · {preview?'Vorschau':'Lieferungsprüfung'}</span></header>}
+        {!preview&&<NavigationGuard dirty={dirty} onSave={async()=>{if(!onSave)throw new Error('Bitte den Entwurf zuerst speichern.');await onSave(structuredClone(lines));setDirty(false);}}/>}
         <main className="count-main">
             <div className="count-preview"><strong>{preview?'Bedienvorschau mit erfundenen Testdaten':readOnly?'Lieferentwurf · nur lesbar':'Gespeicherter Lieferentwurf'}</strong><span>{onSave?'Entwürfe, Positionsbestätigungen und Vorschläge werden gespeichert. Bestand ändert sich ausschließlich durch ausdrücklich bestätigte Buchungen; Artikelstammpreise bleiben unverändert.':'Diese Ansicht prüft Positionen. Sie bucht keinen Bestand, legt keine Artikel an und speichert keine Lieferung.'}{preview?' Änderungen gehen beim Neuladen verloren.':''}</span></div>
             <div className="count-title"><div><p className="count-eyebrow">WARENEINGANG · SCHRITT 2 VON 3</p><h1>Lieferung prüfen</h1><p>{supplierName ? `${supplierName} · `:''}Erst Artikel und Gebinde zuordnen, dann die geklärten Positionen buchen.</p></div>{onInventory?<button className="count-link" onClick={onInventory}>Zur Inventur</button>:<a href={preview?'/counting-preview.html':'/InventoryCapture?workflow=server'} className="count-link">{preview?'Zur Zählvorschau':'Zur Inventur'}</a>}</div>

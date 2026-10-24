@@ -8,8 +8,12 @@ import CountingWorkspace from './CountingWorkspace.jsx';
 import {inventoryRunApi,runErrorMessage} from './runApi.js';
 import InventoryTestControls from './InventoryTestControls.jsx';
 import './counting.css';
+import '../delivery/deliveryReview.css';
+import {isLifecycleRequest,withLifecycleDeadline} from '../delivery/lifecycleRequest.js';
 
 const periods={monthly:'Monatsinventur',yearly:'Jahresinventur',weekly:'Wocheninventur',adhoc:'Einzelzählung'};
+const lifecycleKey='inventory_run_lifecycle_pending_v1';
+const savedLifecycle=()=>{try{const value=JSON.parse(sessionStorage.getItem(lifecycleKey)||'null');return isLifecycleRequest(value)?value:null;}catch{return null;}};
 const backupKey=id=>`inventory_conflict_copy:${id}`;
 
 export default function ServerCountingPage() {
@@ -19,7 +23,9 @@ export default function ServerCountingPage() {
     const [outletId,setOutletId]=useState(params.get('outlet') || '');
     const [period,setPeriod]=useState('monthly');
     const [date,setDate]=useState(()=>new Date().toLocaleDateString('en-CA'));
-    const [sessions,setSessions]=useState([]);
+    const [sessions,setSessions]=useState([]),[showDiscarded,setShowDiscarded]=useState(false),[listVersion,setListVersion]=useState(0);
+    const [lifecycle,setLifecycle]=useState(null),[lifecyclePending,setLifecyclePending]=useState(savedLifecycle),[notice,setNotice]=useState('');
+    const lifecycleFlight=useRef(false);
     const [run,setRun]=useState(null);
     const [loading,setLoading]=useState(true);
     const [busy,setBusy]=useState(false);
@@ -53,9 +59,9 @@ export default function ServerCountingPage() {
     useEffect(()=>{
         if (!outletId || id) return;
         let active=true;
-        inventoryRunApi('list',{outlet_id:outletId}).then(value=>{if(active)setSessions(value);}).catch(cause=>{if(active)setError(cause.message);});
+        inventoryRunApi('list',{outlet_id:outletId,...(isAdmin?{include_discarded:showDiscarded}:{})}).then(value=>{if(active)setSessions(value);}).catch(cause=>{if(active)setError(cause.message);});
         return ()=>{active=false;};
-    },[outletId,id]);
+    },[outletId,id,isAdmin,showDiscarded,listVersion]);
     useEffect(()=>{
         if (!id) {setRun(null);return;}
         let active=true;
@@ -96,6 +102,18 @@ export default function ServerCountingPage() {
         revisionRef.current=value.revision;setRun(value);setGeneration(value=>value+1);
         if (value.status !== 'completed') throw new Error('Der Abschluss ist noch offen. Bitte die markierten Artikel prüfen.');
     };
+    const lifecycleRequest=async request=>{
+        if(lifecycleFlight.current || !isLifecycleRequest(request))return;
+        lifecycleFlight.current=true;setBusy(true);setError(null);
+        try{
+            sessionStorage.setItem(lifecycleKey,JSON.stringify(request));
+            await withLifecycleDeadline(()=>inventoryRunApi(request.action,request.input));
+            sessionStorage.removeItem(lifecycleKey);setLifecyclePending(null);setLifecycle(null);setListVersion(v=>v+1);
+            setNotice(request.action==='discard'?'Zwischenstand gelöscht. Unter „Gelöschte Zwischenstände“ kannst du ihn wiederherstellen. Keine Bestandsänderung.':'Zwischenstand wiederhergestellt.');
+            if(id){const next=new URLSearchParams(params);next.delete('run');setParams(next);}
+        }catch(cause){setError(cause.message);setLifecycle(null);if(cause.uncertain)setLifecyclePending(request);else{sessionStorage.removeItem(lifecycleKey);setLifecyclePending(null);setListVersion(v=>v+1);}}
+        finally{lifecycleFlight.current=false;setBusy(false);}
+    };
     const recount=async entry=>{
         setBusy(true);setError(null);
         const signature=JSON.stringify([id,entry.article_id,run.revision]);
@@ -107,30 +125,37 @@ export default function ServerCountingPage() {
     };
     if (loading) return <div className="counting-workspace"><main className="count-main"><p role="status">Inventur wird geladen …</p></main></div>;
     return <div className="counting-workspace">
-        {!run&&<EntryHeader outlet={outlets.find(o=>o.id===outletId)?.name}/>}
+        <EntryHeader outlet={run?.outlet_name || outlets.find(o=>o.id===outletId)?.name} outletId={run?.outlet_id || outletId} disabled={busy || !!lifecyclePending}/>
         {inventoryEnvironment==='dev'&&<aside className="count-server-note"><strong>Testbetrieb · Speicherung in getrennten Testdaten</strong></aside>}
         {isAdmin && inventoryEnvironment==='dev' && <InventoryTestControls outletId={run?.outlet_id || outletId} run={run} onPrepared={value=>{setOutletId(value.outlet_id);setOutlets(current=>[...current,{id:value.outlet_id,name:value.outlet_name}]);setError(null);}}/>}
+        {notice&&<p role="status" className="count-run-notice">{notice}</p>}
+        {lifecyclePending&&<div className="count-copy"><p>Das Ergebnis des Löschens oder Wiederherstellens ist noch unklar. Bitte denselben Vorgang erneut prüfen.</p><button className="count-confirm" disabled={busy} onClick={()=>lifecycleRequest(lifecyclePending)}>Gleichen Vorgang erneut prüfen</button></div>}
+        {lifecycle&&<div className="delivery-dialog-backdrop"><section role="dialog" aria-modal="true" aria-labelledby="run-lifecycle-title" className="delivery-lifecycle-dialog"><h2 id="run-lifecycle-title">{lifecycle.action==='discard'?'Zwischenstand löschen?':'Zwischenstand wiederherstellen?'}</h2><p>{lifecycle.item.session_date} · {periods[lifecycle.item.period_type]}</p><p>{lifecycle.action==='discard'?'Nur der ungebuchte Zwischenstand wird aus der aktiven Liste entfernt. Der Bestand bleibt unverändert. Eine Wiederherstellung ist möglich.':'Der gespeicherte Zwischenstand erscheint wieder in der aktiven Inventurübersicht.'}</p><div className="delivery-actions"><button className="count-confirm" disabled={busy} onClick={()=>setLifecycle(null)}>Abbrechen</button><button className="count-primary" disabled={busy} onClick={()=>lifecycleRequest({action:lifecycle.action,input:{id:lifecycle.item.id,revision:lifecycle.item.revision,request_id:crypto.randomUUID()}})}>{busy?'Bestätigung läuft …':lifecycle.action==='discard'?'Zwischenstand löschen':'Wiederherstellen'}</button></div></section></div>}
         {error && <p className="count-error" role="alert">{error}</p>}
         {run?.read_only && <aside className="count-server-note">Änderungen gesperrt · gespeicherter Stand nur lesbar.</aside>}
         {backup && <details className="count-copy"><summary>Eigene Eingaben als Vergleichskopie erhalten</summary><p>Diese Kopie wird nicht automatisch über den aktuellen Stand geschrieben.</p>
             <ul>{backup.map(entry=><li key={entry.article_id}><strong>{entry.article_name}</strong>: {entry.status === 'skipped' ? 'ausdrücklich übersprungen' : Object.entries(entry.values || {}).map(([code,value])=>`${code}: ${value || 'leer'}`).join(' · ') || 'offen'}</li>)}</ul></details>}
         {run ? <>
+            {isAdmin&&<div className="count-run-controls">{run.discarded_at?<><p>Gelöschter Zwischenstand · keine Bestandsbuchung</p><button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setLifecycle({action:'restore',item:{...run,revision:revisionRef.current}})}>Wiederherstellen</button></>:run.can_discard?<button className="count-confirm" disabled={busy || !!lifecyclePending || saveStatus!=='saved'} onClick={()=>setLifecycle({action:'discard',item:{...run,revision:revisionRef.current}})}>Zwischenstand löschen</button>:<p>Der Abschluss wurde bereits begonnen. Diese Inventur kann nicht als Entwurf gelöscht werden.</p>}</div>}
             {run.status === 'posting' && <div className="count-recovery"><h2>Abschluss noch offen</h2><p>Bereits übernommene Positionen werden bei einer Wiederholung nicht erneut gebucht.</p>
                 {run.entries.filter(entry=>entry.booking_error && !entry.booked).map(entry=><article key={entry.article_id}><strong>{entry.article_name}</strong><p>{runErrorMessage(entry.booking_error)}</p>
                     <button disabled={busy || run.read_only || saveStatus !== 'saved'} onClick={()=>recount(entry)}>Diesen Artikel erneut zählen</button></article>)}</div>}
-            {run.status === 'completed' ? <><header className="count-top"><div className="count-brand">ShiftCntrl.<small>INVENTUR</small></div><span className="count-outlet">{run.outlet_name}</span></header>
+            {run.status === 'completed' ? <>
                 <main className="count-main"><section className="count-completed"><h1>Inventur abgeschlossen</h1><p>{run.entries.filter(entry=>entry.booked).length} Mengen übernommen · {run.entries.filter(entry=>entry.status === 'skipped').length} ausdrücklich übersprungen.</p>
                 <p>Der Abschluss ist auf dem Server gespeichert und nach erneutem Laden verfügbar.</p><button className="count-primary" onClick={()=>{const next=new URLSearchParams(params);next.delete('run');next.set('outlet',run.outlet_id);setParams(next);}}>Zur Inventurübersicht</button></section></main></>
-                : <CountingWorkspace key={`${run.id}:${generation}`} initialEntries={run.entries} initialRevision={run.revision} outletName={run.outlet_name}
+                : <CountingWorkspace embedded sessionKey={run.id} key={`${run.id}:${generation}`} initialEntries={run.entries} initialRevision={run.revision} outletName={run.outlet_name}
                     title={periods[run.period_type]} saveDraft={saveDraft} completeSession={complete} completionLabel={run.status === 'posting' ? 'Abschluss fortsetzen' : undefined}
-                    onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy || run.read_only}/>}
+                    onSaveState={state=>setSaveStatus(state.status)} onReload={loadCurrent} readOnly={busy || !!lifecyclePending || run.read_only}/>}
         </> : <main className="count-main"><header className="count-title"><div><p className="count-eyebrow">SHIFTCTRL · INVENTUR</p><h1>Inventur starten oder fortsetzen</h1><p>Monatlich als Standard. Der Zählrhythmus filtert die Artikel bereits beim Start.</p></div></header>
-            <nav aria-label="Weitere Aufgaben" style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:20}}>{[['scan','Beleg scannen · Foto oder Datei'],['delivery','Lieferübersicht']].map(([workflow,label])=><button key={workflow} className="count-confirm" disabled={busy||!outletId} onClick={()=>{const next=new URLSearchParams(params);next.set('workflow',workflow);next.set('outlet',outletId);for(const key of ['run','scan','delivery'])next.delete(key);setParams(next);}}>{label}</button>)}</nav>
+
             <form className="count-card count-start" onSubmit={start}><label>Standort<select value={outletId} onChange={event=>{setOutletId(event.target.value);setError(null);}} required disabled={busy||!isAdmin||outlets.length===1}><option value="">Bitte wählen</option>{outlets.map(outlet=><option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select></label>
                 <label>Zählrhythmus<select value={period} onChange={event=>setPeriod(event.target.value)} disabled={busy}>{Object.entries(periods).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
                 <label>Inventurdatum<input type="date" value={date} onChange={event=>setDate(event.target.value)} required disabled={busy}/></label>
                 <button className="count-primary" type="submit" disabled={busy || !outletId}>{busy ? 'Wird gestartet …' : 'Neue Inventur starten'}</button></form>
-            <section className="count-sessions"><h2>Gespeicherte Inventuren</h2>{sessions.length ? sessions.map(session=><button key={session.id} disabled={busy} onClick={()=>{const next=new URLSearchParams(params);next.set('run',session.id);setParams(next);}}><strong>{session.session_date} · {periods[session.period_type]}</strong><span>{session.status === 'completed' ? 'Abgeschlossen' : session.status === 'posting' ? 'Abschluss fortsetzen' : 'Zwischenstand öffnen'}</span></button>) : <p>Noch keine gespeicherten Inventuren an diesem Standort.</p>}</section>
+            <section className="count-sessions"><div className="delivery-actions"><h2>{showDiscarded?'Gelöschte Zwischenstände':'Gespeicherte Inventuren'}</h2>{isAdmin&&<button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setShowDiscarded(v=>!v)}>{showDiscarded?'Aktive Inventuren':'Gelöschte Zwischenstände'}</button>}</div>
+                {sessions.filter(session=>!!session.discarded_at===showDiscarded).map(session=><article className="count-session-row" key={session.id}><button className="count-session-open" disabled={busy || !!lifecyclePending} onClick={()=>{const next=new URLSearchParams(params);next.set('run',session.id);setParams(next);}}><strong>{session.session_date} · {periods[session.period_type]}</strong><span>{session.discarded_at?'Gelöscht':session.status==='completed'?'Abgeschlossen':session.status==='posting'?'Abschluss fortsetzen':'Zwischenstand öffnen'}</span></button>{isAdmin&&(session.can_discard || session.discarded_at)&&<button className="count-confirm" disabled={busy || !!lifecyclePending} onClick={()=>setLifecycle({action:session.discarded_at?'restore':'discard',item:session})}>{session.discarded_at?'Wiederherstellen':'Zwischenstand löschen'}</button>}</article>)}
+                {!sessions.filter(session=>!!session.discarded_at===showDiscarded).length&&<p>{showDiscarded?'Keine gelöschten Zwischenstände.':'Noch keine gespeicherten Inventuren an diesem Standort.'}</p>}
+            </section>
         </main>}
     </div>;
 }

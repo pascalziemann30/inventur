@@ -206,3 +206,48 @@ test('expired grant allows authorized dev reads, while all mutation actions rema
     for (const action of ['save','finalize','reopen','start']) assert.equal((await call({action})).status,503);
     assert.equal(f.stocks.get('stock-milk').writes(),0);
 });
+
+test('admin can reversibly remove only an unbooked draft, preserving counts and idempotent acknowledgments',async()=>{
+ const f=fixture({id:'admin',role:'admin'}),run=await saved(f);
+ const input={id:run.id,revision:run.revision,request_id:requestId()};
+ f.store.loseResponse=true;
+ const removed=await f.service.lifecycle('discard',input);
+ assert(removed.run.discarded_at);assert.equal(removed.run.read_only,true);
+ assert.equal((await f.service.lifecycle('discard',input)).revision,removed.revision);
+ assert.equal((await f.service.list('outlet')).length,0);
+ assert.equal((await f.service.list('outlet',true)).length,1);
+ await assert.rejects(f.service.save({id:run.id,revision:removed.revision,request_id:requestId(),entries:inputs()}),expectCode('RUN_DISCARDED'));
+ await assert.rejects(f.service.finalize({id:run.id,revision:removed.revision}),expectCode('RUN_DISCARDED'));
+ const restored=await f.service.lifecycle('restore',{id:run.id,revision:removed.revision,request_id:requestId()});
+ assert.equal(restored.run.discarded_at,'');assert.deepEqual(restored.run.entries,run.entries);
+ assert.equal((await f.service.list('outlet')).length,1);
+ for(const stock of f.stocks.values())assert.equal(stock.writes(),0);
+});
+test('employee and foreign password-admin cannot delete or read removed inventories, nor enumerate trash',async()=>{
+ const f=fixture(),run=await f.start();
+ await assert.rejects(f.service.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),expectCode('ADMIN_REQUIRED'));
+ await assert.rejects(f.service.list('outlet',true),expectCode('ADMIN_REQUIRED'));
+ const admin=createInventoryRunService({store:f.store,user:{id:'admin',role:'admin'}});
+ const foreign=createInventoryRunService({store:f.store,user:{id:'admin-other',role:'admin',access_kind:'password_admin',outlet_id:'other'}});
+ await assert.rejects(foreign.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),expectCode('OUTLET_FORBIDDEN'));
+ await admin.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()});
+ await assert.rejects(f.service.get(run.id),expectCode('RUN_DISCARDED'));
+ await assert.rejects(f.start(),expectCode('RUN_DISCARDED'));
+});
+test('frozen, resolving, completed, booked or locked inventory runs cannot be discarded',async()=>{
+ const f=fixture({id:'admin',role:'admin'}),run=await f.start();
+ for(const status of ['posting','resolving','completed']){
+  f.store.records.get(run.id).status=status;
+  await assert.rejects(f.service.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),expectCode('BOOKED_RUN_CANNOT_DISCARD'));
+ }
+ const row=f.store.records.get(run.id);row.status='draft';row.entries[0].booked=true;
+ await assert.rejects(f.service.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),expectCode('BOOKED_RUN_CANNOT_DISCARD'));
+ row.entries[0].booked=false;row.entries[0].locked=true;
+ await assert.rejects(f.service.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),expectCode('BOOKED_RUN_CANNOT_DISCARD'));
+ assert.equal(row.revision,0);
+});
+test('racing inventory save and discard cannot both update the same revision',async()=>{
+ const f=fixture({id:'admin',role:'admin'}),run=await f.start();
+ const result=await Promise.allSettled([f.service.lifecycle('discard',{id:run.id,revision:0,request_id:requestId()}),f.service.save({id:run.id,revision:0,request_id:requestId(),entries:inputs()})]);
+ assert.equal(result.filter(r=>r.status==='fulfilled').length,1);assert.equal(f.store.records.get(run.id).revision,1);
+});
