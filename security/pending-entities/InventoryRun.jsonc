@@ -143,6 +143,12 @@
               ]
             },
             "description": "Artikelbezogene Zähleinheiten; Einkaufseinheiten bleiben gesondert im SupplierItem"
+          },
+          "subcategory_id": {
+            "type": "string"
+          },
+          "subcategory_name": {
+            "type": "string"
           }
         }
       }

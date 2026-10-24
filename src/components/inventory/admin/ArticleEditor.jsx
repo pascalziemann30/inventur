@@ -1,21 +1,25 @@
 import {useState,useEffect,useRef} from 'react';
 import {canonicalCategory,categoryChoices} from '../../../../base44/shared/inventory/categories.js';
 import {convertDefinitionUnits,suggestedUnitRatio,convertUnitQuantity} from '../../../../base44/shared/inventory/unitConversion.js';
+import {suggestSubcategory} from '../../../../base44/shared/inventory/subcategories.js';
 import {similarArticles} from '../../../../base44/shared/inventory/articleIdentity.js';
 const presets=['Stk','kg','g','l','ml','cl','Packung','Gebinde','Karton','Flasche','Dose','Beutel','Eimer','Rolle','Set','Torte','Palette'];
 const unitLabel=unit=>({Stk:'Stück',kg:'Kilogramm (kg)',g:'Gramm (g)',l:'Liter (l)',ml:'Milliliter (ml)',cl:'Zentiliter (cl)'}[unit]||unit);
 const number=value=>Number(String(value).replace(',','.'));
 const display=value=>new Intl.NumberFormat('de-DE',{maximumFractionDigits:6}).format(value);
-const blank={name:'',supplier:'',category:'',unit:'',sku:'',purchase_code:'KT',purchase_label:'Karton',factor:1,net_price:'',count_units:[{code:'base',label:'Basiseinheit',base_quantity:1,whole_numbers_only:false}],receipt_units:[],inventory_intervals:['monthly','yearly'],is_active:true,notes:''};
-export default function ArticleEditor({article,proposal,suppliers,categories,units,existingArticles,busy,error,onSave,onClose}){
+const blank={subcategory_id:'',name:'',supplier:'',category:'',unit:'',sku:'',purchase_code:'KT',purchase_label:'Karton',factor:1,net_price:'',count_units:[{code:'base',label:'Basiseinheit',base_quantity:1,whole_numbers_only:false}],receipt_units:[],inventory_intervals:['monthly','yearly'],is_active:true,notes:''};
+export default function ArticleEditor({article,proposal,suppliers,categories,subcategories=[],units,existingArticles,busy,error,onSave,onClose}){
  const [form,setForm]=useState(()=>article?.definition?{...structuredClone(article.definition),category:canonicalCategory(article.definition.category)}:{...structuredClone(blank),...(proposal?{name:proposal.source.original_name,supplier:proposal.supplier_name,sku:proposal.source.supplier_article_number,purchase_code:proposal.source.purchase_unit_code,purchase_label:proposal.source.purchase_unit_code,net_price:proposal.source.net_purchase_price}: {})});
  const [targetUnit,setTargetUnit]=useState(article?.definition?.unit||''),[oldQuantity,setOldQuantity]=useState('1'),[newQuantity,setNewQuantity]=useState('1'),[localError,setLocalError]=useState('');
+ const [suggestion,setSuggestion]=useState('');
+ const children=subcategories.filter(row=>row.parent_name===canonicalCategory(form.category));
+ const propose=()=>{const result=suggestSubcategory(form.name,form.category,subcategories);if(result){setForm(current=>({...current,subcategory_id:result.id}));setSuggestion(`Vorschlag: ${result.name}. ${result.reason}. Noch nicht gespeichert – du kannst die Auswahl ändern.`);}else setSuggestion('Kein eindeutiger Vorschlag. Bitte selbst auswählen oder nur die Hauptkategorie verwenden.');};
  const [checked,setChecked]=useState(false),[distinct,setDistinct]=useState(false),dialog=useRef(null);
  const similar=article?[]:similarArticles(form.name,(existingArticles||[]).map(r=>({id:r.definition.id,name:r.definition.name,supplier:r.definition.supplier,active:r.definition.is_active})));
  useEffect(()=>{setDistinct(false);},[form.name,form.supplier,form.unit,form.sku]);
  useEffect(()=>{if(dialog.current&&!dialog.current.open)dialog.current.showModal();},[]);
  useEffect(()=>{setChecked(false);},[form]);
- const change=(key,value)=>setForm(current=>({...current,[key]:value}));
+ const change=(key,value)=>{if(['category','subcategory_id','name'].includes(key))setSuggestion('');setForm(current=>({...current,[key]:value,...(key==='category'?{subcategory_id:''}:{})}));};
  const updateUnit=(index,key,value)=>change('count_units',form.count_units.map((u,i)=>i===index?{...u,[key]:value}:u));
  const chooseBase=unit=>{
   setLocalError('');setTargetUnit(unit);
@@ -43,9 +47,10 @@ export default function ArticleEditor({article,proposal,suppliers,categories,uni
   <header><div><p className="count-eyebrow">ARTIKELPFLEGE</p><h2 id="article-editor-title">{article?'Artikel bearbeiten':proposal?'Artikel aus Vorschlag anlegen':'Artikel anlegen'}</h2></div><button type="button" disabled={busy} onClick={onClose} aria-label="Artikel schließen">✕</button></header>
   {(error||localError)&&<p className="count-error" role="alert">{localError||error}</p>}
   {proposal&&<p className="count-preview">Originalbezeichnung: {proposal.source.original_name}. Produkt, Basiseinheit und Gebinde bitte vor der Anlage prüfen. Die Lieferposition wird anschließend separat zugeordnet und gebucht.</p>}
-  <div className="admin-form-grid">{field('name','Artikelbezeichnung',{maxLength:300})}{referenceSelect('supplier','Lieferant',suppliers)}{referenceSelect('category','Kategorie',categoryChoices(categories))}
+  <div className="admin-form-grid">{field('name','Artikelbezeichnung',{maxLength:300})}{referenceSelect('supplier','Lieferant',suppliers)}{referenceSelect('category','Hauptkategorie',categoryChoices(categories))}
    <label>Basiseinheit<select aria-label="Basiseinheit" required disabled={busy} value={article?targetUnit:form.unit} onChange={e=>chooseBase(e.target.value)}><option value="">Bitte wählen</option>{[...new Set([...presets,...units,form.unit])].filter(Boolean).map(u=><option key={u} value={u}>{unitLabel(u)}</option>)}</select></label>
   </div>
+  <section className="admin-article-classification" aria-label="Unterkategorie zuordnen"><label>Unterkategorie (optional)<select aria-label="Unterkategorie" value={form.subcategory_id||''} disabled={busy||!form.category} onChange={e=>change('subcategory_id',e.target.value)}><option value="">Nur Hauptkategorie</option>{children.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select></label><button type="button" disabled={busy||!form.name||!form.category||!children.length} onClick={propose}>Zuordnung vorschlagen</button><p role="status">{suggestion||'Die Zuordnung wird erst beim Speichern des Artikels übernommen.'}</p></section>
   {article&&targetUnit!==form.unit&&<section className="admin-conversion" aria-label="Basiseinheit umrechnen"><h3>Basiseinheit ausdrücklich umrechnen</h3><p>Welche Mengen sind gleich? Inhalt, Zähleinheiten und vorhandener Bestand werden umgerechnet. Abgeschlossene Belege bleiben unverändert; offene Inventuren mit der bisherigen Einheit müssen neu gestartet werden.</p><div className="admin-conversion-ratio"><label>Alte Menge ({form.unit})<input aria-label="Alte Menge" inputMode="decimal" value={oldQuantity} disabled={busy} onChange={e=>setOldQuantity(e.target.value)}/></label><span>=</span><label>Neue Menge ({targetUnit})<input aria-label="Neue Menge" inputMode="decimal" value={newQuantity} disabled={busy} onChange={e=>setNewQuantity(e.target.value)}/></label></div><button type="button" disabled={busy||!targetUnit} onClick={applyBase}>Umrechnung übernehmen</button><button type="button" disabled={busy} onClick={()=>{setTargetUnit(form.unit);setLocalError('');}}>Einheit beibehalten</button></section>}
   {form.base_unit_change&&<p className="admin-unit-price">Vorgemerkte Umrechnung: {display(form.base_unit_change.old_quantity)} {form.base_unit_change.from} = {display(form.base_unit_change.new_quantity)} {form.unit}. Wird mit der geprüften Änderung gespeichert.</p>}
   {!!similar.length&&<aside className="count-copy"><strong>Ähnliche vorhandene Artikel prüfen</strong><ul>{similar.map(r=><li key={r.id}>{r.name} · {r.supplier}{r.active?'':' · inaktiv'}</li>)}</ul><p>Gleicher Artikel? Bitte den vorhandenen Datensatz bearbeiten oder zuordnen. Unterschiedliche Sorte oder Ausführung? Dann die eigenständige Variante bestätigen.</p><label className="admin-check"><input type="checkbox" checked={distinct} disabled={busy} onChange={e=>setDistinct(e.target.checked)}/>Eigenständiger Artikel trotz ähnlicher vorhandener Bezeichnung</label></aside>}

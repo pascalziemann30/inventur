@@ -147,6 +147,10 @@
     "purge_started_at": {
       "type": "string",
       "description": "Bereinigung begonnen; keine Wiederherstellung während Teilbereinigung"
+    },
+    "subcategory_id": {
+      "type": "string",
+      "description": "Optionale, standortgebundene Unterkategorie"
     }
   },
   "required": [

@@ -239,3 +239,38 @@ test('a lone legacy category is reused and shown canonically, while old article 
  const row=(await f.service.list({outlet_id:'outlet'})).articles[0];assert.equal(row.definition.category,'Milchprodukte und Pflanzendrinks');
  await f.complete(await f.start('synthetic-category-legacy-02',row.definition,{expected:row.fingerprint}));assert.equal(f.db.Category.length,1);assert.equal(f.db.GlobalItem[0].category_id,'only-legacy');
 });
+
+test('subcategory CRUD is scoped, recoverable and leaves stock and history unchanged',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-sub-base01'));
+ const create={outlet_id:'outlet',request_id:'synthetic-sub-create1',mode:'create',parent:'Drinks',name:'Plant drinks',keywords:['oat']};
+ let state=await f.service.subcategory(create);f.loseNext();await assert.rejects(f.service.step({outlet_id:'outlet',request_id:create.request_id,revision:state.revision}));
+ await f.complete(await f.service.status({outlet_id:'outlet'}));
+ assert.equal((await f.service.subcategory(create)).operation.status,'completed');
+ let list=await f.service.list({outlet_id:'outlet'}),child=list.subcategories[0];assert.deepEqual(list.categories,['Drinks']);assert.equal(child.name,'Plant drinks');
+ await assert.rejects(f.service.subcategory({...create,request_id:'synthetic-sub-dup001',name:'PLANT drinks'}),{code:'SUBCATEGORY_DUPLICATE'});
+ const row=list.articles[0],stock=copy(f.db.OutletStock);
+ await f.complete(await f.start('synthetic-sub-save01',{...row.definition,subcategory_id:child.id},{expected:row.fingerprint}));
+ f.db.InventoryRun.push({id:'old',entries:[{subcategory_id:child.id,subcategory_name:'Plant drinks'}]});
+ await f.complete(await f.service.subcategory({outlet_id:'outlet',request_id:'synthetic-sub-rename',mode:'rename',parent:'Drinks',id:child.id,name:'Plant-based',keywords:['oat'],expected:child.fingerprint}));
+ list=await f.service.list({outlet_id:'outlet'});assert.equal(list.articles[0].subcategory_name,'Plant-based');assert.equal(f.db.OutletItem[0].subcategory_id,child.id);
+ await assert.rejects(f.service.subcategory({outlet_id:'outlet',request_id:'synthetic-sub-stale1',mode:'remove',parent:'Drinks',id:child.id,expected:child.fingerprint}),{code:'SUBCATEGORY_CHANGED_RELOAD'});
+ child=list.subcategories[0];await f.complete(await f.service.subcategory({outlet_id:'outlet',request_id:'synthetic-sub-remove',mode:'remove',parent:'Drinks',id:child.id,expected:child.fingerprint}));
+ list=await f.service.list({outlet_id:'outlet'});assert.equal(list.subcategories.length,0);assert.equal(list.articles[0].definition.subcategory_id,'');assert.equal(list.articles[0].definition.category,'Drinks');
+ assert.deepEqual(f.db.OutletStock,stock);assert.equal(f.db.InventoryRun[0].entries[0].subcategory_name,'Plant drinks');assert.equal(f.db.Category.find(r=>r.id===child.id).is_active,false);
+});
+test('subcategory assignments reject foreign outlets, wrong parents, inactive children and nesting',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-sub-guard1'));
+ const parent=f.db.Category[0];f.db.Category.push({id:'root2',name:'Food'},{id:'foreign',name:'Foreign',parent_id:parent.id,outlet_id:'other'},{id:'wrong',name:'Wrong',parent_id:'root2',outlet_id:'outlet'},{id:'inactive',name:'Gone',parent_id:parent.id,outlet_id:'outlet',is_active:false});
+ const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ for(const subcategory_id of ['foreign','wrong','inactive'])await assert.rejects(f.start(`synthetic-sub-${subcategory_id}1`,{...row.definition,subcategory_id},{expected:row.fingerprint}),{code:'SUBCATEGORY_PARENT_MISMATCH'});
+ await assert.rejects(f.service.subcategory({outlet_id:'outlet',request_id:'synthetic-sub-nested',mode:'create',parent:'Wrong',name:'Deeper',keywords:[]}),{code:'SUBCATEGORY_PARENT_MISMATCH'});
+ assert(!('subcategory_id' in row.definition)||row.definition.subcategory_id==='');
+});
+test('approved equipment structure is seeded once, never in read-only mode or resurrected after removal',async()=>{
+ const f=fixture();f.db.Category.push({id:'equipment',name:'Betriebsausstattung'});
+ assert.equal((await f.service.list({outlet_id:'outlet',cleanup:false})).subcategories.length,0);
+ let list=await f.service.list({outlet_id:'outlet'});assert.equal(list.subcategories.length,8);assert.equal(list.operation.status,'completed');assert.equal(f.db.OutletItem.length,0);
+ assert.equal((await f.service.list({outlet_id:'outlet'})).subcategories.length,8);
+ for(const child of list.subcategories)await f.complete(await f.service.subcategory({outlet_id:'outlet',request_id:`synthetic-remove-${child.id}`,mode:'remove',parent:'Betriebsausstattung',id:child.id,expected:child.fingerprint}));
+ assert.equal((await f.service.list({outlet_id:'outlet'})).subcategories.length,0);assert.equal(f.db.Category.filter(r=>r.parent_id).length,8);
+});

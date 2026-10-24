@@ -13,7 +13,7 @@ export function projectRun(run) {
         id:run.id, outlet_id:run.outlet_id, outlet_name:run.outlet_name, session_date:run.session_date,
         period_type:run.period_type, status:run.status, revision:run.revision, completed_at:run.completed_at,discarded_at:run.discarded_at || '',read_only:!!run.discarded_at,
         entries:run.entries.map(entry => ({article_id:entry.article_id, article_name:entry.article_name,
-            category_name:entry.category_name,...(entry.category_id?{category_id:entry.category_id}:{}), unit_abbreviation:entry.unit_abbreviation,
+            category_name:entry.category_name,...(entry.subcategory_id?{subcategory_id:entry.subcategory_id,subcategory_name:entry.subcategory_name}:{}),...(entry.category_id?{category_id:entry.category_id}:{}), unit_abbreviation:entry.unit_abbreviation,
             count_units:copy(entry.count_units), count_version:entry.count_version, values:copy(entry.values),
             status:entry.status, counted_quantity:entry.status === 'counted' ? entry.counted_quantity : null,
             ...(entry.status === 'counted' ? {last_stock:entry.last_stock} : {}),
