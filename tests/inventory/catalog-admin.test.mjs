@@ -309,3 +309,21 @@ test('bulk discard endpoint rejects employees before privileged entities are acc
  let touched=false;const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'employee',role:'user'})},get asServiceRole(){touched=true;throw Error('forbidden');}}),originAllowed:()=>true,defaultEnvironment:()=> 'prod'});
  const result=await handler(new Request('https://synthetic.invalid',{method:'POST',headers:{Origin:'https://synthetic.invalid','X-Data-Env':'prod'},body:JSON.stringify({action:'discardMany',outlet_id:'outlet',request_id:crypto.randomUUID(),items:[]})}));assert.equal(result.status,403);assert.equal(touched,false);
 });
+
+test('article text accepts copy-pasted boundary whitespace without changing quantities, identity or price',async()=>{
+ const f=fixture(),input={...article,name:'  Synthetic paper towels\u00a0',supplier:' Synthetic supplier ',category:' Drinks\n',unit:' l ',purchase_code:' KT ',purchase_label:' 6 × 1 l ',sku:' CODE-1 ',net_price:'9,00',count_units:article.count_units.map(u=>({...u,code:` ${u.code} `,label:`\u00a0${u.label} `})),receipt_units:[{code:' ST ',factor:1}]},before=copy(input);
+ await f.complete(await f.start('synthetic-text-spaces',input));const row=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ assert.equal(row.definition.name,'Synthetic paper towels');assert.equal(row.definition.supplier,'Synthetic supplier');assert.equal(row.definition.purchase_code,'KT');assert.equal(row.definition.sku,'CODE-1');assert.equal(row.definition.factor,6);assert.equal(row.definition.net_price,9);assert.deepEqual(row.definition.count_units,article.count_units);assert.deepEqual(row.definition.receipt_units,[{code:'ST',factor:1}]);assert.equal(row.stock,0);assert.deepEqual(input,before);
+});
+test('empty and overlong article fields identify the actual field before any write',async()=>{
+ const f=fixture();for(const field of ['name','supplier','category','unit','purchase_code','purchase_label']){
+  await assert.rejects(f.start(crypto.randomUUID(),{...article,[field]:' \u00a0\n'}),{code:'ARTICLE_REQUIRED_FIELDS',field});
+  await assert.rejects(f.start(crypto.randomUUID(),{...article,[field]:'x'.repeat(301)}),{code:'ARTICLE_REQUIRED_FIELDS',field});
+ }assert.equal(f.db.OutletItem.length,0);assert.equal(f.db.Outlet[0].catalog_admin_state,undefined);
+});
+
+test('article API names a genuinely missing field without creating a catalog operation',async()=>{
+ const f=fixture();const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>f.user},asServiceRole:{entities:f.e}}),originAllowed:()=>true,defaultEnvironment:()=> 'dev'});
+ const response=await handler(new Request('https://synthetic.invalid',{method:'POST',headers:{Origin:'https://synthetic.invalid','X-Data-Env':'dev'},body:JSON.stringify({action:'start',outlet_id:'outlet',request_id:crypto.randomUUID(),articles:[{...article,purchase_label:'   '}]})}));
+ assert.equal(response.status,400);const body=await response.json();assert.equal(body.error,'ARTICLE_REQUIRED_FIELDS');assert.equal(body.field,'purchase_label');assert.equal(f.db.Outlet[0].catalog_admin_state,undefined);
+});

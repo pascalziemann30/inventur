@@ -1,3 +1,4 @@
+import {articleFieldLabels} from '../../shared/inventory/articleFields.js';
 import {assertOutletAccess} from '../../shared/inventory/stock.js';
 import {BookingError} from '../../shared/inventory/quantities.js';
 import {adminStore,createCatalogAdminService} from '../../shared/inventory/catalogAdmin.js';
@@ -43,7 +44,7 @@ export function createCatalogAdminHandler({createClientFromRequest,productionCli
    }else if(action==='lifecycle'){const {action_kind,...rest}=input;result=await service.lifecycle({...rest,action:action_kind});}
    else result=await service[action](input);
    return Response.json({...result,data_environment:environment},{headers:{'Cache-Control':'no-store'}});
-  }catch(error){const transportStatus=error?.status??error?.response?.status;return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':transportStatus===429?'CATALOG_RATE_LIMITED':'CATALOG_REQUEST_UNCERTAIN_RELOAD',...(Number.isInteger(transportStatus)?{transport_status:transportStatus}:{})},
+  }catch(error){const transportStatus=error?.status??error?.response?.status;return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':transportStatus===429?'CATALOG_RATE_LIMITED':'CATALOG_REQUEST_UNCERTAIN_RELOAD',...(error?.code==='ARTICLE_REQUIRED_FIELDS'&&Object.hasOwn(articleFieldLabels,error.field)?{field:error.field}:{}),...(Number.isInteger(transportStatus)?{transport_status:transportStatus}:{})},
    {status:error instanceof BookingError?error.status:error instanceof SyntaxError?400:503,headers:{'Cache-Control':'no-store'}});}
  };
 }

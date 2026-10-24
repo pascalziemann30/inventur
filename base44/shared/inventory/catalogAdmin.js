@@ -1,3 +1,4 @@
+import {cleanArticleText,invalidArticleField} from './articleFields.js';
 import {BookingError,scaledQuantity,monetaryNumber} from './quantities.js';
 import {unitsFor} from './counting.js';
 import {offerIdentityKey} from './deliveryReview.js';
@@ -19,8 +20,9 @@ export function normalizeDefinition(input){
  const allowed=['key','id','name','supplier','category','unit','sku','purchase_code','purchase_label','factor','net_price','count_units','receipt_units','inventory_intervals','is_active','notes','distinct_confirmed','base_unit_change','subcategory_id'];
  if(!input||Object.keys(input).some(k=>!allowed.includes(k)))fail('ARTICLE_INPUT_INVALID',400);
  if(input.distinct_confirmed!==undefined&&typeof input.distinct_confirmed!=='boolean')fail('ARTICLE_INPUT_INVALID',400);
+ input=cleanArticleText(input);
  const r={...input,sku:input.sku||'',receipt_units:input.receipt_units||[],inventory_intervals:input.inventory_intervals||['monthly','yearly'],notes:input.notes||'',is_active:input.is_active!==false};
- for(const k of ['name','supplier','category','unit','purchase_code','purchase_label'])if(!text(r[k]))fail('ARTICLE_REQUIRED_FIELDS',400);
+ const invalidField=invalidArticleField(r);if(invalidField){const error=new BookingError('ARTICLE_REQUIRED_FIELDS',400);error.field=invalidField;throw error;}
  r.category=canonicalCategory(r.category);
  if(r.subcategory_id!==undefined&&(typeof r.subcategory_id!=='string'||r.subcategory_id.length>100))fail('SUBCATEGORY_INPUT_INVALID',400);
  r.subcategory_id=r.subcategory_id||'';
