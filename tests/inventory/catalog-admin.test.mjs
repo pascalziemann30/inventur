@@ -91,10 +91,11 @@ test('shared metadata follows the unique existing outlet reference instead of a 
  const empty=fixture();empty.db.Unit.push({id:'one',abbreviation:'l'},{id:'two',abbreviation:'l'});
  await assert.rejects(empty.start('synthetic-scope-0003'),{code:'DUPLICATE_REFERENCE_REQUIRES_REVIEW'});
 });
-test('administrative choices show linked references instead of unrelated legacy metadata',async()=>{
+test('administrative pickers include all existing categories and active suppliers, even before their first article',async()=>{
  const f=fixture();await f.complete(await f.start('synthetic-choices-01'));
  f.db.Supplier.push({id:'unrelated-supplier',name:'Unused supplier',is_active:true});f.db.Category.push({id:'unrelated-category',name:'Unused category'});f.db.Unit.push({id:'unrelated-unit',abbreviation:'Unused unit'});
- const list=await f.service.list({outlet_id:'outlet'});assert.deepEqual(list.suppliers,[article.supplier]);assert.deepEqual(list.categories,[article.category]);assert.deepEqual(list.units,['l']);
+ f.db.Supplier.push({id:'inactive-supplier',name:'Inactive supplier',is_active:false});
+ const list=await f.service.list({outlet_id:'outlet'});assert.deepEqual(list.suppliers,[article.supplier,'Unused supplier']);assert.deepEqual(list.categories,[article.category,'Unused category']);assert.deepEqual(list.units,['l']);
 });
 test('similar names require an explicit distinction while exact duplicates remain blocked',async()=>{
  const f=fixture();await f.complete(await f.start('synthetic-near-00001'));
@@ -215,4 +216,11 @@ test('interrupted permanent cleanup stays recoverable as an operation, not as an
  blocked=false;let state=await later.status({outlet_id:'outlet'});
  for(let n=0;n<10&&state.operation.status!=='completed';n++)state=await later.step({outlet_id:'outlet',request_id:state.operation.request_id,revision:state.revision});
  assert.equal(state.operation.status,'completed');assert.equal(f.db.OutletItem.length,0);assert.equal(f.db.OutletStock.length,0);
+});
+test('changing to a selectable existing supplier/category keeps stock and historical snapshots while updating links',async()=>{
+ const f=fixture();await f.complete(await f.start('synthetic-picker-edit-01'));const current=(await f.service.list({outlet_id:'outlet'})).articles[0];
+ f.db.Supplier.push({id:'new-supplier',name:'Other active supplier',is_active:true});f.db.Category.push({id:'new-category',name:'Other category'});
+ const stock=copy(f.db.OutletStock),originalOffers=f.db.SupplierItem.map(o=>o.id);
+ await f.complete(await f.start('synthetic-picker-edit-02',{...current.definition,supplier:'Other active supplier',category:'Other category'},{expected:current.fingerprint}));
+ const updated=(await f.service.list({outlet_id:'outlet'})).articles[0];assert.equal(updated.definition.supplier,'Other active supplier');assert.equal(updated.definition.category,'Other category');assert.equal(updated.links_valid,true);assert.equal(f.db.OutletItem[0].supplier_id,'new-supplier');assert.equal(f.db.GlobalItem[0].category_id,'new-category');assert.deepEqual(f.db.OutletStock,stock);assert(f.db.SupplierItem.filter(o=>originalOffers.includes(o.id)).every(o=>o.status==='archived'));assert.equal(f.db.Supplier.length,2);assert.equal(f.db.Category.length,2);
 });

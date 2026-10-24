@@ -232,8 +232,8 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
    const scoped=c.items.length>0;
    const globals=c.globals.filter(g=>c.items.some(i=>i.global_item_id===g.id));
    return {...view(c.outlet),outlet:{id:c.outlet.id,name:c.outlet.name},articles:c.items.map(i=>definitionFor(i,c)),
-    suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false&&(!scoped||c.items.some(i=>i.supplier_id===s.id))).map(s=>s.name))],
-    categories:[...new Set(c.categories.filter(c=>!scoped||globals.some(g=>g.category_id===c.id)).map(c=>c.name))],
+    suppliers:[...new Set(c.suppliers.filter(s=>s.is_active!==false).map(s=>s.name))].sort((a,b)=>a.localeCompare(b,'de')),
+    categories:[...new Set(c.categories.map(c=>c.name))].sort((a,b)=>a.localeCompare(b,'de')),
     units:[...new Set(c.units.filter(u=>!scoped||globals.some(g=>g.unit_id===u.id)).map(u=>u.abbreviation))]};
   },
   async lifecycle({outlet_id,id,action,request_id,expected}){
