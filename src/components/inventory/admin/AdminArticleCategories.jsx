@@ -1,3 +1,4 @@
+import CategoryIcon from '../design/CategoryIcon.jsx';
 import {useState} from 'react';
 import {canonicalCategory} from '../../../../base44/shared/inventory/categories.js';
 import {Pencil,Trash2,Undo2} from 'lucide-react';
@@ -35,7 +36,7 @@ export default function AdminArticleCategories({articles,searching=false,disable
    <div><button onClick={()=>setExpanded(new Set(groups.flatMap(([name,rows])=>[name,...rows.map(row=>`${name}:${row.definition.subcategory_id||''}`)])))}>Alle aufklappen</button><button onClick={()=>setExpanded(new Set())}>Alle zuklappen</button></div>
   </div>
   <div className="count-categories">{groups.map(([name,rows])=><details className="count-category-group admin-article-category" key={name} open={expanded.has(name)}>
-   <summary onClick={event=>{event.preventDefault();toggle(name);}}><h2>{name}</h2><span className="admin-category-count">{rows.length} Artikel</span></summary>
+   <summary onClick={event=>{event.preventDefault();toggle(name);}}><CategoryIcon name={name}/><h2>{name}</h2><span className="admin-category-count">{rows.length} Artikel</span></summary>
    {rows.some(row=>row.definition.subcategory_id)?[...new Set(rows.map(row=>row.definition.subcategory_id||''))].sort((a,b)=>(rows.find(r=>r.definition.subcategory_id===a)?.subcategory_name||'Nur Hauptkategorie').localeCompare(rows.find(r=>r.definition.subcategory_id===b)?.subcategory_name||'Nur Hauptkategorie','de')).map(id=>{const subset=rows.filter(row=>(row.definition.subcategory_id||'')===id),label=subset[0]?.subcategory_name||'Nur Hauptkategorie',groupKey=`${name}:${id}`;return <details className="count-category-group admin-article-subcategory" key={groupKey} open={expanded.has(groupKey)}><summary onClick={event=>{event.preventDefault();toggle(groupKey);}}><h3>{label}</h3><span className="admin-category-count">{subset.length} Artikel</span></summary>{renderTable(subset,label)}</details>}):renderTable(rows,name)}
   </details>)}</div>
  </section>;
