@@ -22,6 +22,8 @@ on:
       - 'base44/functions/verifyInventoryProductionReadAccess/**'
       - 'integration/shift-control-location-entry/**'
       - 'src/components/inventory/entry/**'
+      - 'src/components/inventory/design/**'
+      - 'src/components/inventory/admin/**'
       - 'tests/inventory/**'
       - 'src/components/inventory/counting/**'
       - 'src/components/inventory/delivery/**'
@@ -34,6 +36,8 @@ on:
       - 'src/pages/OutletLogin.jsx'
       - 'security/**'
       - 'src/main.jsx'
+      - 'src/dev/designPreview.jsx'
+      - 'design-preview.html'
       - 'src/dev/countingPreview.jsx'
       - 'src/dev/deliveryPreview.jsx'
       - 'counting-preview.html'
@@ -60,7 +64,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run build:counting
       - run: npm run build
-      - run: npx --no-install eslint src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/ src/components/auth/ src/pages/OutletLogin.jsx src/api/base44Client.js
+      - run: npx --no-install eslint src/components/inventory/design/ src/components/inventory/admin/ src/components/inventory/counting/ src/components/inventory/delivery/ src/components/inventory/scan/ src/components/inventory/entry/ src/components/auth/ src/pages/OutletLogin.jsx src/api/base44Client.js
       - name: Check function entry syntax
         run: |
           node --check base44/functions/bookDeliveryLine/entry.ts
