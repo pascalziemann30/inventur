@@ -130,7 +130,7 @@ export default function CountingWorkspace({initialEntries, initialRevision = 0, 
         finally {setProcessing(false);}
     };
     return <div className="counting-workspace">
-        {!embedded&&<header className="count-top"><div className="count-brand">ShiftCntrl<span>.</span><small>INVENTUR</small></div><span className="count-outlet">{outletName}</span></header>}
+        {!embedded&&<header className="count-top"><div className="count-brand">PrdktCntrl<span>.</span><small>Product Control</small></div><span className="count-outlet">{outletName}</span></header>}
         {!preview&&<NavigationGuard dirty={unsaved || processing} onSave={async()=>{if(processing)throw new Error('Bitte den laufenden Inventurabschluss abwarten.');if(saveState.status==='error')queueRef.current.retry();await queueRef.current.flush();}}/>}
         <main className="count-main">
             {preview && <aside className="count-preview"><strong>Bedienvorschau mit Beispieldaten</strong><span>Keine Verbindung zu Artikeln oder Beständen. Speicherung nur in diesem Vorschaufenster.</span></aside>}

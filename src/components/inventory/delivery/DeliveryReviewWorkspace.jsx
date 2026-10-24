@@ -44,7 +44,7 @@ export default function DeliveryReviewWorkspace({initialLines,initialReview=null
     const visible=lines.filter(line=>filter==='all' || result?.lines.find(item=>item.line_id===line.id)?.match!=='matched'
         || result?.lines.find(item=>item.line_id===line.id)?.issues.length);
     return <div className="counting-workspace delivery-workspace">
-        {!embedded&&<header className="count-top"><div className="count-brand">Shift<span>Cntrl</span><small>INVENTUR & BESTAND</small></div><span className="count-outlet">{outletName} · {preview?'Vorschau':'Lieferungsprüfung'}</span></header>}
+        {!embedded&&<header className="count-top"><div className="count-brand">PrdktCntrl<span>.</span><small>Product Control</small></div><span className="count-outlet">{outletName} · {preview?'Vorschau':'Lieferungsprüfung'}</span></header>}
         {!preview&&<NavigationGuard dirty={dirty} onSave={async()=>{if(!onSave)throw new Error('Bitte den Entwurf zuerst speichern.');await onSave(structuredClone(lines));setDirty(false);}}/>}
         <main className="count-main">
             <div className="count-preview"><strong>{preview?'Bedienvorschau mit erfundenen Testdaten':readOnly?'Lieferentwurf · nur lesbar':'Gespeicherter Lieferentwurf'}</strong><span>{onSave?'Entwürfe, Positionsbestätigungen und Vorschläge werden gespeichert. Bestand ändert sich ausschließlich durch ausdrücklich bestätigte Buchungen; Artikelstammpreise bleiben unverändert.':'Diese Ansicht prüft Positionen. Sie bucht keinen Bestand, legt keine Artikel an und speichert keine Lieferung.'}{preview?' Änderungen gehen beim Neuladen verloren.':''}</span></div>
