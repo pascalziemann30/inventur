@@ -1,4 +1,4 @@
-import {scaledQuantity,monetaryNumber} from '../../../../base44/shared/inventory/quantities.js';
+import {scaledQuantity,monetaryNumber} from '@/lib/inventory/quantities.js';
 
 // Blank and explicit zero rows are not delivered. Every other input must be valid.
 export function manualDeliveryLines(articles,entries,newId=()=>crypto.randomUUID()) {

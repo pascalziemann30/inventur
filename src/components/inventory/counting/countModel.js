@@ -1,1 +1,1 @@
-export * from '../../../../base44/shared/inventory/counting.js';
+export * from '../../../lib/inventory/counting.js';

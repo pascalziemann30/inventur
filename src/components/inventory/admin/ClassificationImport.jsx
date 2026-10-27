@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {canonicalCategory} from '../../../../base44/shared/inventory/categories.js';
+import {canonicalCategory} from '@/lib/inventory/categories.js';
 export default function ClassificationImport({articles,busy,onApply}){
  const [plan,setPlan]=useState(null),[error,setError]=useState('');
  const download=()=>{const content=articles.filter(r=>!r.deleted_at&&r.definition.is_active).map(r=>({name:r.definition.name,parent:canonicalCategory(r.definition.category),subcategory:r.subcategory_name||''}));const url=URL.createObjectURL(new Blob([JSON.stringify(content,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='artikel-zuordnung.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};

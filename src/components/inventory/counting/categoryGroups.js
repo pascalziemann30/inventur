@@ -1,5 +1,5 @@
 import {countProgress} from './countModel.js';
-import {canonicalCategory,categoryGroupKey} from '../../../../base44/shared/inventory/categories.js';
+import {canonicalCategory,categoryGroupKey} from '../../../lib/inventory/categories.js';
 export function countCategoryGroups(entries,visible=entries){
  const groups=new Map(),visibleIds=new Set(visible.map(entry=>entry.article_id));
  for(const entry of entries){
