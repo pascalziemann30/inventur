@@ -1,6 +1,6 @@
 import CategoryIcon from '../design/CategoryIcon.jsx';
 import {useState} from 'react';
-import {canonicalCategory} from '@/lib/inventory/categories.js';
+import {canonicalCategory} from '../../../lib/inventory/categories.js';
 import {Pencil,Trash2,Undo2} from 'lucide-react';
 
 const money=n=>new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:6}).format(n||0);

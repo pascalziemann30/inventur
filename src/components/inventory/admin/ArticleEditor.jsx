@@ -1,9 +1,9 @@
-import {cleanArticleText,invalidArticleField,articleFieldMessage} from '@/lib/inventory/articleFields.js';
+import {cleanArticleText,invalidArticleField,articleFieldMessage} from '../../../lib/inventory/articleFields.js';
 import {useState,useEffect,useRef} from 'react';
-import {canonicalCategory,categoryChoices} from '@/lib/inventory/categories.js';
-import {convertDefinitionUnits,suggestedUnitRatio,convertUnitQuantity} from '@/lib/inventory/unitConversion.js';
-import {suggestSubcategory} from '@/lib/inventory/subcategories.js';
-import {similarArticles} from '@/lib/inventory/articleIdentity.js';
+import {canonicalCategory,categoryChoices} from '../../../lib/inventory/categories.js';
+import {convertDefinitionUnits,suggestedUnitRatio,convertUnitQuantity} from '../../../lib/inventory/unitConversion.js';
+import {suggestSubcategory} from '../../../lib/inventory/subcategories.js';
+import {similarArticles} from '../../../lib/inventory/articleIdentity.js';
 const presets=['Stk','kg','g','l','ml','cl','Packung','Gebinde','Karton','Flasche','Dose','Beutel','Eimer','Rolle','Set','Torte','Palette'];
 const unitLabel=unit=>({Stk:'Stück',kg:'Kilogramm (kg)',g:'Gramm (g)',l:'Liter (l)',ml:'Milliliter (ml)',cl:'Zentiliter (cl)'}[unit]||unit);
 const number=value=>Number(String(value).replace(',','.'));

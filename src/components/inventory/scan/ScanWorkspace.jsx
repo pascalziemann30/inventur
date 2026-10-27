@@ -1,8 +1,8 @@
 import {Camera,FileUp,ScanLine,Info,ChevronRight} from 'lucide-react';
 import NavigationGuard from '../entry/NavigationGuard.jsx';
 import {useEffect,useRef,useState} from 'react';
-import {proposedDisposition,lineAmountChecks} from '@/lib/inventory/scanRules.js';
-import {scanFields} from '@/lib/inventory/scanFields.js';
+import {proposedDisposition,lineAmountChecks} from '../../../lib/inventory/scanRules.js';
+import {scanFields} from '../../../lib/inventory/scanFields.js';
 import '../counting/counting.css';
 import '../delivery/deliveryReview.css';
 import './scan.css';

@@ -1,5 +1,5 @@
 import {useRef,useState} from 'react';
-import {reviewDeliveryLines} from '@/lib/inventory/deliveryReview.js';
+import {reviewDeliveryLines} from '../../../lib/inventory/deliveryReview.js';
 import {deliveryExamples} from './reviewExamples.js';
 import '../counting/counting.css';
 import './deliveryReview.css';
