@@ -29,7 +29,6 @@ export default function AdminWorkspace({initialSection='articles'}){
  const [importData,setImportData]=useState(null),[importTarget,setImportTarget]=useState('prod'),[importChecked,setImportChecked]=useState(false);
  const requestRef=useRef(null),fileRef=useRef(null);
  const target=importTarget==='prod'?productionOutlet:outlet;
- useEffect(()=>{setOutlet(productionOutlet,'Kuno15');},[setOutlet]);
  useEffect(()=>{const selected=outlets.find(o=>o.id===outlet);if(selected)setOutlet(selected.id,selected.name);},[outlet,outlets,setOutlet]);
  const refresh=useCallback(async()=>{
   if(!outlets.some(value=>value.id===outlet))return;setLoading(true);
