@@ -33,7 +33,7 @@ export default function AdminWorkspace({initialSection='articles'}){
  const target=importTarget==='prod'?productionOutlet:outlet;
  useEffect(()=>{const selected=outlets.find(o=>o.id===outlet);if(selected)setOutlet(selected.id,selected.name);},[outlet,outlets,setOutlet]);
  const refresh=useCallback(async()=>{
-  if(!outlets.some(value=>value.id===outlet))return;setLoading(true);
+  if(!outlets.some(value=>value.id===outlet))return null;setLoading(true);
   try{
    let c=await adminApi('list',{outlet_id:outlet});setCatalog(c);
    if(c.operation&&c.operation.status!=='completed'){
@@ -43,6 +43,7 @@ export default function AdminWorkspace({initialSection='articles'}){
    if(section==='import')setOperation(await adminApi('status',{outlet_id:target,target_environment:importTarget}));else setOperation(c);
    if(section==='approvals')setQueue(await adminApi('queue',{outlet_id:outlet}));
    if(section==='history')setHistory(await adminApi('history',{outlet_id:outlet}));
+   return c;
   }finally{setLoading(false);}
  },[outlet,outlets,section,target,importTarget]);
  useEffect(()=>{let live=true;refresh().catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[refresh]);
@@ -55,8 +56,12 @@ export default function AdminWorkspace({initialSection='articles'}){
   let result;
   try{result=await advance(await adminApi('start',{outlet_id:outlet,request_id,articles:[definition],...(expected?{expected}:{})}));}
   catch(failure){
-   // Reload the confirmed state and finish any stored operation, so the next attempt starts from the true catalog.
-   await refresh().catch(()=>{});setMessage('');throw failure;
+   // Reload the confirmed state, finish any stored operation, and let the open editor continue against it
+   // instead of resubmitting an outdated fingerprint that would be rejected again.
+   const fresh=await refresh().catch(()=>null);
+   const row=(fresh?.articles||[]).find(current=>current.definition?.id&&current.definition.id===definition.id);
+   if(row)setEditor(current=>current?.article?{...current,article:{...current.article,fingerprint:row.fingerprint}}:current);
+   setMessage('');throw failure;
   }
   setEditor(null);setMessage('Artikel vollständig gespeichert. Bestände wurden nicht verändert.');requestRef.current=null;
   if(proposal){

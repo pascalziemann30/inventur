@@ -5,9 +5,11 @@ const messages={ARTICLE_SELECTION_INVALID:'Bitte mindestens einen und höchstens
 export async function adminApi(action,input={}){
  try{const {data}=await inventoryCatalogClient.functions.invoke('catalogAdmin',{action,...input});return data;}
  catch(error){const data=error.data?.error?error.data:error.response?.data||error.data||{},code=data.error;
-  // The technical reason stays in the browser console; the screen keeps one clear instruction.
   if(data.detail||code)console.warn('catalogAdmin',action,data);
-  throw Object.assign(new Error(`${(code==='ARTICLE_REQUIRED_FIELDS'?articleFieldMessage(data.field):messages[code])||`Änderung nicht bestätigt. Bitte den gespeicherten Stand neu laden.`}`),{code,field:data.field});}
+  const known=code==='ARTICLE_REQUIRED_FIELDS'?articleFieldMessage(data.field):messages[code];
+  // An unrecognised failure reports its code and technical reason once instead of repeating silently.
+  const reason=typeof data.detail==='string'&&data.detail.trim()?` ${data.detail.trim().slice(0,200)}`:'';
+  throw Object.assign(new Error(known||`Änderung nicht bestätigt. Bitte den gespeicherten Stand neu laden.${code?` [${code}]`:''}${reason}`),{code,field:data.field});}
 }
 export async function finishCatalogOperation(state,{target_environment,onProgress=()=>{}}={}){
  let current=state;
