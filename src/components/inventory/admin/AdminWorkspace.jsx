@@ -35,10 +35,12 @@ export default function AdminWorkspace({initialSection='articles'}){
  const refresh=useCallback(async()=>{
   if(!outlets.some(value=>value.id===outlet))return null;setLoading(true);
   try{
-   let c=await adminApi('list',{outlet_id:outlet});setCatalog(c);
+   // An incomplete response must never replace the loaded catalog with an unreadable object.
+   const loadCatalog=async()=>{const loaded=await adminApi('list',{outlet_id:outlet});if(!Array.isArray(loaded?.articles))throw Error(`Die Artikelliste kam unvollständig zurück (${Object.keys(loaded||{}).join(', ')||'leer'}). Bitte die Seite neu laden.`);return loaded;};
+   let c=await loadCatalog();setCatalog(c);
    if(c.operation&&c.operation.status!=='completed'){
     try{await finishCatalogOperation(c,{onProgress:setOperation});setMessage('Ein offener Vorgang wurde abgeschlossen.');}catch(resume){setError(resume.message);}
-    c=await adminApi('list',{outlet_id:outlet});setCatalog(c);
+    c=await loadCatalog();setCatalog(c);
    }
    if(section==='import')setOperation(await adminApi('status',{outlet_id:target,target_environment:importTarget}));else setOperation(c);
    if(section==='approvals')setQueue(await adminApi('queue',{outlet_id:outlet}));
@@ -89,9 +91,9 @@ export default function AdminWorkspace({initialSection='articles'}){
  const classify=async input=>{let success=false;await work(async()=>{const request_id=requestKey(JSON.stringify({classification:input,outlet}));await advance(await adminApi('classify',{outlet_id:outlet,request_id,...input}));requestRef.current=null;await refresh();setMessage('Artikelzuordnungen gespeichert. Mengen, Einheiten und Preise sind unverändert.');success=true;});return success;};
  const subcategoryChange=async input=>{let success=false;await work(async()=>{const request_id=requestKey(JSON.stringify({subcategory:input,outlet}));await withLifecycleDeadline(async()=>advance(await adminApi('subcategory',{outlet_id:outlet,request_id,...input})));requestRef.current=null;await refresh();setMessage(input.mode==='remove'?'Unterkategorie gelöscht. Die Artikel bleiben in der Hauptkategorie.':'Unterkategorie gespeichert.');success=true;});return success;};
  const activeOperation=operation?.operation&&operation.operation.status!=='completed';
- const visible=catalog?.articles.filter(row=>(filter==='deleted'?!!row.deleted_at:!row.deleted_at&&(filter==='all'||(filter==='active'?row.definition.is_active:!row.definition.is_active)))&&`${row.definition.name} ${row.definition.supplier} ${row.definition.sku}`.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')))||[];
+ const visible=(catalog?.articles||[]).filter(row=>(filter==='deleted'?!!row.deleted_at:!row.deleted_at&&(filter==='all'||(filter==='active'?row.definition.is_active:!row.definition.is_active)))&&`${row.definition.name} ${row.definition.supplier} ${row.definition.sku}`.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')))||[];
  const selectionMode=selection.outlet===outlet&&selection.mode&&filter!=='deleted';
- const selected=selectionMode?selection.rows.filter(row=>catalog?.articles.some(current=>current.definition.id===row.definition.id&&!current.deleted_at)):[];
+ const selected=selectionMode?selection.rows.filter(row=>(catalog?.articles||[]).some(current=>current.definition.id===row.definition.id&&!current.deleted_at)):[];
  const cancelSelection=()=>setSelection({outlet,mode:false,rows:[]});
  const selectRows=(rows,checked)=>setSelection(current=>{const items=new Map((current.outlet===outlet?current.rows:[]).map(row=>[row.definition.id,row]));for(const row of rows){if(checked)items.set(row.definition.id,row);else items.delete(row.definition.id);}return {outlet,mode:true,rows:[...items.values()]};});
  const discardSelected=()=>work(async()=>{
