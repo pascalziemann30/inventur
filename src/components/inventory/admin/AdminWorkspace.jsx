@@ -30,13 +30,13 @@ export default function AdminWorkspace({initialSection='articles'}){
  useEffect(()=>{let live=true;adminApi('outlets',{outlet_id:productionOutlet}).then(({outlets:rows})=>{if(!live)return;const valid=rows.filter(o=>o.type!=='AGGREGATOR'&&o.is_active);setOutlets(valid);setCurrentOutlet(value=>valid.some(o=>o.id===value)?value:valid.find(o=>o.is_active)?.id||valid[0]?.id||'');}).catch(()=>setError('Standorte konnten nicht geladen werden.'));return()=>{live=false;};},[]);
  useEffect(()=>{const selected=outlets.find(o=>o.id===outlet);if(selected)setOutlet(selected.id,selected.name);},[outlet,outlets,setOutlet]);
  const refresh=useCallback(async()=>{
-  if(!outlet)return;setLoading(true);
+  if(!outlets.some(value=>value.id===outlet))return;setLoading(true);
   try{
    let c=await adminApi('list',{outlet_id:outlet});setCatalog(c);if(['article-purge','subcategory-setup'].includes(c.operation?.kind)&&c.operation.status!=='completed'){await finishCatalogOperation(c,{onProgress:setOperation});c=await adminApi('list',{outlet_id:outlet});setCatalog(c);}if(section==='import')setOperation(await adminApi('status',{outlet_id:target,target_environment:importTarget}));else setOperation(c);
    if(section==='approvals')setQueue(await adminApi('queue',{outlet_id:outlet}));
    if(section==='history')setHistory(await adminApi('history',{outlet_id:outlet}));
   }finally{setLoading(false);}
- },[outlet,section,target,importTarget]);
+ },[outlet,outlets,section,target,importTarget]);
  useEffect(()=>{let live=true;refresh().catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[refresh]);
  const chooseSection=value=>{setError('');setMessage('');const next=new URLSearchParams(params);next.set('section',value);setParams(next);};
  const work=async task=>{setBusy(true);setError('');setMessage('');try{await task();}catch(e){setError(e.message);}finally{setBusy(false);}};
