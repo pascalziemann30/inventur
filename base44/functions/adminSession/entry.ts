@@ -11,10 +11,8 @@ const resolveConfig=req=>{
  const origin=req.headers.get('Origin')||'';
  if(origin===inventoryProductionOrigin)return inventoryWorkflowRuntime(secrets,req).config;
  if(!inventoryAppOrigin(origin))throw new BookingError('ORIGIN_FORBIDDEN',403);
- const environment=req.headers.get('X-Data-Env');
- if(environment==='prod')return {...locationEntryConfig(secrets),environment:'prod',origins:[origin]};
- if(environment!=='dev')throw new BookingError('DATA_ENV_REQUIRED',503);
- return {...locationEntryConfig(secrets),environment:'dev',origins:[origin]};
+ // The administration signs in against the same live data as the article catalog, in the preview too.
+ return {...locationEntryConfig(secrets),environment:'prod',origins:[origin]};
 };
 
 export default async(req:Request)=>{

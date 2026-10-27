@@ -4,7 +4,7 @@ export function createAdminSessionHandler({createClientFromRequest,config,storeF
  return async req=>{
   try{
    if(req.method!=='POST')throw new BookingError('METHOD_NOT_ALLOWED',405);
-   if(!config.origins.includes(req.headers.get('Origin'))||req.headers.get('X-Data-Env')!==(config.environment||'dev'))throw new BookingError('ORIGIN_FORBIDDEN',403);
+   if(!config.origins.includes(req.headers.get('Origin')))throw new BookingError('ORIGIN_FORBIDDEN',403);
    const raw=await req.text();if(raw.length>1500)throw new BookingError('REQUEST_TOO_LARGE',413);
    const body=JSON.parse(raw);if(!body||Array.isArray(body)||!['context','login','logout'].includes(body.action)||Object.keys(body).some(k=>!['action',...(body.action==='login'?['password']:[])].includes(k)))throw new BookingError('INVALID_REQUEST',400);
    const client=createClientFromRequest(req),store=storeFor(client.asServiceRole.entities);

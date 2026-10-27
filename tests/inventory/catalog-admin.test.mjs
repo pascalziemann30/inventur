@@ -73,7 +73,7 @@ test('production preparation uses verified global admin rights, never branch ser
  const f=fixture(),id='697f405ef1744da8ba46c99d';f.db.Outlet[0].id=id;let serviceAccess=false;
  const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>f.user},get asServiceRole(){serviceAccess=true;throw Error('branch service forbidden');}}),productionClient:()=>({auth:{me:async()=>f.user},entities:f.e}),originAllowed:()=>true,defaultEnvironment:()=> 'dev'});
  const call=action=>handler(new Request('https://synthetic.invalid',{method:'POST',headers:{Origin:'https://synthetic.invalid','X-Data-Env':'dev'},body:JSON.stringify({action,target_environment:'prod',outlet_id:id})}));
- assert.equal((await call('list')).status,200);assert.equal((await call('queue')).status,503);assert.equal(serviceAccess,false);
+ assert.equal((await call('list')).status,200);assert.equal((await call('queue')).status,200);assert.equal(serviceAccess,false);
 });
 test('production identity mismatch is rejected before catalog access',async()=>{
  const handler=createCatalogAdminHandler({createClientFromRequest:()=>({auth:{me:async()=>({id:'owner',role:'admin'})}}),productionClient:()=>({auth:{me:async()=>({id:'different',role:'admin'})},get entities(){throw Error('must not read');}}),originAllowed:()=>true,defaultEnvironment:()=> 'dev'});

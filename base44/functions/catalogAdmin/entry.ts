@@ -5,21 +5,20 @@ import {locationEntryConfig,inventoryAppOrigin} from '../../shared/inventory/loc
 import {secrets} from 'base44:runtime';
 import {assertProductionRuntime,inventoryProductionOrigin,normalizePublicInventoryRequest} from '../../shared/inventory/operationalAccess.js';
 const appId='6975d510bbe0422af7fe76ca';
-const handler=createCatalogAdminHandler({createClientFromRequest,
- resolveAdmin:(req,client)=>inventoryRequestActor(req,client,{...locationEntryConfig(secrets),environment:'prod'}),
+const bearer=req=>{const value=req.headers.get('Authorization')||'';return value.startsWith('Bearer ')?value.slice(7).trim():'';};
+// The article catalog always works on the app's live data, in the published app and in the preview.
+// The data surface is decided here, never by a browser-supplied header, and identity stays authoritative:
+// only a signed-in app administrator reaches this point, verified against the same live data.
+const productionClient=req=>createClient({appId,serverUrl:'https://base44.app',token:bearer(req),headers:{'X-Data-Env':'prod'}});
+const handler=createCatalogAdminHandler({createClientFromRequest,productionClient,
+ resolveAdmin:req=>inventoryRequestActor(req,productionClient(req),{...locationEntryConfig(secrets),environment:'prod'}),
  originAllowed:inventoryAppOrigin,
- // The article catalog always works on the app's live data, also from the builder preview.
- // Identity stays authoritative: only a signed-in app administrator reaches this point.
  defaultEnvironment:req=>{
   const origin=req.headers.get('Origin')||'';
-  if(!inventoryAppOrigin(origin))throw Error('Environment mismatch');
-  if(req.headers.get('X-Data-Env')!=='prod')throw Error('Environment mismatch');
+  if(!inventoryAppOrigin(origin))throw Error('Origin not allowed');
   if(origin===inventoryProductionOrigin)assertProductionRuntime(req);
   return 'prod';
  },
- // One-off approved production preparation uses only the existing native admin's rights,
- // canonical global API and fixed app. Never forward a preview service token into production.
- productionClient:req=>createClient({appId,serverUrl:'https://base44.app',token:(req.headers.get('Authorization')||'').replace(/^Bearer /,''),headers:{'X-Data-Env':'prod'}}),
 });
 
 export default (req:Request)=>handler(normalizePublicInventoryRequest(req));
