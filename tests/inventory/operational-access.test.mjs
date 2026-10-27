@@ -41,9 +41,9 @@ test('preview/branch, foreign origin/app/API and unknown environments are reject
   {'X-Data-Env':'unrecognized'}])assert((await handler(f.req(patch))).status>=400);
  assert.equal(touched,0);
 });
-test('test runtime remains gated and uses its original preview origin; a prod flag cannot open it',()=>{
+test('test runtime stays writable by decision and uses its original preview origin; a prod flag cannot open it',()=>{
  const f=fixture(),runtime=inventoryWorkflowRuntime(f.secrets,f.req({'X-Data-Env':'dev'}));
- assert.equal(runtime.environment,'dev');assert.equal(runtime.enabled,false);
+ assert.equal(runtime.environment,'dev');assert.equal(runtime.enabled,true);
  assert(!runtime.config.origins.includes(inventoryProductionOrigin));
 });
 test('production cookie has a separate name, a one-hour maximum and exactly the fixed Kuno outlet',async()=>{

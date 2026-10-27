@@ -104,7 +104,7 @@ test('current Main preview accepts only a verified native administrator and stay
  const origin='https://preview--siftcntrl-bestand.base44.app';
  const request=(host=origin)=>new Request(`${origin}/api/test`,{method:'POST',headers:{Origin:host,'X-Data-Env':'dev'},body:JSON.stringify({action:'context'})});
  const runtime=inventoryWorkflowRuntime({get:()=>undefined},request());
- assert.equal(runtime.environment,'dev');assert.equal(runtime.enabled,false);
+ assert.equal(runtime.environment,'dev');assert.equal(runtime.enabled,true);
  let actor={id:'existing-owner',role:'admin'},authReads=0;
  const handler=createAdminSessionHandler({config:runtime.config,storeFor:()=>({}),createClientFromRequest:()=>({auth:{me:async()=>{authReads++;return actor;}},asServiceRole:{entities:{}}})});
  assert.deepEqual(await(await handler(request())).json(),{authenticated:true,method:'native'});
