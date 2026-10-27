@@ -98,3 +98,21 @@ test('only an unexpired signed legacy session is upgraded and keeps its original
  assert.equal(renewed.issued_at,at);assert.equal(renewed.expires_at,at+30*24*3600000);
  await assert.rejects(adminSessionContext({...f,req:f.req(legacy),now:at+3600000}),{code:'ADMIN_PASSWORD_REQUIRED'});
 });
+
+test('current Main preview accepts only a verified native administrator and stays in development',async()=>{
+ const {inventoryWorkflowRuntime}=await import('../../base44/shared/inventory/operationalAccess.js');
+ const origin='https://preview--siftcntrl-bestand.base44.app';
+ const request=(host=origin)=>new Request(`${origin}/api/test`,{method:'POST',headers:{Origin:host,'X-Data-Env':'dev'},body:JSON.stringify({action:'context'})});
+ const runtime=inventoryWorkflowRuntime({get:()=>undefined},request());
+ assert.equal(runtime.environment,'dev');assert.equal(runtime.enabled,false);
+ let actor={id:'existing-owner',role:'admin'},authReads=0;
+ const handler=createAdminSessionHandler({config:runtime.config,storeFor:()=>({}),createClientFromRequest:()=>({auth:{me:async()=>{authReads++;return actor;}},asServiceRole:{entities:{}}})});
+ assert.deepEqual(await(await handler(request())).json(),{authenticated:true,method:'native'});
+ actor={id:'employee',role:'user'};
+ assert.equal((await(await handler(request())).json()).authenticated,false);
+ actor=null;
+ assert.equal((await(await handler(request())).json()).authenticated,false);
+ const before=authReads;
+ for(const host of ['https://preview--foreign.base44.app','https://foreign.invalid'])assert.equal((await handler(request(host))).status,403);
+ assert.equal(authReads,before);
+});
