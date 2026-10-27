@@ -17,7 +17,7 @@ export function createAdminSessionHandler({createClientFromRequest,config,storeF
    if(req.headers.get('X-Inventory-Mode')!=='employee'){
     try{const native=await client.auth.me();if(native?.id&&native.role==='admin')return Response.json({authenticated:true,method:'native'},{headers:{'Cache-Control':'no-store'}});}catch{}
    }
-   try{const result=await adminSessionContext({req,config,store,now:now()});return Response.json({authenticated:true,method:'password',outlet:result.outlet},{headers:{'Cache-Control':'no-store'}});}catch(error){if(!(error instanceof BookingError)||!['ADMIN_PASSWORD_REQUIRED'].includes(error.code))throw error;}
+   try{const result=await adminSessionContext({req,config,store,now:now()});return Response.json({authenticated:true,method:'password',outlet:result.outlet},{headers:{'Cache-Control':'no-store',...(result.cookie?{'Set-Cookie':result.cookie}:{})}});}catch(error){if(!(error instanceof BookingError)||!['ADMIN_PASSWORD_REQUIRED'].includes(error.code))throw error;}
    return Response.json({authenticated:false,configured:adminPasswordConfigured(config)},{headers:{'Cache-Control':'no-store'}});
   }catch(error){return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':'ADMIN_LOGIN_UNAVAILABLE'},{status:error instanceof BookingError?error.status:error instanceof SyntaxError?400:503,headers:{'Cache-Control':'no-store'}});}
  };
