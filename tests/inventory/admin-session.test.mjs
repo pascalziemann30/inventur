@@ -17,7 +17,7 @@ function fixture(){
 test('password is verified on server, protected cookie only authorizes Kuno15',async()=>{
  const f=fixture(),login=await loginAdminPassword({...f,password:f.config.adminPassword,now:at});
  assert.equal(f.writes(),1);assert.equal(login.user.access_kind,'password_admin');
- assert(login.cookie.startsWith('__Host-inventory_admin_prod='));for(const flag of ['HttpOnly','Secure','SameSite=Strict','Path=/','Max-Age=3600'])assert(login.cookie.includes(flag));
+ assert(login.cookie.startsWith('__Host-inventory_admin_prod='));for(const flag of ['HttpOnly','Secure','SameSite=Strict','Path=/','Max-Age=2592000'])assert(login.cookie.includes(flag));
  assert(!login.cookie.includes(f.config.adminPassword));assert(!login.cookie.includes(f.config.sessionSecret));
  const context=await adminSessionContext({...f,req:f.req(login.cookie.split(';')[0]),now:at+1});
  assert.equal(context.user.role,'admin');assertOutletAccess(context.user,id);assert.throws(()=>assertOutletAccess(context.user,'different-outlet'),{code:'OUTLET_FORBIDDEN'});
@@ -26,7 +26,7 @@ test('wrong password, missing configuration, tampering, expiry, environment and 
  const f=fixture();await assert.rejects(loginAdminPassword({...f,password:'wrong',now:at}),{code:'ADMIN_PASSWORD_INCORRECT'});
  await assert.rejects(loginAdminPassword({...f,config:{...f.config,adminPassword:undefined},password:'anything',now:at}),{code:'ADMIN_PASSWORD_NOT_CONFIGURED'});
  const login=await loginAdminPassword({...f,password:f.config.adminPassword,now:at}),cookie=login.cookie.split(';')[0];
- for(const [cfg,token,now]of [[f.config,'',at],[f.config,cookie.replace(/.$/,'!'),at],[f.config,cookie,at+3600000],[{...f.config,environment:'dev'},cookie,at],[{...f.config,adminPassword:'different-strong-test-password'},cookie,at]])await assert.rejects(adminSessionContext({req:f.req(token),config:cfg,store:f.store,now}),{code:'ADMIN_PASSWORD_REQUIRED'});
+ for(const [cfg,token,now]of [[f.config,'',at],[f.config,cookie.replace(/.$/,'!'),at],[f.config,cookie,at+30*24*3600000],[{...f.config,environment:'dev'},cookie,at],[{...f.config,adminPassword:'different-strong-test-password'},cookie,at]])await assert.rejects(adminSessionContext({req:f.req(token),config:cfg,store:f.store,now}),{code:'ADMIN_PASSWORD_REQUIRED'});
  f.setOutlet({is_active:false});await assert.rejects(adminSessionContext({...f,req:f.req(cookie),now:at+2}),{code:'LOCATION_OUTLET_INACTIVE'});
 });
 test('parallel attempts reserve a bounded durable slot and recover after five minutes',async()=>{
@@ -71,4 +71,30 @@ test('valid password session loads the scoped admin catalog with no native user 
  const request=action=>new Request('https://inventory.invalid',{method:'POST',headers:{Origin:f.config.origins[0],'X-Data-Env':'prod','X-Inventory-Mode':'password_admin',Cookie:login.cookie.split(';')[0]},body:JSON.stringify({action,outlet_id:id})});
  const list=await handler(request('list'));assert.equal(list.status,200);assert.equal((await list.json()).outlet.id,id);
  const outlets=await handler(request('outlets'));assert.equal(outlets.status,200);assert.deepEqual((await outlets.json()).outlets.map(o=>o.id),[id]);assert.equal(nativeCalls,0);
+});
+
+test('remembered admin survives navigation and browser reopening, with a fixed thirty-day deadline',async()=>{
+ const f=fixture(),login=await loginAdminPassword({...f,password:f.config.adminPassword,now:at});
+ const cookie=login.cookie.split(';')[0];
+ for(const elapsed of [3600001,7*24*3600000,30*24*3600000-1]){
+  const context=await adminSessionContext({...f,req:f.req(cookie),now:at+elapsed});
+  assert.equal(context.user.role,'admin');assert.equal(context.cookie,undefined);
+ }
+ await assert.rejects(adminSessionContext({...f,req:f.req(cookie),now:at+30*24*3600000}),{code:'ADMIN_PASSWORD_REQUIRED'});
+});
+test('only an unexpired signed legacy session is upgraded and keeps its original sign-in deadline',async()=>{
+ const f=fixture(),login=await loginAdminPassword({...f,password:f.config.adminPassword,now:at});
+ const original=login.cookie.split(';')[0],name=original.slice(0,original.indexOf('='));
+ const claims=JSON.parse(Buffer.from(original.split('=')[1].split('.')[0],'base64url').toString());
+ claims.expires_at=at+3600000;
+ const payload=Buffer.from(JSON.stringify(claims)).toString('base64url');
+ const raw=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`inventory-admin-key-v1\n${f.config.sessionSecret}\n${f.config.adminPassword}`));
+ const key=await crypto.subtle.importKey('raw',raw,{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const signature=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(`inventory-admin-session-v1.${payload}`))).toString('base64url');
+ const legacy=`${name}=${payload}.${signature}`;
+ const upgraded=await adminSessionContext({...f,req:f.req(legacy),now:at+600000});
+ assert(upgraded.cookie.includes('Max-Age=2591400'));
+ const renewed=JSON.parse(Buffer.from(upgraded.cookie.split('=')[1].split('.')[0],'base64url').toString());
+ assert.equal(renewed.issued_at,at);assert.equal(renewed.expires_at,at+30*24*3600000);
+ await assert.rejects(adminSessionContext({...f,req:f.req(legacy),now:at+3600000}),{code:'ADMIN_PASSWORD_REQUIRED'});
 });
