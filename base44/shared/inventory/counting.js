@@ -1,5 +1,7 @@
 import {addQuantity, scaledQuantity, toBaseQuantity} from './quantities.js';
 
+// Shared counting rules used by the server run store and by the browser counting workspace.
+
 export function unitsFor(entry) {
     const units = entry.count_units || [];
     if (!units.length || new Set(units.map(unit => unit.code)).size !== units.length) {
