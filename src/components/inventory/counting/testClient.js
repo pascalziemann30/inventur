@@ -15,6 +15,8 @@ const catalog=createClient({...options,token:appParams.token,headers:{'X-Data-En
 const catalogPassword=createClient({...options,token:appParams.token,headers:{'X-Data-Env':'prod','X-Inventory-Mode':'password_admin'}});
 // The article catalog always reads and writes the live data, in preview and in the published app.
 export const inventoryCatalogClient={functions:{invoke:(name,input)=>(passwordAdminMode()?catalogPassword:catalog).functions.invoke(name,input)}};
+// The admin session belongs to that same live data surface, in the preview and after publishing.
+export const inventoryAdminSessionClient=inventoryCatalogClient;
 export const inventoryAdminTestClient=createClient({...options,token:appParams.token,headers:{'X-Data-Env':'dev'}});
 export const employeeTestClient=createClient({...options,headers:{'X-Data-Env':inventoryEnvironment,'X-Inventory-Mode':'employee'}});
 export const inventoryTestClient=entryTransport({admin:inventoryAdminClient,employee:employeeTestClient});
