@@ -33,7 +33,12 @@ export default function AdminWorkspace({initialSection='articles'}){
  const refresh=useCallback(async()=>{
   if(!outlets.some(value=>value.id===outlet))return;setLoading(true);
   try{
-   let c=await adminApi('list',{outlet_id:outlet});setCatalog(c);if(['article-purge','subcategory-setup'].includes(c.operation?.kind)&&c.operation.status!=='completed'){await finishCatalogOperation(c,{onProgress:setOperation});c=await adminApi('list',{outlet_id:outlet});setCatalog(c);}if(section==='import')setOperation(await adminApi('status',{outlet_id:target,target_environment:importTarget}));else setOperation(c);
+   let c=await adminApi('list',{outlet_id:outlet});setCatalog(c);
+   if(c.operation&&c.operation.status!=='completed'){
+    try{await finishCatalogOperation(c,{onProgress:setOperation});setMessage('Ein offener Vorgang wurde abgeschlossen.');}catch(resume){setError(resume.message);}
+    c=await adminApi('list',{outlet_id:outlet});setCatalog(c);
+   }
+   if(section==='import')setOperation(await adminApi('status',{outlet_id:target,target_environment:importTarget}));else setOperation(c);
    if(section==='approvals')setQueue(await adminApi('queue',{outlet_id:outlet}));
    if(section==='history')setHistory(await adminApi('history',{outlet_id:outlet}));
   }finally{setLoading(false);}
