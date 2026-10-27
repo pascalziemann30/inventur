@@ -15,7 +15,10 @@ export default function ArticleEditor({article,proposal,suppliers,categories,sub
  const [suggestion,setSuggestion]=useState('');
  const children=subcategories.filter(row=>row.parent_name===canonicalCategory(form.category));
  const propose=()=>{const result=suggestSubcategory(form.name,form.category,subcategories);if(result){setForm(current=>({...current,subcategory_id:result.id}));setSuggestion(`Vorschlag: ${result.name}. ${result.reason}. Noch nicht gespeichert – du kannst die Auswahl ändern.`);}else setSuggestion('Kein eindeutiger Vorschlag. Bitte selbst auswählen oder nur die Hauptkategorie verwenden.');};
- const [distinct,setDistinct]=useState(false),dialog=useRef(null);
+ const [distinct,setDistinct]=useState(false),dialog=useRef(null),errorRef=useRef(null),firstRender=useRef(true);
+ const visibleError=localError||error||'';
+ // A failed save must never look like a dead button: bring the reason into view.
+ useEffect(()=>{if(firstRender.current){firstRender.current=false;return;}if(visibleError)errorRef.current?.scrollIntoView({block:'center'});},[visibleError]);
  const similar=article?[]:similarArticles(form.name,(existingArticles||[]).map(r=>({id:r.definition.id,name:r.definition.name,supplier:r.definition.supplier,active:r.definition.is_active})));
  useEffect(()=>{setDistinct(false);},[form.name,form.supplier,form.unit,form.sku]);
  useEffect(()=>{if(dialog.current&&!dialog.current.open)dialog.current.showModal();},[]);
@@ -45,7 +48,7 @@ export default function ArticleEditor({article,proposal,suppliers,categories,sub
  const basePrice=Number(String(form.net_price).replace(',','.'))/Number(String(form.factor).replace(',','.'));
  return <dialog ref={dialog} className="admin-editor" aria-labelledby="article-editor-title" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}><form onSubmit={e=>{e.preventDefault();const cleaned=cleanArticleText({...form,distinct_confirmed:distinct}),field=invalidArticleField(cleaned);if(field){setLocalError(articleFieldMessage(field));e.currentTarget.elements.namedItem(field)?.focus();return;}setLocalError('');onSave(cleaned,{expected:article?.fingerprint,proposal});}}>
   <header><div><p className="count-eyebrow">ARTIKELPFLEGE</p><h2 id="article-editor-title">{article?'Artikel bearbeiten':proposal?'Artikel aus Vorschlag anlegen':'Artikel anlegen'}</h2></div><button type="button" disabled={busy} onClick={onClose} aria-label="Artikel schließen">✕</button></header>
-  {(error||localError)&&<p className="count-error" role="alert">{localError||error}</p>}
+  {visibleError&&<p className="count-error" role="alert" ref={errorRef}>{visibleError}</p>}
   {proposal&&<p className="count-preview">Originalbezeichnung: {proposal.source.original_name}. Produkt, Basiseinheit und Gebinde bitte vor der Anlage prüfen. Die Lieferposition wird anschließend separat zugeordnet und gebucht.</p>}
   <div className="admin-form-grid">{field('name','Artikelbezeichnung',{maxLength:300})}{referenceSelect('supplier','Lieferant',suppliers)}{referenceSelect('category','Hauptkategorie',categoryChoices(categories))}
    <label>Basiseinheit<select name="unit" aria-label="Basiseinheit" required disabled={busy} value={article?targetUnit:form.unit} onChange={e=>chooseBase(e.target.value)}><option value="">Bitte wählen</option>{[...new Set([...presets,...units,form.unit])].filter(Boolean).map(u=><option key={u} value={u}>{unitLabel(u)}</option>)}</select></label>

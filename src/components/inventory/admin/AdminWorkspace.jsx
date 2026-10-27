@@ -27,7 +27,9 @@ export default function AdminWorkspace({initialSection='articles'}){
  const [error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[search,setSearch]=useState(''),[filter,setFilter]=useState('active'),[editor,setEditor]=useState(null),[operation,setOperation]=useState(null);
  const [selection,setSelection]=useState({outlet:'',mode:false,rows:[]});
  const [importData,setImportData]=useState(null),[importTarget,setImportTarget]=useState('prod'),[importChecked,setImportChecked]=useState(false);
- const requestRef=useRef(null),fileRef=useRef(null);
+ const requestRef=useRef(null),fileRef=useRef(null),errorRef=useRef(null);
+ // A failed action must be readable where the administrator is working, not only at the top of the page.
+ useEffect(()=>{if(error)errorRef.current?.scrollIntoView({block:'center'});},[error]);
  const target=importTarget==='prod'?productionOutlet:outlet;
  useEffect(()=>{const selected=outlets.find(o=>o.id===outlet);if(selected)setOutlet(selected.id,selected.name);},[outlet,outlets,setOutlet]);
  const refresh=useCallback(async()=>{
@@ -45,13 +47,18 @@ export default function AdminWorkspace({initialSection='articles'}){
  },[outlet,outlets,section,target,importTarget]);
  useEffect(()=>{let live=true;refresh().catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[refresh]);
  const chooseSection=value=>{setError('');setMessage('');const next=new URLSearchParams(params);next.set('section',value);setParams(next);};
- const work=async task=>{setBusy(true);setError('');setMessage('');try{await task();}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const work=async task=>{setBusy(true);setError('');setMessage('');try{await task();}catch(e){setError(e?.message||'Die Änderung wurde nicht bestätigt. Bitte den gespeicherten Stand laden.');}finally{setBusy(false);}};
  const requestKey=signature=>{if(requestRef.current?.signature!==signature)requestRef.current={signature,id:crypto.randomUUID()};return requestRef.current.id;};
  const advance=async(state,environment)=>finishCatalogOperation(state,{target_environment:environment,onProgress:setOperation});
  const save=(definition,{expected,proposal})=>work(async()=>{
   const request_id=requestKey(JSON.stringify({definition,expected}));
-  const state=await adminApi('start',{outlet_id:outlet,request_id,articles:[definition],...(expected?{expected}:{})});
-  const result=await advance(state);setEditor(null);setMessage('Artikel vollständig gespeichert. Bestände wurden nicht verändert.');requestRef.current=null;
+  let result;
+  try{result=await advance(await adminApi('start',{outlet_id:outlet,request_id,articles:[definition],...(expected?{expected}:{})}));}
+  catch(failure){
+   // Reload the confirmed state and finish any stored operation, so the next attempt starts from the true catalog.
+   await refresh().catch(()=>{});setMessage('');throw failure;
+  }
+  setEditor(null);setMessage('Artikel vollständig gespeichert. Bestände wurden nicht verändert.');requestRef.current=null;
   if(proposal){
    const offer=result.operation.results.find(r=>r.key==='article:0:offer:0');
    const {data:draft}=await inventoryAdminClient.functions.invoke('deliveryDrafts',{action:'get',id:proposal.draft_id});
