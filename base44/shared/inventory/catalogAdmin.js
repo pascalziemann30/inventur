@@ -46,10 +46,11 @@ export function normalizeDefinition(input){
 export function adminStore(e){
  const check=result=>{if(result?.success!==true||result.has_more!==false||![0,1].includes(result.updated))fail('CONDITIONAL_WRITE_UNCONFIRMED',503);return result.updated===1;};
  const expectedQuery=values=>Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v===undefined?{$exists:false}:v]));
+ const stableExpected=values=>Object.fromEntries(Object.entries(values||{}).filter(([,value])=>!(Array.isArray(value)&&value.length===0)));
  return {get:(entity,id)=>e[entity].get(id),find:(entity,query={})=>bounded(e[entity].filter(query,'id',501)),
   bulkCreate:(entity,data)=>e[entity].bulkCreate(data),
   remove:(entity,id)=>e[entity].delete(id),
-  cas:async(entity,id,expected,patch)=>check(await e[entity].updateMany({id,...expectedQuery(expected)},{$set:patch})),
+  cas:async(entity,id,expected,patch)=>check(await e[entity].updateMany({id,...expectedQuery(stableExpected(expected))},{$set:patch})),
   async classifyMany(nodes,results){
    const patch=resolveCatalogData(nodes[0].data,results),ids=nodes.map(n=>n.id);
    const before=await bounded(e.OutletItem.filter({id:{$in:ids}},'id',501));
@@ -226,7 +227,7 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
   }
   const id=node.kind==='activate'?(node.id||results.find(r=>r.key===node.item_key)?.id):node.id;
   if(!id)fail('CATALOG_REFERENCE_MISSING');
-  const current=await store.get(node.entity,id),patch=resolveCatalogData(node.data,results),expected=node.kind==='activate'?{is_active:false}:node.expected;
+  const current=await store.get(node.entity,id),patch=resolveCatalogData(node.data,results),expected=node.kind==='activate'?{is_active:false}:stableExpected(node.expected);
   if(!Object.entries(patch).every(([k,v])=>equal(current[k],v))){
    if(!Object.entries(expected).every(([k,v])=>equal(current[k],v))||!await store.cas(node.entity,id,expected,patch))fail('ARTICLE_CHANGED_RELOAD');
   }
