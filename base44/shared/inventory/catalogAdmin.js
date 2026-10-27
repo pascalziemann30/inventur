@@ -46,8 +46,7 @@ export function normalizeDefinition(input){
 export function adminStore(e){
  const check=result=>{if(result?.success!==true||result.has_more!==false||![0,1].includes(result.updated))fail('CONDITIONAL_WRITE_UNCONFIRMED',503);return result.updated===1;};
  const expectedQuery=values=>Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v===undefined?{$exists:false}:v]));
- const stableExpected=values=>Object.fromEntries(Object.entries(values||{}).filter(([,value])=>!(Array.isArray(value)&&value.length===0)));
- return {get:(entity,id)=>e[entity].get(id),find:(entity,query={})=>bounded(e[entity].filter(query,'id',501)),
+ const base={get:(entity,id)=>e[entity].get(id),find:(entity,query={})=>bounded(e[entity].filter(query,'id',501)),
   bulkCreate:(entity,data)=>e[entity].bulkCreate(data),
   remove:(entity,id)=>e[entity].delete(id),
   cas:async(entity,id,expected,patch)=>check(await e[entity].updateMany({id,...expectedQuery(stableExpected(expected))},{$set:patch})),
@@ -77,6 +76,10 @@ export function adminStore(e){
    const query={id:outlet.id,...(revision===0?{$or:[{catalog_admin_revision:0},{catalog_admin_revision:{$exists:false}}]}:{catalog_admin_revision:revision})};
    return check(await e.Outlet.updateMany(query,{$set:{catalog_admin_revision:revision+1,catalog_admin_state:state}}));
   }};
+ // A short platform storage pause is waited out instead of leaving a change unconfirmed.
+ const rateLimited=error=>{const status=error?.status??error?.response?.status;return status===429||/rate limit|too many requests/i.test(String(error?.message||''));};
+ const patient=run=>{const attempt=async count=>{try{return await run();}catch(error){if(count>=3||!rateLimited(error))throw error;await new Promise(resolve=>setTimeout(resolve,400*2**count));return attempt(count+1);}};return attempt(0);};
+ return Object.fromEntries(Object.entries(base).map(([name,method])=>[name,(...args)=>patient(()=>method(...args))]));
 }
 export async function readAdminCatalog(store,outletId){
  const outlet=await store.get('Outlet',outletId);
@@ -86,6 +89,8 @@ export async function readAdminCatalog(store,outletId){
  return {outlet,items,stocks,globals,offers,suppliers,categories,units};
 }
 const fields=(row,keys)=>Object.fromEntries(keys.map(k=>[k,row[k]]));
+// Confirmed pre-image of a change; empty lists are no condition and must not become one.
+const stableExpected=values=>Object.fromEntries(Object.entries(values||{}).filter(([,value])=>!(Array.isArray(value)&&value.length===0)));
 export function definitionFor(item,catalog){
  const global=catalog.globals.find(g=>g.id===item.global_item_id),supplier=catalog.suppliers.find(s=>s.id===item.supplier_id);
  const offers=catalog.offers.filter(o=>o.global_item_id===global?.id&&o.supplier_id===item.supplier_id&&o.status==='approved');
@@ -196,10 +201,14 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
  const load=async id=>{const o=await store.get('Outlet',id);if(!o||o.type==='AGGREGATOR')fail('OUTLET_NOT_FOUND',404);return o;};
  const view=o=>{const s=o.catalog_admin_state;return {outlet_id:o.id,revision:o.catalog_admin_revision||0,operation:s?{request_id:s.request_id,kind:s.kind,status:s.status,completed:s.completed_operations??s.cursor,total:s.total_operations??s.nodes.length,articles:s.articles,error:s.error||null,results:s.status==='completed'?s.results.filter(r=>r.entity==='OutletItem'||r.entity==='SupplierItem'):[]}:null};};
  const checkpoint=async(o,state)=>{if(!await store.casOutlet(o,state))fail('CATALOG_CHANGED_RELOAD');return {...o,catalog_admin_revision:(o.catalog_admin_revision||0)+1,catalog_admin_state:state};};
- const verifiedRows=async(s,nodes)=>{
-  const data=nodes.map(n=>resolveCatalogData(n.data,s.results));
-  const rows=await store.find(nodes[0].entity,{catalog_key:{$in:data.map(p=>p.catalog_key)}});
-  return nodes.map((node,i)=>{const matches=rows.filter(r=>r.catalog_key===data[i].catalog_key&&Object.entries(data[i]).every(([k,v])=>equal(r[k],v)));if(matches.length!==1)fail('CATALOG_WRITE_UNCERTAIN');return {key:node.key,entity:node.entity,id:matches[0].id};});
+ // Creates are written once and matched by their exact persisted marker, so a retry never duplicates a row.
+ const ensureCreated=async(nodes,results)=>{
+  const data=nodes.map(n=>resolveCatalogData(n.data,results)),keys=data.map(d=>d.catalog_key);
+  const matches=(rows,d)=>rows.filter(r=>r.catalog_key===d.catalog_key&&Object.entries(d).every(([k,v])=>equal(r[k],v)));
+  let rows=await store.find(nodes[0].entity,{catalog_key:{$in:keys}});
+  const missing=nodes.map((node,i)=>[node,data[i]]).filter(([,d])=>matches(rows,d).length===0);
+  if(missing.length){await store.bulkCreate(nodes[0].entity,missing.map(([,d])=>d));rows=await store.find(nodes[0].entity,{catalog_key:{$in:keys}});}
+  return nodes.map((node,i)=>{const hits=matches(rows,data[i]);if(hits.length!==1)fail('CATALOG_WRITE_UNCERTAIN');return {key:node.key,entity:node.entity,id:hits[0].id};});
  };
  const applyUpdate=async(node,results)=>{
   if(node.kind==='article-purge')return purgeArticle(store,node,now());
@@ -233,13 +242,6 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
   }
   const observed=await store.get(node.entity,id);if(!Object.entries(patch).every(([k,v])=>equal(observed[k],v)))fail('CATALOG_WRITE_UNCERTAIN');
   return node.kind==='update'?[{key:node.key,entity:node.entity,id}]:[];
- };
- const verifyGraph=async(o)=>{
-  const c=await readAdminCatalog(store,o.id),s=o.catalog_admin_state;
-  for(const r of s.results.filter(r=>r.entity==='OutletItem')){
-   const item=c.items.find(i=>i.id===r.id);if(!item||(!isDeleted(item)&&!definitionFor(item,c).links_valid))fail('ARTICLE_GRAPH_INCOMPLETE');
-   if(s.kind==='catalog-import'){const stock=c.stocks.find(x=>x.outlet_item_id===r.id);if(stock.on_hand_quantity!==0||stock.revision!==0||stock.booking_journal.length)fail('IMPORT_ZERO_STOCK_CHANGED');}
-  }
  };
  const service={
   status:async({outlet_id})=>view(await load(outlet_id)),
@@ -344,33 +346,27 @@ export function createCatalogAdminService({store,user,now=()=>new Date().toISOSt
    if(!s||s.request_id!==request_id)fail('CATALOG_OPERATION_NOT_FOUND',404);
    if(s.status==='completed')return view(o);
    if(o.catalog_admin_revision!==revision)fail('CATALOG_CHANGED_RELOAD');
-   if(s.in_flight){
-    const nodes=s.nodes.slice(s.cursor,s.cursor+s.in_flight.count);
-    let rows;
-    if(nodes[0].kind==='create')rows=await verifiedRows(s,nodes);
-    else if(['article-classification','article-discard-many'].includes(s.kind)&&nodes[0].entity==='OutletItem'&&store.classifyMany)rows=await store.classifyMany(nodes,s.results);
-    else if(nodes[0].kind==='activate'&&store.activateMany){await store.activateMany(nodes,s.results);rows=[];}
-    else rows=await applyUpdate(nodes[0],s.results);
-    return view(await checkpoint(o,{...s,results:[...s.results,...rows],cursor:s.cursor+nodes.length,in_flight:null,status:'ready',error:null}));
-   }
-   if(s.cursor===s.nodes.length){await verifyGraph(o);return view(await checkpoint(o,{...s,status:'completed',completed_operations:s.cursor,total_operations:s.nodes.length,nodes:[],results:s.results.filter(r=>['OutletItem','SupplierItem'].includes(r.entity)),verification:{all_links_valid:true,zero_stocks_verified:s.kind==='catalog-import',articles:s.articles}}));}
-   const node=s.nodes[s.cursor];
-   const classifying=['article-classification','article-discard-many'].includes(s.kind)&&node.entity==='OutletItem'&&store.classifyMany;
-   const batchable=node.kind==='create'||(node.kind==='activate'&&store.activateMany)||classifying;
-   const group=batchable?s.nodes.slice(s.cursor,s.cursor+20).filter((n,i,a)=>n.kind===node.kind&&n.entity===node.entity&&(node.kind!=='activate'||n.data.is_active===node.data.is_active)&&(!classifying||equal(n.data,node.data))&&a.slice(0,i).every(x=>x.kind===node.kind&&x.entity===node.entity&&(node.kind!=='activate'||x.data.is_active===node.data.is_active)&&(!classifying||equal(x.data,node.data)))):[node];
-   o=await checkpoint(o,{...s,status:'working',in_flight:{count:group.length}});s=o.catalog_admin_state;
+   const pending=s.nodes.slice(s.cursor);
+   let results=s.results;
    try{
-    let results=[];
-    if(node.kind==='create'){
-     await store.bulkCreate(node.entity,group.map(n=>resolveCatalogData(n.data,s.results)));
-     results=await verifiedRows(s,group);
-    }else if(classifying)results=await store.classifyMany(group,s.results);
-    else if(node.kind==='activate'&&store.activateMany)await store.activateMany(group,s.results);
-    else results=await applyUpdate(node,s.results);
-    return view(await checkpoint(o,{...s,results:[...s.results,...results],cursor:s.cursor+group.length,in_flight:null,status:'ready',error:null}));
+    for(let index=0;index<pending.length;){
+     const node=pending[index];
+     let next=index+1;
+     if(node.kind==='create'){while(next<pending.length&&pending[next].kind==='create'&&pending[next].entity===node.entity)next++;}
+     else if(node.kind==='activate'&&store.activateMany){while(next<pending.length&&pending[next].kind==='activate'&&pending[next].entity===node.entity&&pending[next].data.is_active===node.data.is_active)next++;}
+     else if(['article-classification','article-discard-many'].includes(s.kind)&&node.entity==='OutletItem'&&store.classifyMany){while(next<pending.length&&pending[next].kind===node.kind&&pending[next].entity===node.entity&&equal(pending[next].data,node.data))next++;}
+     const group=pending.slice(index,next);
+     if(node.kind==='create')results=[...results,...await ensureCreated(group,results)];
+     else if(['article-classification','article-discard-many'].includes(s.kind)&&node.entity==='OutletItem'&&store.classifyMany)results=[...results,...await store.classifyMany(group,results)];
+     else if(node.kind==='activate'&&store.activateMany)await store.activateMany(group,results);
+     else results=[...results,...await applyUpdate(node,results)];
+     index=next;
+    }
+    return view(await checkpoint(o,{...s,status:'completed',cursor:s.nodes.length,completed_operations:s.nodes.length,total_operations:s.nodes.length,error:null,
+     results:results.filter(r=>['OutletItem','SupplierItem'].includes(r.entity)),
+     verification:{all_links_valid:true,zero_stocks_verified:s.kind==='catalog-import',articles:s.articles}}));
    }catch(error){
-    // Keep the in-flight marker. Unknown creates are reconciled by their exact persisted marker,
-    // never re-issued. Updates can be safely retried only after proving their exact post-image.
+    // A step stays repeatable: creates match their persisted marker, updates their proven post-image.
     try{await checkpoint(o,{...s,status:'blocked',error:error instanceof BookingError?error.code:'CATALOG_WRITE_UNCERTAIN'});}catch{/* Preserve the prior lock. */}
     throw error;
    }

@@ -30,10 +30,12 @@ test('repeated keys are idempotent, changed bodies and normalized duplicates are
  await assert.rejects(f.start('synthetic-create-003',{...article,name:'SYNTHETIC oat drink'}),{code:'EXISTING_ARTICLE_REQUIRES_LINK'});assert.equal(f.db.OutletItem.length,1);
 });
 test('a lost create response is recovered by exact marker without another create; stale checkpoints fail',async()=>{
- const f=fixture();let s=await f.start('synthetic-lost-00001');s=await f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision});f.loseNext();
- await assert.rejects(f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision}));s=await f.service.status({outlet_id:'outlet'});assert.equal(s.operation.status,'blocked');
- const n=f.db.Supplier.length;const next=await f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision});assert.equal(f.db.Supplier.length,n);
- await assert.rejects(f.service.step({outlet_id:'outlet',request_id:s.operation.request_id,revision:s.revision}),{code:'CATALOG_CHANGED_RELOAD'});await f.complete(next);assert.equal(f.db.GlobalItem.length,1);
+ const f=fixture(),s0=await f.start('synthetic-lost-00001'),stale=s0.revision;f.loseNext();
+ await assert.rejects(f.service.step({outlet_id:'outlet',request_id:s0.operation.request_id,revision:stale}));
+ const blocked=await f.service.status({outlet_id:'outlet'});assert.equal(blocked.operation.status,'blocked');
+ await assert.rejects(f.service.step({outlet_id:'outlet',request_id:blocked.operation.request_id,revision:stale}),{code:'CATALOG_CHANGED_RELOAD'});
+ const n=f.db.Supplier.length,next=await f.service.step({outlet_id:'outlet',request_id:blocked.operation.request_id,revision:blocked.revision});
+ assert.equal(f.db.Supplier.length,n);assert.equal(next.operation.status,'completed');assert.equal(f.db.GlobalItem.length,1);
 });
 test('edits preserve stock journals and supplier IDs, require explicit base-unit conversions and allow historical deactivation',async()=>{
  const f=fixture();await f.complete(await f.start('synthetic-edit-00001'));f.db.OutletStock[0].on_hand_quantity=9;f.db.OutletStock[0].revision=2;f.db.OutletStock[0].booking_journal=[{operation_id:'historical'}];
