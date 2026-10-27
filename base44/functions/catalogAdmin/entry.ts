@@ -1,18 +1,21 @@
 import {createClient,createClientFromRequest} from 'npm:@base44/sdk@0.8.56';
 import {createCatalogAdminHandler} from './handler.js';
 import {inventoryRequestActor} from '../../shared/inventory/locationEntry.js';
-import {locationEntryConfig,inventoryPreviewOrigins} from '../../shared/inventory/locationEntryConfig.js';
+import {locationEntryConfig,inventoryAppOrigin} from '../../shared/inventory/locationEntryConfig.js';
 import {secrets} from 'base44:runtime';
-import {assertProductionRuntime,normalizePublicInventoryRequest} from '../../shared/inventory/operationalAccess.js';
+import {assertProductionRuntime,inventoryProductionOrigin,normalizePublicInventoryRequest} from '../../shared/inventory/operationalAccess.js';
 const appId='6975d510bbe0422af7fe76ca';
 const handler=createCatalogAdminHandler({createClientFromRequest,
- resolveAdmin:(req,client)=>inventoryRequestActor(req,client,{...locationEntryConfig(secrets),environment:req.headers.get('Origin')==='https://siftcntrl-bestand.base44.app'?'prod':'dev'}),
- originAllowed:origin=>[...inventoryPreviewOrigins,'https://siftcntrl-bestand.base44.app'].includes(origin),
+ resolveAdmin:(req,client)=>inventoryRequestActor(req,client,{...locationEntryConfig(secrets),environment:'prod'}),
+ originAllowed:inventoryAppOrigin,
+ // The article catalog always works on the app's live data, also from the builder preview.
+ // Identity stays authoritative: only a signed-in app administrator reaches this point.
  defaultEnvironment:req=>{
-  const env=inventoryPreviewOrigins.includes(req.headers.get('Origin')||'')?'dev':'prod';
-  if(req.headers.get('X-Data-Env')!==env)throw Error('Environment mismatch');
-  if(env==='prod')assertProductionRuntime(req);
-  return env;
+  const origin=req.headers.get('Origin')||'';
+  if(!inventoryAppOrigin(origin))throw Error('Environment mismatch');
+  if(req.headers.get('X-Data-Env')!=='prod')throw Error('Environment mismatch');
+  if(origin===inventoryProductionOrigin)assertProductionRuntime(req);
+  return 'prod';
  },
  // One-off approved production preparation uses only the existing native admin's rights,
  // canonical global API and fixed app. Never forward a preview service token into production.

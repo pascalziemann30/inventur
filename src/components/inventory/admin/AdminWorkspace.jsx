@@ -2,7 +2,7 @@ import {Package,ClipboardList,Truck,ScanLine,CheckCheck,History,Settings2} from 
 import EntryHeader from '../entry/EntryHeader.jsx';
 import {useEffect,useState,useRef,useCallback} from 'react';
 import {useNavigate,useSearchParams} from 'react-router-dom';
-import {inventoryAdminClient,inventoryEnvironment} from '../counting/testClient.js';
+import {inventoryAdminClient} from '../counting/testClient.js';
 import {useOutlet} from '../../outlet/OutletContext';
 import {adminApi,finishCatalogOperation,workflowLink} from './adminApi.js';
 import {adminSessionApi} from '../entry/adminSessionApi.js';
@@ -20,14 +20,16 @@ const statuses={completed:'Abgeschlossen',partially_booked:'Teilweise gebucht',p
 const productionOutlet='697f405ef1744da8ba46c99d';
 export default function AdminWorkspace({initialSection='articles'}){
  const navigate=useNavigate(),[params,setParams]=useSearchParams(),section=params.get('section')||initialSection;
- const {currentOutletId,setOutlet}=useOutlet();
- const [outlets,setOutlets]=useState([]),[outlet,setCurrentOutlet]=useState(params.get('outlet')||currentOutletId||''),[catalog,setCatalog]=useState(null),[queue,setQueue]=useState(null),[history,setHistory]=useState(null);
+ const {setOutlet}=useOutlet();
+ // One live outlet, no location selection: the administration always works on Kuno15.
+ const outlets=[{id:productionOutlet,name:'Kuno15'}];
+ const [outlet]=useState(productionOutlet),[catalog,setCatalog]=useState(null),[queue,setQueue]=useState(null),[history,setHistory]=useState(null);
  const [error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[search,setSearch]=useState(''),[filter,setFilter]=useState('active'),[editor,setEditor]=useState(null),[operation,setOperation]=useState(null);
  const [selection,setSelection]=useState({outlet:'',mode:false,rows:[]});
- const [importData,setImportData]=useState(null),[importTarget,setImportTarget]=useState(inventoryEnvironment),[importChecked,setImportChecked]=useState(false);
+ const [importData,setImportData]=useState(null),[importTarget,setImportTarget]=useState('prod'),[importChecked,setImportChecked]=useState(false);
  const requestRef=useRef(null),fileRef=useRef(null);
  const target=importTarget==='prod'?productionOutlet:outlet;
- useEffect(()=>{let live=true;adminApi('outlets',{outlet_id:productionOutlet}).then(({outlets:rows})=>{if(!live)return;const valid=rows.filter(o=>o.type!=='AGGREGATOR'&&o.is_active);setOutlets(valid);setCurrentOutlet(value=>valid.some(o=>o.id===value)?value:valid.find(o=>o.is_active)?.id||valid[0]?.id||'');}).catch(()=>setError('Standorte konnten nicht geladen werden.'));return()=>{live=false;};},[]);
+ useEffect(()=>{setOutlet(productionOutlet,'Kuno15');},[setOutlet]);
  useEffect(()=>{const selected=outlets.find(o=>o.id===outlet);if(selected)setOutlet(selected.id,selected.name);},[outlet,outlets,setOutlet]);
  const refresh=useCallback(async()=>{
   if(!outlets.some(value=>value.id===outlet))return;setLoading(true);
@@ -89,7 +91,6 @@ export default function AdminWorkspace({initialSection='articles'}){
  });
  return <div className="counting-workspace admin-workspace"><EntryHeader outlet={outlets.find(o=>o.id===outlet)?.name} outletId={outlet} disabled={busy} onLogout={()=>work(async()=>{await adminSessionApi('logout');selectAdminMode();window.location.assign('/OutletLogin');})}/>
   <main className="count-main">
-   {inventoryEnvironment==='dev'&&<p className="count-preview">Entwurfsansicht · getrennte Testdaten. Eine Übernahme in den echten Kuno15 ist ausschließlich im Importbereich ausdrücklich auswählbar.</p>}
    {error&&<div className="count-error" role="alert">{error}<button disabled={busy} onClick={()=>work(refresh)}>Gespeicherten Stand laden</button></div>}{message&&<p className="admin-success" role="status">{message}</p>}
    {activeOperation&&<aside className="count-copy"><strong>{operation.operation.kind==='article-purge'?'Papierkorb wird endgültig bereinigt':operation.operation.status==='blocked'?'Speicherung muss geprüft werden':'Speicherung noch offen'}</strong><p>{operation.operation.completed} von {operation.operation.total} Schritten bestätigt. {operation.operation.error||''}</p><button disabled={busy} onClick={()=>work(async()=>{const env=section==='import'?importTarget:undefined;const s=await adminApi('status',{outlet_id:operation.outlet_id,...(env?{target_environment:env}:{})});await advance(s,env);await refresh();setMessage('Gespeicherter Vorgang abgeschlossen.');})}>Gespeicherten Vorgang fortsetzen</button></aside>}
    {loading&&!catalog?<p role="status">Artikelverwaltung wird geladen …</p>:<>
@@ -109,7 +110,7 @@ export default function AdminWorkspace({initialSection='articles'}){
      <h2>Lieferungen</h2>{history?.deliveries.length===0&&<p>Noch keine Lieferung gespeichert.</p>}{history?.deliveries.map(d=><details className="count-card admin-history" key={d.id}><summary>{d.date} · {d.supplier} · {d.reference} · {statuses[d.status]||d.status}</summary><button disabled={busy} onClick={()=>navigate(workflowLink('delivery',{delivery:d.id,outlet}))}>Lieferung öffnen</button>{d.lines.map((l,i)=><p key={i}>{l.name}: {l.quantity} {l.purchase_unit} · {l.receipt_price} € netto · {l.booked?'gebucht':'offen'}</p>)}</details>)}
      <h2>Freigegebene Stammpreisänderungen</h2>{history?.prices.length===0&&<p>Noch keine Preisänderung gespeichert.</p>}{history?.prices.map(p=><p key={p.id}>{p.change_date} · {p.article_name}: {money(p.old_price)} € → {money(p.new_price)} € · {p.reason}</p>)}</>}
     {section==='import'&&<><div className="count-title"><div><p className="count-eyebrow">KONTROLLIERTER START</p><h1>Geprüfte Artikelliste übernehmen</h1><p>Vorhandener Standort, echte Kategorien und Bestand null. Keine Testbuchungen werden übernommen.</p></div></div><section className="count-card admin-import">
-     <label>Zielbereich<select aria-label="Importziel" disabled={busy} value={importTarget} onChange={e=>{setImportTarget(e.target.value);setImportChecked(false);setOperation(null);}}>{inventoryEnvironment==='dev'&&<option value="dev">Aktueller Teststandort</option>}<option value="prod">Kuno15 · Produktivdaten</option></select></label>
+     <label>Zielbereich<select aria-label="Importziel" disabled={busy} value={importTarget} onChange={e=>{setImportTarget(e.target.value);setImportChecked(false);setOperation(null);}}><option value="prod">Kuno15 · Produktivdaten</option></select></label>
      <p>Ein bestehender Artikelbestand wird nicht überschrieben. Ungeklärte Umrechnungen gehören nicht in die Importdatei.</p><label>Geprüfte Artikelliste<input ref={fileRef} type="file" accept="application/json,.json" disabled={busy} onChange={readImport}/></label>
      {importData&&<><p><strong>{importData.length} Artikel</strong> · {new Set(importData.map(r=>r.supplier)).size} Lieferanten · {new Set(importData.map(r=>r.category)).size} Kategorien</p><details><summary>Artikelliste vor der Übernahme ansehen</summary>{importData.map((r,i)=><p key={i}>{r.name} · {r.supplier} · {r.category} · {r.factor} {r.unit} je {r.purchase_label}</p>)}</details></>}
      <label className="admin-check"><input type="checkbox" checked={importChecked} disabled={busy||!importData} onChange={e=>setImportChecked(e.target.checked)}/>Zielbereich und geprüfte Artikelliste bestätigt. Neue Bestände werden mit 0 angelegt.</label>
