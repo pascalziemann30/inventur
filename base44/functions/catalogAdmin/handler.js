@@ -6,6 +6,7 @@ import {readAdminHistory,readAdminQueue,historyCsv,reviewPrice,priceReviewPlan} 
 const allowed={discardMany:['outlet_id','request_id','items'],classify:['outlet_id','request_id','groups','assignments'],subcategory:['outlet_id','request_id','mode','parent','id','name','keywords','expected'],lifecycle:['outlet_id','id','action_kind','request_id','expected'],outlets:['outlet_id'],list:['outlet_id'],status:['outlet_id'],start:['outlet_id','request_id','articles','importing','expected'],step:['outlet_id','request_id','revision'],queue:['outlet_id'],history:['outlet_id'],export:['outlet_id','id'],price:['outlet_id','draft_id','line_id','decision','request_id']};
 export function createCatalogAdminHandler({createClientFromRequest,productionClient,originAllowed,defaultEnvironment,now,resolveAdmin=(_req,client)=>client.auth.me()}){
  return async req=>{
+  let requestAction=null;
   try{
    if(req.method!=='POST')throw new BookingError('METHOD_NOT_ALLOWED',405);
    if(!originAllowed(req.headers.get('Origin')))throw new BookingError('ORIGIN_FORBIDDEN',403);
@@ -15,6 +16,7 @@ export function createCatalogAdminHandler({createClientFromRequest,productionCli
    const raw=await req.text();if(raw.length>1_500_000)throw new BookingError('REQUEST_TOO_LARGE',413);
    const body=JSON.parse(raw);
    if(!body||typeof body!=='object'||Array.isArray(body))throw new BookingError('INVALID_REQUEST',400);
+   requestAction=typeof body.action==='string'?body.action:null;
    const environment=body.target_environment||defaultEnvironment(req);
    if(body.action==='price'&&(typeof body.request_id!=='string'||!/^[-A-Za-z0-9]{16,80}$/.test(body.request_id)))throw new BookingError('INVALID_REQUEST',400);
    if(!body||!Object.hasOwn(allowed,body.action)||Object.keys(body).some(k=>!['action','target_environment',...allowed[body.action]].includes(k)))throw new BookingError('INVALID_REQUEST',400);
@@ -44,7 +46,13 @@ export function createCatalogAdminHandler({createClientFromRequest,productionCli
    }else if(action==='lifecycle'){const {action_kind,...rest}=input;result=await service.lifecycle({...rest,action:action_kind});}
    else result=await service[action](input);
    return Response.json({...result,data_environment:environment},{headers:{'Cache-Control':'no-store'}});
-  }catch(error){const transportStatus=error?.status??error?.response?.status;return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':transportStatus===429?'CATALOG_RATE_LIMITED':'CATALOG_REQUEST_UNCERTAIN_RELOAD',...(error?.code==='ARTICLE_REQUIRED_FIELDS'&&Object.hasOwn(articleFieldLabels,error.field)?{field:error.field}:{}),...(Number.isInteger(transportStatus)?{transport_status:transportStatus}:{})},
+  }catch(error){
+   const transportStatus=error?.status??error?.response?.status,message=typeof error?.message==='string'?error.message.trim():'';
+   return Response.json({error:error instanceof BookingError?error.code:error instanceof SyntaxError?'INVALID_REQUEST':transportStatus===429?'CATALOG_RATE_LIMITED':'CATALOG_REQUEST_UNCERTAIN_RELOAD',
+    ...(error?.code==='ARTICLE_REQUIRED_FIELDS'&&Object.hasOwn(articleFieldLabels,error.field)?{field:error.field}:{}),
+    ...(Number.isInteger(transportStatus)?{transport_status:transportStatus}:{}),
+    // An unexpected failure reports its technical reason; the administration stays actionable.
+    ...(message&&!(error instanceof BookingError)?{detail:`${requestAction||'Anfrage'}: ${error?.name||'Fehler'}: ${message}`.slice(0,240)}:{})},
    {status:error instanceof BookingError?error.status:error instanceof SyntaxError?400:503,headers:{'Cache-Control':'no-store'}});}
  };
 }
