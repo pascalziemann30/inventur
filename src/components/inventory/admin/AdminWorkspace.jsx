@@ -18,11 +18,13 @@ import './admin.css';
 const money=n=>new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:6}).format(n||0);
 const statuses={completed:'Abgeschlossen',partially_booked:'Teilweise gebucht',posting:'Buchung läuft',draft:'Entwurf',counted:'Gezählt',skipped:'Übersprungen',open:'Offen'};
 const productionOutlet='697f405ef1744da8ba46c99d';
+// Stable outlet list: a new array on every render would recreate the catalog loader and
+// refetch the whole catalog in a loop until the platform rate limit blocks every save.
+const outlets=[{id:productionOutlet,name:'Kuno15'}];
 export default function AdminWorkspace({initialSection='articles'}){
  const navigate=useNavigate(),[params,setParams]=useSearchParams(),section=params.get('section')||initialSection;
  const {setOutlet}=useOutlet();
  // One live outlet, no location selection: the administration always works on Kuno15.
- const outlets=[{id:productionOutlet,name:'Kuno15'}];
  const [outlet]=useState(productionOutlet),[catalog,setCatalog]=useState(null),[queue,setQueue]=useState(null),[history,setHistory]=useState(null);
  const [error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[search,setSearch]=useState(''),[filter,setFilter]=useState('active'),[editor,setEditor]=useState(null),[operation,setOperation]=useState(null);
  const [selection,setSelection]=useState({outlet:'',mode:false,rows:[]});
